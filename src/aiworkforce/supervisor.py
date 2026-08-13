@@ -20,7 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from .agents.base import ledger_for
 from .agents.schemas import RoutingDecision, WorkPlan
-from .llm import get_llm
+from .llm import active_model_name, get_llm
 from .memory import memory
 from .observability import bus, get_logger
 from .pricing import extract_usage
@@ -292,7 +292,7 @@ Write the owner's answer."""
             )
             return self._fallback_summary(outputs)
 
-        usage = extract_usage(self.name, getattr(llm, "model", "unknown"), response)
+        usage = extract_usage(self.name, active_model_name(llm), response)
         ledger_for(session_id).record(usage)
         bus.emit(
             session_id,
@@ -322,7 +322,7 @@ Write the owner's answer."""
     def _call(self, state: WorkforceState, schema, system: str, prompt: str):
         session_id = state.get("session_id", "unknown")
         llm = get_llm()
-        model_id = getattr(llm, "model", "unknown")
+        model_id = active_model_name(llm)
         structured = llm.with_structured_output(schema, include_raw=True)
 
         response = structured.invoke(

@@ -62,6 +62,12 @@ class ProductVisionAgent(BaseAgent):
                 "or route this request to the Market Research agent instead",
             )
 
+        if not settings.has_vision:
+            # The configured text provider serves no multimodal model. Rather
+            # than failing the whole run, validate from the owner's description
+            # and say plainly that the photo itself was not read.
+            return self._validate_without_photo(state, image_paths)
+
         bus.emit(
             session_id,
             kind="tool_call",
