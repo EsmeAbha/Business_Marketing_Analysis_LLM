@@ -1,0 +1,23 @@
+# --- Core agent framework ---
+langgraph>=0.2.60
+langgraph-checkpoint-sqlite>=2.0.1
+langchain-core>=0.3.29
+langchain-anthropic>=0.3.3
+anthropic>=0.42.0
+
+# --- UI ---
+streamlit>=1.41.0
+
+# --- Data / validation ---
+pydantic>=2.9.0
+python-dotenv>=1.0.1
+
+# --- Tools ---
+tavily-python>=0.5.0        # primary web search (optional, falls back to ddgs)
+ddgs>=9.0.0                 # fallback web search, no API key required
+requests>=2.32.0
+Pillow>=10.4.0              # image handling for the Product Vision Agent
+
+# --- Vector memory (RAG) ---
+chromadb>=0.5.20            # optional; falls back to a bundled numpy store
+numpy>=1.26.0

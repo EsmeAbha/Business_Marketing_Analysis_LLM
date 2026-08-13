@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.env
+.streamlit/secrets.toml
+
+# Runtime state — regenerated on first run
+data/aiworkforce.db
+data/checkpoints.db
+data/vectors/
+data/uploads/
+!data/.gitkeep
+
+*.log
+.DS_Store
+.idea/
+.vscode/
