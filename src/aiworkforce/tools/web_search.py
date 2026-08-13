@@ -31,7 +31,15 @@ class SearchResponse:
     results: list[SearchResult] = field(default_factory=list)
     error: str = ""
 
-    def as_prompt_context(self, limit: int = 8) -> str:
+    def as_prompt_context(self, limit: int = 8, snippet: int | None = None) -> str:
+        """Format for prompt injection, trimmed to the provider's token budget."""
+        from ..config import settings
+
+        if settings.compact_prompts:
+            limit = min(limit, 3)
+            snippet = snippet or 220
+        snippet = snippet or 400
+
         if not self.results:
             return f"(no results for '{self.query}'{'; ' + self.error if self.error else ''})"
         header = f"Search results for '{self.query}' via {self.provider}"
@@ -39,7 +47,7 @@ class SearchResponse:
             header += "  [SIMULATED — no live search provider available]"
         lines = [header]
         for i, r in enumerate(self.results[:limit], 1):
-            lines.append(f"{i}. {r.title}\n   {r.url}\n   {r.snippet[:400]}")
+            lines.append(f"{i}. {r.title}\n   {r.url}\n   {r.snippet[:snippet]}")
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:

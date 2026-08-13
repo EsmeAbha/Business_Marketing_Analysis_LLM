@@ -51,7 +51,7 @@ def _build_groq(model: str, max_tokens: int, api_key: str):
         api_key=api_key,
         temperature=settings.temperature,
         timeout=settings.llm_timeout_seconds,
-        max_retries=2,
+        max_retries=settings.max_retries,
     )
 
 
@@ -63,7 +63,7 @@ def _build_anthropic(model: str, max_tokens: int, api_key: str):
         "max_tokens": max_tokens,
         "api_key": api_key,
         "timeout": settings.llm_timeout_seconds,
-        "max_retries": 2,
+        "max_retries": settings.max_retries,
     }
     if model.startswith(_CLAUDE_EFFORT):
         # `effort` lives inside output_config, not at the top level. Thinking is
@@ -84,7 +84,7 @@ def _build_google(model: str, max_tokens: int, api_key: str):
         google_api_key=api_key,
         temperature=settings.temperature,
         timeout=settings.llm_timeout_seconds,
-        max_retries=2,
+        max_retries=settings.max_retries,
     )
 
 

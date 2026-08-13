@@ -45,8 +45,19 @@ class SharedMemory:
     ) -> list[tuple[Document, float]]:
         return self.vectors.search(query, k=k, where={"kind": kind} if kind else None)
 
-    def recall_text(self, query: str, k: int = 5, kind: str | None = None) -> str:
-        """Retrieved context formatted for direct injection into a prompt."""
+    def recall_text(
+        self, query: str, k: int = 5, kind: str | None = None, chars: int | None = None
+    ) -> str:
+        """Retrieved context formatted for direct injection into a prompt.
+
+        Snippet length defaults to the provider's prompt budget — providers with
+        a tight per-minute token cap get shorter excerpts.
+        """
+        from ..config import settings
+
+        if chars is None:
+            chars = 320 if settings.compact_prompts else 700
+
         hits = self.recall(query, k=k, kind=kind)
         if not hits:
             return "(no prior knowledge stored yet)"
@@ -54,7 +65,7 @@ class SharedMemory:
         for doc, score in hits:
             agent = doc.metadata.get("agent", "?")
             dkind = doc.metadata.get("kind", "?")
-            lines.append(f"- [{agent}/{dkind}, relevance {score:.2f}] {doc.text[:700]}")
+            lines.append(f"- [{agent}/{dkind}, relevance {score:.2f}] {doc.text[:chars]}")
         return "\n".join(lines)
 
     # --- structured side (delegated, kept explicit for discoverability) ---

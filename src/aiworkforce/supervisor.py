@@ -20,6 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from .agents.base import ledger_for
 from .agents.schemas import RoutingDecision, WorkPlan
+from .config import settings
 from .llm import active_model_name, get_llm
 from .memory import memory
 from .observability import bus, get_logger
@@ -207,7 +208,9 @@ ADDITIONAL DETAILS SUPPLIED BY THE OWNER
 {memory.business_snapshot()}
 
 Produce the plan."""
-        return self._call(state, WorkPlan, PLANNER_SYSTEM, prompt)
+        # A plan is a handful of short strings — reserving a large output budget
+        # only eats into the provider's per-minute token cap.
+        return self._call(state, WorkPlan, PLANNER_SYSTEM, prompt, max_tokens=1200)
 
     def _route(self, state: WorkforceState) -> RoutingDecision:
         completed = state.get("completed_agents", [])
@@ -239,7 +242,12 @@ ERRORS SO FAR
 {memory.business_snapshot()}
 
 Who works next?"""
-        return self._call(state, RoutingDecision, ROUTER_SYSTEM, prompt)
+        # Routing runs on every turn, so it goes to the fast model: it is a small
+        # decision, and on rate-limited providers the fast model has its own
+        # token bucket, which roughly doubles a run's throughput.
+        return self._call(
+            state, RoutingDecision, ROUTER_SYSTEM, prompt, max_tokens=700, fast=True
+        )
 
     def aggregate(self, state: WorkforceState) -> str:
         """Compose the owner-facing answer from everything the agents produced."""
@@ -255,12 +263,15 @@ Who works next?"""
         if reporting.get("ok") and reporting.get("payload", {}).get("full_report_markdown"):
             return reporting["payload"]["full_report_markdown"]
 
+        from .config import settings
+
+        payload_cap = 900 if settings.compact_prompts else 3000
         detail = []
         for agent, data in outputs.items():
             status = "completed" if data.get("ok") else f"FAILED: {data.get('error')}"
             detail.append(
                 f"### {agent} [{status}]\n{data.get('summary', '')}\n\n"
-                f"Structured output:\n{_json(data.get('payload', {}), 3000)}"
+                f"Structured output:\n{_json(data.get('payload', {}), payload_cap)}"
             )
 
         prompt = f"""OWNER'S ORIGINAL REQUEST
@@ -277,7 +288,7 @@ SPECIALIST REPORTS
 Write the owner's answer."""
 
         session_id = state.get("session_id", "unknown")
-        llm = get_llm(max_tokens=12000)
+        llm = get_llm(max_tokens=settings.report_tokens)
         try:
             response = llm.invoke(
                 [SystemMessage(content=AGGREGATOR_SYSTEM), HumanMessage(content=prompt)]
@@ -319,9 +330,18 @@ Write the owner's answer."""
 
     # ------------------------------------------------------------------
 
-    def _call(self, state: WorkforceState, schema, system: str, prompt: str):
+    def _call(
+        self,
+        state: WorkforceState,
+        schema,
+        system: str,
+        prompt: str,
+        max_tokens: int | None = None,
+        fast: bool = False,
+    ):
         session_id = state.get("session_id", "unknown")
-        llm = get_llm()
+        model = settings.fast_model if fast else None
+        llm = get_llm(model, max_tokens)
         model_id = active_model_name(llm)
         structured = llm.with_structured_output(schema, include_raw=True)
 
