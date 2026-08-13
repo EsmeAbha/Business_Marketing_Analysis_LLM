@@ -158,7 +158,7 @@ class Supervisor:
                 payload={"steps": plan.steps, "stage": plan.stage},
             )
 
-        decision = self._route(state)
+        decision = self._enforce(self._route(state), state)
         update["next_agent"] = decision.next_agent
         update["current_task"] = decision.task
         update["routing_reason"] = decision.reason
@@ -212,9 +212,43 @@ Produce the plan."""
         # only eats into the provider's per-minute token cap.
         return self._call(state, WorkPlan, PLANNER_SYSTEM, prompt, max_tokens=1200)
 
+    ALL_AGENTS = (
+        "market_research",
+        "product_vision",
+        "pricing",
+        "inventory",
+        "ad_creative",
+        "engagement",
+        "delivery",
+        "reporting",
+    )
+
+    def _allowed_agents(self, state: WorkforceState) -> list[str]:
+        """Agents the router may still pick.
+
+        An agent that already succeeded is off the list: re-running it produces
+        the same answer, burns the step budget and (on rate-limited providers)
+        the token budget. A failed agent gets exactly one retry. This is enforced
+        here rather than left to the prompt, because smaller models will happily
+        re-select the same agent forever no matter how the instruction is worded.
+        """
+        outputs = state.get("agent_outputs", {})
+        completed = state.get("completed_agents", [])
+        allowed = []
+        for name in self.ALL_AGENTS:
+            data = outputs.get(name)
+            if data is None:
+                allowed.append(name)
+            elif not data.get("ok") and completed.count(name) < 2:
+                allowed.append(name)  # one retry for a failure
+        if not state.get("image_paths"):
+            allowed = [a for a in allowed if a != "product_vision"]
+        return allowed
+
     def _route(self, state: WorkforceState) -> RoutingDecision:
         completed = state.get("completed_agents", [])
         outputs = state.get("agent_outputs", {})
+        allowed = self._allowed_agents(state)
 
         results = []
         for agent, data in outputs.items():
@@ -241,12 +275,66 @@ ERRORS SO FAR
 
 {memory.business_snapshot()}
 
+YOU MAY ONLY CHOOSE FROM: {', '.join(allowed) if allowed else '(none left)'}, or FINISH.
+Every other agent has already done its job — picking one is not permitted.
+If nothing on that list would move the owner's request forward, choose FINISH.
+
 Who works next?"""
         # Routing runs on every turn, so it goes to the fast model: it is a small
         # decision, and on rate-limited providers the fast model has its own
         # token bucket, which roughly doubles a run's throughput.
         return self._call(
             state, RoutingDecision, ROUTER_SYSTEM, prompt, max_tokens=700, fast=True
+        )
+
+    def _enforce(
+        self, decision: RoutingDecision, state: WorkforceState
+    ) -> RoutingDecision:
+        """Hold the router to the allowed set.
+
+        Models re-select an agent that has already succeeded far more often than
+        the prompt suggests they should, which produces an infinite loop that
+        only the step limit breaks. When that happens we fall forward to the next
+        unfinished step of the plan, and finish if there isn't one.
+        """
+        choice = (decision.next_agent or "").strip()
+        if choice == "FINISH":
+            return decision
+
+        allowed = self._allowed_agents(state)
+        if choice in allowed:
+            return decision
+
+        # Prefer the next step of the original plan that is still open.
+        plan_text = " ".join(state.get("plan", [])).lower()
+        fallback = next((a for a in allowed if a in plan_text), None) or (
+            allowed[0] if allowed else "FINISH"
+        )
+
+        bus.emit(
+            state.get("session_id", "unknown"),
+            kind="handoff",
+            actor=self.name,
+            summary=(
+                f"router picked {choice!r}, which is not available "
+                f"(already done or not applicable) — redirecting to {fallback!r}"
+            ),
+            payload={"requested": choice, "allowed": allowed, "chose": fallback},
+            level="warning",
+        )
+
+        if fallback == "FINISH":
+            return RoutingDecision(
+                next_agent="FINISH",
+                task="",
+                reason="every applicable agent has already reported",
+                stage=state.get("stage", "reporting"),
+            )
+        return RoutingDecision(
+            next_agent=fallback,
+            task=decision.task or f"Continue the plan: {fallback.replace('_', ' ')}.",
+            reason=f"redirected from {choice} (already completed)",
+            stage=decision.stage,
         )
 
     def aggregate(self, state: WorkforceState) -> str:

@@ -188,6 +188,31 @@ class WorkforceRuntime:
             with self._lock:
                 for chunk in self.app.stream(payload, config, stream_mode="updates"):
                     for node, update in chunk.items():
+                        # A suspended graph arrives as `__interrupt__` carrying a
+                        # tuple of Interrupt objects rather than a state dict.
+                        # Normalise it so every consumer sees the same shape.
+                        if node == "__interrupt__":
+                            items = (
+                                update
+                                if isinstance(update, (list, tuple))
+                                else (update,)
+                            )
+                            value = next(
+                                (
+                                    getattr(i, "value", None)
+                                    for i in items
+                                    if getattr(i, "value", None) is not None
+                                ),
+                                None,
+                            )
+                            yield {
+                                "node": "__interrupt__",
+                                "update": {"interrupt": value},
+                                "session_id": session_id,
+                            }
+                            continue
+                        if not isinstance(update, dict):
+                            update = {}
                         yield {"node": node, "update": update, "session_id": session_id}
         except Exception as exc:  # noqa: BLE001 — surface, never crash the UI
             logger.exception("graph execution failed")

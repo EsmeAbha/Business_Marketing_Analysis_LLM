@@ -26,6 +26,13 @@ from ..state import AgentMessage, WorkforceState
 
 T = TypeVar("T", bound=BaseModel)
 
+# LangGraph signals control flow (interrupt / parent command) with exceptions.
+# They must never be caught by an agent's error-containment boundary.
+try:  # pragma: no cover - import shape varies across LangGraph versions
+    from langgraph.errors import GraphBubbleUp as _CONTROL_FLOW
+except ImportError:  # pragma: no cover
+    from langgraph.errors import GraphInterrupt as _CONTROL_FLOW
+
 # One usage ledger per session, so the UI can show live cost for this run only.
 LEDGERS: dict[str, UsageLedger] = {}
 
@@ -100,6 +107,12 @@ class BaseAgent(ABC):
 
         try:
             result = self.execute(state)
+        except _CONTROL_FLOW as exc:
+            # `interrupt()` raises GraphInterrupt to suspend the graph and hand
+            # control to the owner. It is LangGraph's control flow, not a
+            # failure — swallowing it here would silently disable every
+            # human-in-the-loop checkpoint, so it must pass straight through.
+            raise
         except AgentError as exc:
             result = AgentResult(summary=str(exc), payload={}, ok=False, error=str(exc))
         except Exception as exc:  # noqa: BLE001 — containment boundary

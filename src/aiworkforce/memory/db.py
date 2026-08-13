@@ -129,10 +129,15 @@ CREATE TABLE IF NOT EXISTS approvals (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id    TEXT,
     checkpoint    TEXT,
-    decision      TEXT,          -- approved | rejected | changes_requested
+    decision      TEXT,          -- approve | reject | request_changes
     feedback      TEXT,
     created_at    TEXT
 );
+-- Resuming an interrupt replays the node from its start, so the code that
+-- records a decision runs again on every later resume. The unique index makes
+-- that write idempotent instead of accumulating duplicate rows.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_approvals_unique
+    ON approvals(session_id, checkpoint, decision, feedback);
 
 CREATE TABLE IF NOT EXISTS agent_messages (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -400,7 +405,8 @@ class Database:
         self, session_id: str, checkpoint: str, decision: str, feedback: str = ""
     ) -> int:
         return self.execute(
-            """INSERT INTO approvals (session_id, checkpoint, decision, feedback, created_at)
+            """INSERT OR IGNORE INTO approvals
+               (session_id, checkpoint, decision, feedback, created_at)
                VALUES (?,?,?,?,?)""",
             (session_id, checkpoint, decision, feedback, _now()),
         )
