@@ -88,7 +88,7 @@ and the design decisions behind each.
 
 ## Setup
 
-**Requirements:** Python 3.11+ and an Anthropic API key.
+**Requirements:** Python 3.11+ and one model-provider API key.
 
 ```bash
 git clone <your-repo-url>
@@ -109,18 +109,39 @@ Configure credentials:
 cp .env.example .env          # Windows: copy .env.example .env
 ```
 
-Open `.env` and set **one required value**:
+Open `.env` and set **one text-provider key**:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-...
+AIW_PROVIDER=groq            # groq | anthropic | google
+GROQ_API_KEY=gsk_...         # free tier at console.groq.com
 ```
 
-That is genuinely all you need. Everything else in `.env` is optional — each missing
-credential degrades to a free fallback or a clearly-labelled simulated adapter rather
-than breaking the system.
+That is enough to run. Every other credential is optional — each missing one degrades
+to a free fallback or a clearly-labelled simulated adapter rather than breaking the
+system.
+
+### Choosing a provider
+
+| Provider | Cost | Photo understanding | Notes |
+|---|---|---|---|
+| **`groq`** (default) | Free tier | ❌ **none** | Fast. Serves no multimodal model, so the photo flow is disabled unless you add a vision key below. Free tier caps tokens/minute per model, so a long run paces itself. |
+| `anthropic` | Paid | ✅ strongest | Best structured-output reliability and the best photo reading. |
+| `google` | Generous free tier | ✅ good | A reasonable middle ground; also works as the vision provider on its own. |
+
+> **Turning the photo flow back on while staying on Groq.** Photo-to-business-plan is
+> the project's headline feature, and Groq cannot do it. Add a **free** Google AI Studio
+> key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) as
+> `GOOGLE_API_KEY` and the Product Vision agent starts reading images again — the text
+> agents stay on Groq. The vision provider is configured independently of the text one,
+> so nothing else changes.
+>
+> Without a vision key the system does **not** pretend: the Product Vision agent says
+> plainly that it could not look at the photo, falls back to validating from your written
+> description, and tells you how to enable it.
 
 | Optional key | Without it |
 |---|---|
+| `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` | Photo understanding is off (see above) |
 | `TAVILY_API_KEY` | Web search falls back to DuckDuckGo (free, no key) |
 | `META_ACCESS_TOKEN`, `META_PAGE_ID`, `META_IG_USER_ID` | FB/IG publishing + inbox use the simulated adapter |
 | `YOUTUBE_API_KEY` | YouTube publishing simulated |

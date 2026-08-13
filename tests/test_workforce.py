@@ -227,6 +227,167 @@ def test_every_agent_declares_its_identity():
         assert agent.title and agent.description and agent.tools_used
 
 
+# --- Supervisor routing guard (regression) ---------------------------------
+#
+# A router that re-picks an agent which already succeeded produced an infinite
+# loop that only the step limit broke: 20 supervisor calls and 334s for a run
+# that should take 25s. The constraint is enforced in code, not just the prompt.
+
+
+def _state(**over):
+    from aiworkforce.state import new_state
+
+    s = new_state("t", "what should I sell?")
+    s.update(over)
+    return s
+
+
+def test_completed_agents_are_removed_from_the_allowed_set():
+    from aiworkforce.supervisor import supervisor
+
+    state = _state(
+        agent_outputs={
+            "market_research": {"ok": True, "summary": "done"},
+            "pricing": {"ok": True, "summary": "done"},
+        },
+        completed_agents=["market_research", "pricing"],
+    )
+    allowed = supervisor._allowed_agents(state)
+    assert "market_research" not in allowed
+    assert "pricing" not in allowed
+    assert "reporting" in allowed
+
+
+def test_failed_agent_gets_one_retry_then_is_dropped():
+    from aiworkforce.supervisor import supervisor
+
+    failed_once = _state(
+        agent_outputs={"delivery": {"ok": False, "error": "no address"}},
+        completed_agents=["delivery"],
+    )
+    assert "delivery" in supervisor._allowed_agents(failed_once)
+
+    failed_twice = _state(
+        agent_outputs={"delivery": {"ok": False, "error": "no address"}},
+        completed_agents=["delivery", "delivery"],
+    )
+    assert "delivery" not in supervisor._allowed_agents(failed_twice)
+
+
+def test_product_vision_is_unroutable_without_an_image():
+    from aiworkforce.supervisor import supervisor
+
+    assert "product_vision" not in supervisor._allowed_agents(_state(image_paths=[]))
+    assert "product_vision" in supervisor._allowed_agents(_state(image_paths=["a.jpg"]))
+
+
+def test_rerouting_a_completed_agent_falls_forward_to_the_plan():
+    from aiworkforce.agents.schemas import RoutingDecision
+    from aiworkforce.supervisor import supervisor
+
+    state = _state(
+        agent_outputs={"market_research": {"ok": True, "summary": "done"}},
+        completed_agents=["market_research"],
+        plan=["market_research finds a niche", "reporting writes the summary"],
+    )
+    bad = RoutingDecision(
+        next_agent="market_research", task="again", reason="loop", stage="idea_research"
+    )
+    fixed = supervisor._enforce(bad, state)
+    assert fixed.next_agent == "reporting"
+
+
+def test_router_finishes_when_every_agent_is_done():
+    from aiworkforce.agents.schemas import RoutingDecision
+    from aiworkforce.supervisor import supervisor
+
+    state = _state(
+        agent_outputs={a: {"ok": True, "summary": "d"} for a in supervisor.ALL_AGENTS},
+        completed_agents=list(supervisor.ALL_AGENTS),
+    )
+    bad = RoutingDecision(
+        next_agent="pricing", task="again", reason="loop", stage="reporting"
+    )
+    assert supervisor._enforce(bad, state).next_agent == "FINISH"
+
+
+# --- Human-in-the-loop control flow (regression) ---------------------------
+#
+# `interrupt()` raises GraphInterrupt to suspend the graph. The agent error
+# boundary caught it as a failure, silently disabling every approval gate.
+
+
+def test_graph_interrupt_is_not_swallowed_by_the_error_boundary():
+    from aiworkforce.agents.base import _CONTROL_FLOW, AgentResult, BaseAgent
+
+    class Suspending(BaseAgent):
+        name = "suspending_test_agent"
+        title = "Suspender"
+        description = "raises LangGraph control flow"
+
+        def execute(self, state):
+            raise _CONTROL_FLOW("suspend")
+
+    class Failing(BaseAgent):
+        name = "failing_test_agent"
+        title = "Failer"
+        description = "raises a real error"
+
+        def execute(self, state):
+            raise ValueError("boom")
+
+    # Control flow must propagate so LangGraph can checkpoint and suspend.
+    try:
+        Suspending()(_state())
+    except _CONTROL_FLOW:
+        pass
+    else:
+        raise AssertionError("GraphInterrupt was swallowed — approval gates are dead")
+
+    # A genuine error must still be contained, not crash the run.
+    update = Failing()(_state())
+    assert update["agent_outputs"]["failing_test_agent"]["ok"] is False
+    assert "boom" in update["errors"][0]
+
+
+def test_approval_writes_are_idempotent_across_interrupt_replay():
+    from aiworkforce.memory import memory
+
+    for _ in range(3):
+        memory.db.add_approval("replay-test", "publish_ads", "request_changes", "shorter")
+    rows = [
+        a for a in memory.approvals("replay-test") if a["decision"] == "request_changes"
+    ]
+    assert len(rows) == 1, f"interrupt replay duplicated the approval row: {len(rows)}"
+
+
+# --- Provider configuration ------------------------------------------------
+
+
+def test_provider_defaults_and_vision_gating():
+    from aiworkforce.config import PROVIDER_LIMITS, TEXT_DEFAULTS, VISION_DEFAULTS
+
+    for provider, (main, fast) in TEXT_DEFAULTS.items():
+        assert main and fast, f"{provider} is missing a model default"
+        assert provider in PROVIDER_LIMITS
+
+    # Groq serves no multimodal model — photo understanding must not claim to work.
+    assert VISION_DEFAULTS["groq"] == ""
+    # Its output budget must stay under the measured 12k tokens/minute cap.
+    assert PROVIDER_LIMITS["groq"]["max_tokens"] <= 4000
+
+
+def test_unknown_provider_fails_loudly():
+    from aiworkforce.llm import ProviderError, build_client
+
+    try:
+        build_client("not-a-provider", "some-model", 100)
+    except ProviderError as exc:
+        assert "unknown provider" in str(exc)
+    else:
+        raise AssertionError("an unknown provider should raise ProviderError")
+
+
 if __name__ == "__main__":
     import traceback
 
