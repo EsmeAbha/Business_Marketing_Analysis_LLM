@@ -212,8 +212,17 @@ def execute_turn(runtime: WorkforceRuntime, request: dict) -> None:
                 node = chunk.get("node", "")
                 update = chunk.get("update") or {}
 
+                if not isinstance(update, dict):
+                    update = {}
+
                 if node == "__error__":
                     error = "; ".join(str(e) for e in update.get("errors", []))
+                    continue
+
+                if node == "__interrupt__":
+                    # The graph suspended for owner approval; the checkpoint is
+                    # rendered as its own message once this turn finishes.
+                    status.write("🙋 Waiting for your go-ahead…")
                     continue
 
                 icon, phrase = NARRATION.get(node, ("•", node))
