@@ -57,22 +57,50 @@ def _downscale(path: Path, raw: bytes) -> bytes:
         return raw
 
 
-def build_image_message(prompt: str, image_paths: list[str | Path]) -> HumanMessage:
-    """Compose a multimodal user turn: images first, then the instruction."""
+def build_image_message(
+    prompt: str, image_paths: list[str | Path], provider: str = ""
+) -> HumanMessage:
+    """Compose a multimodal user turn: images first, then the instruction.
+
+    The wire format for an image block is provider-specific — Anthropic expects
+    a `source` object, while Groq and Google follow the OpenAI-style
+    `image_url` shape with a data URI. Sending the wrong one is a 400, so the
+    provider is resolved here rather than guessed by each caller.
+    """
+    provider = (provider or _default_provider()).lower()
+
     content: list[dict] = []
     for p in image_paths:
         media_type, data = encode_image(p)
-        content.append(
-            {
-                "type": "image",
-                "source": {"type": "base64", "media_type": media_type, "data": data},
-            }
-        )
+        if provider == "anthropic":
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": data,
+                    },
+                }
+            )
+        else:
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{media_type};base64,{data}"},
+                }
+            )
     content.append({"type": "text", "text": prompt})
     return HumanMessage(content=content)
 
 
-def describe_image(llm, prompt: str, image_paths: list[str | Path]):
+def _default_provider() -> str:
+    from ..config import settings
+
+    return settings.vision_provider or settings.provider
+
+
+def describe_image(llm, prompt: str, image_paths: list[str | Path], provider: str = ""):
     """Single-shot vision call. Returns the raw AIMessage so usage can be recorded."""
-    message = build_image_message(prompt, image_paths)
+    message = build_image_message(prompt, image_paths, provider)
     return llm.invoke([message])

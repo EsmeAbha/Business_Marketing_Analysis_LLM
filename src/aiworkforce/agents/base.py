@@ -18,7 +18,7 @@ from typing import Any, TypeVar
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel
 
-from ..llm import get_llm
+from ..llm import active_model_name, get_llm
 from ..memory import memory
 from ..observability import AgentError, bus, get_logger
 from ..pricing import UsageLedger, extract_usage
@@ -163,15 +163,17 @@ class BaseAgent(ABC):
         extra_messages: list[Any] | None = None,
         model: str | None = None,
         max_tokens: int | None = None,
+        client: Any = None,
     ) -> T:
         """Structured LLM call with tracing and token accounting.
 
         `include_raw=True` keeps the underlying AIMessage so usage metadata
-        survives structured-output parsing.
+        survives structured-output parsing. Pass `client` to run against a
+        different provider than the default text one (the vision agent does).
         """
         session_id = state.get("session_id", "unknown")
-        llm = get_llm(model, max_tokens)
-        model_id = getattr(llm, "model", model or "unknown")
+        llm = client or get_llm(model, max_tokens)
+        model_id = active_model_name(llm)
 
         structured = llm.with_structured_output(schema, include_raw=True)
         messages: list[Any] = [SystemMessage(content=system_prompt)]
@@ -230,16 +232,30 @@ class BaseAgent(ABC):
         user_prompt: str,
         image_paths: list[str],
     ) -> T:
-        """Structured call with images attached to the user turn."""
+        """Structured call with images attached, routed to the vision provider.
+
+        The vision provider is chosen independently of the text provider,
+        because the fastest text provider is not always multimodal.
+        """
+        from ..config import settings
+        from ..llm import ProviderError, get_vision_llm
         from ..tools.vision import build_image_message
 
-        image_message = build_image_message(user_prompt, image_paths)
+        try:
+            vision_client = get_vision_llm()
+        except ProviderError as exc:
+            raise AgentError(self.name, str(exc), exc) from exc
+
+        image_message = build_image_message(
+            user_prompt, image_paths, settings.vision_provider
+        )
         return self.ask(
             state,
             schema,
             system_prompt,
             user_prompt="(see attached image(s) above)",
             extra_messages=[image_message],
+            client=vision_client,
         )
 
     # --- memory access ---

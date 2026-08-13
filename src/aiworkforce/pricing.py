@@ -1,8 +1,13 @@
 """Token accounting and USD cost estimation.
 
-Rates are Anthropic first-party list prices in USD per 1M tokens. Cached reads
-bill at ~0.1x input and cache writes at ~1.25x input, which we model explicitly
-so the UI's running cost tracks reality rather than a flat approximation.
+Rates are published list prices in USD per 1M tokens. Cached reads bill at ~0.1x
+input and cache writes at ~1.25x input (Anthropic), which we model explicitly so
+the UI's running cost tracks reality rather than a flat approximation.
+
+Groq and Google rates are the published per-token prices at time of writing and
+are approximate — treat the displayed cost as an estimate, not an invoice. Groq's
+free tier bills nothing, so the figure shown there is "what this would cost at
+list price", which is still the useful number when sizing a real deployment.
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from dataclasses import dataclass, field
 
 # USD per 1,000,000 tokens: model id -> (input, output)
 MODEL_RATES: dict[str, tuple[float, float]] = {
+    # --- Anthropic ---
     "claude-fable-5": (10.00, 50.00),
     "claude-mythos-5": (10.00, 50.00),
     "claude-opus-5": (5.00, 25.00),
@@ -20,12 +26,29 @@ MODEL_RATES: dict[str, tuple[float, float]] = {
     "claude-sonnet-5": (3.00, 15.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5": (1.00, 5.00),
+    # --- Groq (approximate published rates) ---
+    "openai/gpt-oss-120b": (0.15, 0.75),
+    "openai/gpt-oss-20b": (0.10, 0.50),
+    "openai/gpt-oss-safeguard-20b": (0.10, 0.50),
+    "llama-3.3-70b-versatile": (0.59, 0.79),
+    "llama-3.1-8b-instant": (0.05, 0.08),
+    "qwen/qwen3.6-27b": (0.29, 0.59),
+    "groq/compound": (0.15, 0.75),
+    "groq/compound-mini": (0.10, 0.50),
+    "allam-2-7b": (0.05, 0.08),
+    # --- Google (approximate published rates) ---
+    "gemini-2.0-flash": (0.10, 0.40),
+    "gemini-2.0-flash-lite": (0.075, 0.30),
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-pro": (1.25, 10.00),
 }
 
 CACHE_READ_MULTIPLIER = 0.1
 CACHE_WRITE_MULTIPLIER = 1.25
 
-_FALLBACK_RATE = (5.00, 25.00)
+# Used when a model id isn't in the table. Deliberately modest so an unknown
+# model doesn't inflate the displayed cost; the UI labels the total an estimate.
+_FALLBACK_RATE = (0.50, 1.50)
 
 
 def rates_for(model: str) -> tuple[float, float]:
