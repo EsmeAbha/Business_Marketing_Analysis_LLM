@@ -139,6 +139,17 @@ Open **http://localhost:8501**.
 The sidebar shows a live 🟢 LIVE / 🟡 SIMULATED / 🔴 MISSING status for every
 integration, so it is always unambiguous which parts are calling real APIs.
 
+### Tests
+
+A component suite covers the deterministic machinery — code sandbox (including its
+security policy), RAG retrieval, simulated adapters, cost accounting and graph wiring.
+**It needs no API key and spends no tokens**, so you can verify the system works before
+running it:
+
+```bash
+python tests/test_workforce.py      # or: python -m pytest tests -v
+```
+
 ---
 
 ## The interface

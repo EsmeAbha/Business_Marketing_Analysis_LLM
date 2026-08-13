@@ -29,12 +29,30 @@ from ..observability import get_logger
 
 logger = get_logger("memory.vector")
 
-_DIM = 512
+_DIM = 1024
+_CHAR_N = 4
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 _STOPWORDS = {
     "the", "a", "an", "and", "or", "of", "to", "in", "is", "it", "for", "on",
     "with", "as", "at", "by", "this", "that", "be", "are", "was", "from",
+    "what", "which", "did", "do", "does", "we", "our", "you", "your", "i",
+    "my", "me", "how", "why", "when", "where", "can", "will", "should",
 }
+
+# Relative weights: exact words carry the most signal, phrase bigrams next,
+# character n-grams least — they exist to bridge morphology, not to dominate.
+_W_WORD = 3.0
+_W_BIGRAM = 2.0
+_W_CHAR = 1.0
+
+
+def _stable_hash(text: str) -> int:
+    """CRC32 rather than `hash()`.
+
+    Python randomises string hashing per process (PYTHONHASHSEED), which would
+    make persisted vectors irreproducible across restarts.
+    """
+    return zlib.crc32(text.encode("utf-8"))
 
 
 def _tokenize(text: str) -> list[str]:
@@ -43,16 +61,39 @@ def _tokenize(text: str) -> list[str]:
     ]
 
 
+def _char_grams(token: str) -> list[str]:
+    """Padded character n-grams, so morphological variants overlap.
+
+    "price" and "pricing" share no whole token, but do share the character
+    grams `^pri` and `pric` — which is what lets a query about "price" retrieve
+    a document about a "pricing decision".
+    """
+    padded = f"^{token}$"
+    if len(padded) <= _CHAR_N:
+        return [padded]
+    return [padded[i : i + _CHAR_N] for i in range(len(padded) - _CHAR_N + 1)]
+
+
 def embed(text: str) -> np.ndarray:
-    """Hash each token (plus bigrams) into a fixed-width L2-normalised vector."""
+    """Project text into a fixed-width L2-normalised vector.
+
+    Three feature families are hashed into the same space: whole words, word
+    bigrams (phrase signal), and character n-grams (morphology bridging).
+    """
     vec = np.zeros(_DIM, dtype=np.float32)
     tokens = _tokenize(text)
     if not tokens:
         return vec
-    grams = tokens + [f"{a}_{b}" for a, b in zip(tokens, tokens[1:])]
-    for gram in grams:
-        # Sub-linear term weighting keeps long documents from dominating.
-        vec[hash(gram) % _DIM] += 1.0
+
+    for token in tokens:
+        vec[_stable_hash(token) % _DIM] += _W_WORD
+        for gram in _char_grams(token):
+            vec[_stable_hash(gram) % _DIM] += _W_CHAR
+
+    for a, b in zip(tokens, tokens[1:]):
+        vec[_stable_hash(f"{a}_{b}") % _DIM] += _W_BIGRAM
+
+    # Sub-linear term weighting keeps long documents from dominating.
     vec = np.sign(vec) * np.log1p(np.abs(vec))
     norm = float(np.linalg.norm(vec))
     return vec / norm if norm else vec
