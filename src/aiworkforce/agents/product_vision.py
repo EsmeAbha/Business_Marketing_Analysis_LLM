@@ -156,5 +156,95 @@ Produce the final validated assessment for this product in {settings.location}."
                 f"{final.suggested_price_high:.0f} {settings.currency}. "
                 f"{final.reasoning}"
             ),
-            payload={**final.model_dump(), "product_id": product_id},
+            payload={**final.model_dump(), "product_id": product_id, "vision_used": True},
+        )
+
+    # ------------------------------------------------------------------
+
+    def _validate_without_photo(
+        self, state: WorkforceState, image_paths: list[str]
+    ) -> AgentResult:
+        """Degraded path: no multimodal model is configured.
+
+        The owner still gets a validated recommendation — built from what they
+        wrote rather than from the image — plus a clear statement that the photo
+        was not actually looked at, so nothing here is mistaken for image analysis.
+        """
+        session_id = state.get("session_id", "")
+        owner_text = state.get("owner_input", "") or ""
+
+        bus.emit(
+            session_id,
+            kind="tool_call",
+            actor=self.name,
+            summary=(
+                f"photo NOT analysed — no vision model configured "
+                f"(provider={settings.provider}); validating from the owner's text instead"
+            ),
+            payload={"images": image_paths, "vision_available": False},
+            level="warning",
+        )
+
+        query = owner_text[:120] or "product the owner wants to sell"
+        resp = web_search(f"{query} price demand {settings.location}", max_results=5)
+
+        prompt = f"""IMPORTANT: no image analysis was possible — the configured provider
+serves no vision model, so you have NOT seen the owner's photo. Work only from
+their written description. Do not describe visual details you cannot know, and say
+so in `quality_notes`.
+
+OWNER'S MESSAGE (the only description available)
+{owner_text or '(the owner sent a photo with no text)'}
+
+MARKET: {settings.location}. CURRENCY: {settings.currency}.
+
+{self.context_block(state, f'product validation pricing demand {query}')}
+
+=== LIVE MARKET EVIDENCE ===
+{resp.as_prompt_context(limit=5)}
+=== END EVIDENCE ===
+
+Give the best assessment you honestly can from the text alone. If the owner did not
+say what the product is, set `product_name` to your best reading of their message,
+set `recommendation` to CONDITIONAL, and state in `reasoning` that you need either a
+description or photo understanding enabled."""
+
+        result = self.ask(state, ProductVisionResult, ASSESS_SYSTEM, prompt)
+
+        from ..memory import memory
+
+        product_id = memory.db.upsert_product(
+            name=result.product_name,
+            category=result.category,
+            description=result.description,
+            unit_cost=result.estimated_unit_cost or None,
+            photo_path=str(image_paths[0]),
+            source_agent=self.name,
+        )
+        self.remember(
+            state,
+            (
+                f"Product assessed WITHOUT photo analysis (no vision model): "
+                f"{result.product_name}. {result.description} Suggested price "
+                f"{result.suggested_price_low}-{result.suggested_price_high} "
+                f"{settings.currency}. Recommendation: {result.recommendation}."
+            ),
+            kind="product_validation",
+            extra={"product": result.product_name, "vision_used": False},
+        )
+
+        return AgentResult(
+            summary=(
+                f"⚠️ I could not actually look at your photo — {settings.vision_help} "
+                f"Working from your description instead: **{result.product_name}** "
+                f"({result.category}). Recommendation: **{result.recommendation}**. "
+                f"Suggested price {result.suggested_price_low:.0f}–"
+                f"{result.suggested_price_high:.0f} {settings.currency}. {result.reasoning}"
+            ),
+            payload={
+                **result.model_dump(),
+                "product_id": product_id,
+                "vision_used": False,
+                "vision_help": settings.vision_help,
+            },
         )

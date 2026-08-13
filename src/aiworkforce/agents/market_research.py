@@ -130,13 +130,15 @@ below it. Ground your reasoning in the evidence above."""
     # --- helpers ---
 
     def _build_queries(self, topic: str, location: str) -> list[str]:
+        """Fewer, broader queries when the provider has a tight token budget."""
         topic = (topic or "small business").strip()
-        return [
+        queries = [
             f"{topic} business {location} demand 2026",
             f"{topic} competitors {location} price",
             f"best selling {topic} products online {location}",
             f"{topic} profit margin startup cost small business",
         ]
+        return queries[:2] if settings.compact_prompts else queries
 
     def _profile_location(self) -> str:
         from ..memory import memory

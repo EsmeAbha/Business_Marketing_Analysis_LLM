@@ -56,8 +56,9 @@ class ReportingAgent(BaseAgent):
         )
 
         # Deliberately broad RAG sweep — this is where cross-stage memory pays off.
+        rag_k = 2 if settings.compact_prompts else 4
         retrieved = "\n\n".join(
-            f"### {label}\n{self.recall(query, k=4)}"
+            f"### {label}\n{self.recall(query, k=rag_k)}"
             for label, query in (
                 ("Market research", "niche demand competition recommendation"),
                 ("Product validation", "product photo validation go no-go price"),
@@ -66,6 +67,11 @@ class ReportingAgent(BaseAgent):
                 ("Customer signal", "customer feedback complaints unmet demand preorder"),
             )
         )
+
+        # How much raw tabular detail to inline, given the token budget.
+        n_msgs = 8 if settings.compact_prompts else 25
+        n_rows = 5 if settings.compact_prompts else 15
+        json_cap = 1500 if settings.compact_prompts else 6000
 
         prompt = f"""{memory.business_snapshot()}
 
@@ -80,16 +86,16 @@ LOW STOCK
 {self.as_json(low)}
 
 OPEN PRE-ORDERS ({len(preorders)})
-{self.as_json(preorders[:15])}
+{self.as_json(preorders[:n_rows])}
 
 CAMPAIGNS ({len(campaigns)})
-{self.as_json([{k: c[k] for k in ('platform', 'headline', 'status', 'simulated')} for c in campaigns[:10]])}
+{self.as_json([{k: c[k] for k in ('platform', 'headline', 'status', 'simulated')} for c in campaigns[:n_rows]])}
 
 PRICING HISTORY
-{self.as_json(pricing_rows[:10])}
+{self.as_json(pricing_rows[:n_rows])}
 
-RECENT CUSTOMER MESSAGES ({len(conversations)})
-{self.as_json([{k: c[k] for k in ('channel', 'customer', 'message', 'sentiment', 'intent', 'requested_item')} for c in conversations[:25]], limit=6000)}
+RECENT CUSTOMER MESSAGES ({len(conversations)}, most recent {n_msgs} shown)
+{self.as_json([{k: c[k] for k in ('channel', 'customer', 'message', 'sentiment', 'intent', 'requested_item')} for c in conversations[:n_msgs]], limit=json_cap)}
 
 === RETRIEVED FROM SHARED KNOWLEDGE BASE (written by other agents) ===
 {retrieved}
@@ -100,7 +106,9 @@ THIS SESSION'S AGENT OUTPUTS
 
 Write the business report and the revised plan for maximising profit."""
 
-        result = self.ask(state, ReportingResult, SYSTEM, prompt, max_tokens=12000)
+        result = self.ask(
+            state, ReportingResult, SYSTEM, prompt, max_tokens=settings.report_tokens
+        )
 
         # Recompute alerts from the database so they cannot drift from reality.
         result.stock_alerts = [

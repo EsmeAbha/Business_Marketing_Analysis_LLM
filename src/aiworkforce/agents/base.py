@@ -276,23 +276,29 @@ class BaseAgent(ABC):
 
     def context_block(self, state: WorkforceState, query: str) -> str:
         """Standard context header: business state + what other agents found."""
+        from ..config import settings
+
+        k = 3 if settings.compact_prompts else 6
         return (
             f"{memory.business_snapshot()}\n\n"
             f"RELEVANT PRIOR FINDINGS FROM OTHER AGENTS (retrieved from shared memory):\n"
-            f"{self.recall(query, k=6)}\n\n"
+            f"{self.recall(query, k=k)}\n\n"
             f"OUTPUTS PRODUCED EARLIER IN THIS SESSION:\n"
             f"{self._session_outputs(state)}"
         )
 
     def _session_outputs(self, state: WorkforceState) -> str:
+        from ..config import settings
+
         outputs = state.get("agent_outputs", {})
         if not outputs:
             return "(none yet — you are the first agent to run)"
+        limit = 300 if settings.compact_prompts else 600
         lines = []
         for agent, data in outputs.items():
             if agent == self.name:
                 continue
-            lines.append(f"- {agent}: {str(data.get('summary', ''))[:600]}")
+            lines.append(f"- {agent}: {str(data.get('summary', ''))[:limit]}")
         return "\n".join(lines) or "(none from other agents yet)"
 
     # --- human in the loop ---

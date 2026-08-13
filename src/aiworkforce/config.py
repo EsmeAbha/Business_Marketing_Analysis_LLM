@@ -42,10 +42,25 @@ def _env(name: str, default: str = "") -> str:
 
 
 # Sensible defaults per provider: (main model, fast/routing model).
+#
+# Groq's free tier enforces a tokens-per-minute cap *per model*, and the
+# requested `max_tokens` counts toward it. Measured caps: llama-3.3-70b 12k TPM,
+# gpt-oss-120b/20b and qwen 8k, llama-3.1-8b 6k. Main and routing therefore use
+# different models on purpose — each gets its own bucket, roughly doubling
+# throughput for a multi-agent run.
 TEXT_DEFAULTS: dict[str, tuple[str, str]] = {
-    "groq": ("openai/gpt-oss-120b", "llama-3.3-70b-versatile"),
+    "groq": ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
     "anthropic": ("claude-opus-5", "claude-haiku-4-5"),
     "google": ("gemini-2.0-flash", "gemini-2.0-flash-lite"),
+}
+
+# Per-provider output budget and retry policy. `max_tokens` is deliberately
+# small on Groq: it is charged against the per-minute cap before a single
+# prompt token is counted.
+PROVIDER_LIMITS: dict[str, dict[str, int]] = {
+    "groq": {"max_tokens": 2500, "report_tokens": 4000, "retries": 6, "compact": 1},
+    "anthropic": {"max_tokens": 8000, "report_tokens": 12000, "retries": 2, "compact": 0},
+    "google": {"max_tokens": 8000, "report_tokens": 12000, "retries": 3, "compact": 0},
 }
 
 VISION_DEFAULTS: dict[str, str] = {
@@ -75,7 +90,6 @@ class Settings:
 
     effort: str = field(default_factory=lambda: _env("AIW_EFFORT", "high"))
     temperature: float = 0.3
-    max_tokens: int = 8000
 
     # --- Tools ---
     tavily_api_key: str = field(default_factory=lambda: _env("TAVILY_API_KEY"))
@@ -132,6 +146,29 @@ class Settings:
     @property
     def has_llm(self) -> bool:
         return bool(self.api_key and self.model)
+
+    # --- output budgets, tuned to the provider's rate limits ---
+
+    def _limits(self) -> dict[str, int]:
+        return PROVIDER_LIMITS.get(self.provider, PROVIDER_LIMITS["anthropic"])
+
+    @property
+    def max_tokens(self) -> int:
+        return self._limits()["max_tokens"]
+
+    @property
+    def report_tokens(self) -> int:
+        """Larger budget for the two long-form calls (report + final answer)."""
+        return self._limits()["report_tokens"]
+
+    @property
+    def max_retries(self) -> int:
+        return self._limits()["retries"]
+
+    @property
+    def compact_prompts(self) -> bool:
+        """Trim retrieved context and search evidence to fit a tight token cap."""
+        return bool(self._limits()["compact"])
 
     # ------------------------------------------------------------------
     # Vision provider (chosen independently of the text provider)
