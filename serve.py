@@ -42,6 +42,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from lucida.config import AVATAR_DIR, UPLOAD_DIR, settings  # noqa: E402
 from lucida.graph import WorkforceRuntime  # noqa: E402
 from lucida.memory import memory  # noqa: E402
+from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
 from web import auth, bridge, google_oauth, mailer, screens  # noqa: E402
@@ -638,6 +639,60 @@ async def api_sale(request):
     return JSONResponse(snap)
 
 
+async def api_inbox_sync(request):
+    """Pull new customer messages in from every connected platform."""
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+
+    result = await asyncio.to_thread(inbox.sync, memory.db)
+    snap = _snapshot(_session_for(account["id"]), account)
+    snap["sync"] = {
+        "fetched": result.fetched,
+        "new": result.stored,
+        "simulated": result.simulated,
+        "per_platform": result.per_platform,
+        "errors": result.errors,
+        "detail": result.describe(),
+    }
+    return JSONResponse(snap)
+
+
+async def api_reply(request):
+    """Answer one customer.
+
+    A comment gets a public reply, a DM a private one — decided by what
+    arrived, not by the caller. The message is only marked answered if the
+    send actually succeeded, so a failure leaves it visibly outstanding.
+    """
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+
+    body = await request.json()
+    try:
+        message_id = int(body.get("message_id") or 0)
+    except (TypeError, ValueError):
+        message_id = 0
+    text = str(body.get("text") or "").strip()
+    if not message_id:
+        return JSONResponse({"error": "which message?"}, status_code=400)
+    if not text:
+        return JSONResponse({"error": "nothing to send"}, status_code=400)
+
+    result = await asyncio.to_thread(inbox.reply, memory.db, message_id, text)
+    if not result.ok:
+        return JSONResponse({"error": result.error or "could not send"},
+                            status_code=502)
+
+    snap = _snapshot(_session_for(account["id"]), account)
+    snap["reply"] = {
+        "sent": True, "simulated": result.simulated,
+        "detail": result.describe(),
+    }
+    return JSONResponse(snap)
+
+
 async def api_decide(request):
     """Answer the human-in-the-loop gate the graph is suspended on."""
     account = current_account(request)
@@ -717,6 +772,8 @@ app = Starlette(
         Route("/api/ask", api_ask, methods=["POST"]),
         Route("/api/upload", api_upload, methods=["POST"]),
         Route("/api/sale", api_sale, methods=["POST"]),
+        Route("/api/inbox/sync", api_inbox_sync, methods=["POST"]),
+        Route("/api/reply", api_reply, methods=["POST"]),
         Route("/api/decide", api_decide, methods=["POST"]),
         Route("/api/health", api_health),
         # Serves support.js, image-slot.js and vendor/ alongside the page, so

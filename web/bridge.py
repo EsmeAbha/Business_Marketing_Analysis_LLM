@@ -25,7 +25,7 @@ from lucida.config import settings
 from lucida.graph import agent_roster
 from lucida.memory import memory
 from lucida.observability import bus
-from lucida.tools import fx
+from lucida.tools import fx, inbox
 
 # The design's palette, referenced by the shapes below.
 INK = "#17120F"
@@ -135,6 +135,56 @@ _SENTIMENT = {
 
 
 def threads() -> list[dict]:
+    """Customer conversations for the Customers page.
+
+    Preferred source is `social_messages` — the shop's own inbox — because
+    those rows carry the id and platform a reply needs to be sent against.
+    `conversations` is what the Engagement agent writes after reading, and is
+    used only when nothing has been synced yet.
+    """
+    synced = inbox.threads(memory.db, limit=60)
+    if synced:
+        rows = []
+        for m in synced:
+            sentiment = (m.get("sentiment") or "neutral").lower()
+            label, fg, bg = _SENTIMENT.get(sentiment, _SENTIMENT["neutral"])
+            answered = bool(m.get("replied"))
+            name = m.get("sender_name") or "Customer"
+            tags = [[label, bg, fg]]
+            if m.get("kind") == "comment":
+                tags.append(["Comment on an ad", NEUTRAL_TINT, BODY_FG])
+            if m.get("requested_item"):
+                tags.append([f"Wants {m['requested_item']}", AMBER_TINT, AMBER])
+            rows.append({
+                # The design keys threads by this id; using the real row id
+                # is what lets the Send button post a reply to the right one.
+                "id": str(m["id"]),
+                "name": name,
+                "initials": _initials(name),
+                "channel": str(m.get("platform") or "message").title(),
+                "t": str(m.get("received_at") or "")[11:16] or DASH,
+                "history": str(m.get("intent") or m.get("kind") or "message"
+                               ).replace("_", " "),
+                "preview": (m.get("message") or "")[:110],
+                "message": m.get("message") or "",
+                "state": ("Answered" if answered
+                          else "Waiting for your reply"),
+                "stateFg": ACCENT if answered else AMBER,
+                "mark": ACCENT if answered else AMBER,
+                "read": (f"Arrived on {m.get('platform')} as a "
+                         f"{m.get('kind') or 'message'}."),
+                "tags": tags,
+                "draft": (m.get("reply_text") if m.get("replied")
+                          else m.get("draft_reply")) or "",
+                "action": (
+                    "Already sent." if answered
+                    else ("Your team drafted this. Nothing is sent until you "
+                          "press Send.") if m.get("draft_reply")
+                    else "No draft yet — ask your team to read the inbox."
+                ),
+            })
+        return rows
+
     rows = []
     for c in memory.conversations(60):
         name = c.get("customer") or "Someone"
