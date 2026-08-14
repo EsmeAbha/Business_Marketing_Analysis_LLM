@@ -1,6 +1,7 @@
 """Lucida's visual design system.
 
-Ported from the `Business Suite` design: a warm paper ground, deep-green accent,
+Ported from the `Business Suite` design, recast in coffee and cream with a
+maroon-red accent:
 Instrument Serif for headlines and figures, Plus Jakarta Sans for everything
 else, on a 244px rail + content grid.
 
@@ -28,27 +29,26 @@ import streamlit as st
 # Tokens — sampled from the design by frequency, not by eye.
 # ---------------------------------------------------------------------------
 
-GROUND = "#F7F5F0"     # page background — warm paper
-RAIL = "#FBFAF7"       # sidebar + table header rows
-SURFACE = "#FFFFFF"    # cards
-SUNKEN = "#F1EEE6"     # inset wells, segmented controls
-BORDER = "#E5E0D6"     # hairlines
-BORDER_SOFT = "#EFEBE1"  # row dividers inside a card
-DIVIDER = "#F5F2EA"
+GROUND = "#F4EADA"     # page background — warm paper
+RAIL = "#FAF3E7"       # sidebar + table header rows
+SURFACE = "#FDFAF4"    # cards
+SUNKEN = "#EFE2CE"     # inset wells, segmented controls
+BORDER = "#DDCDB4"     # hairlines
+BORDER_SOFT = "#E7DAC4"  # row dividers inside a card
+DIVIDER = "#F2E6D4"
 
-INK = "#18211D"        # headings
-BODY = "#4A554E"       # body copy
-MUTED = "#7C877F"      # labels, captions, metadata
-FAINT = "#A19B8E"
+INK = "#17120F"        # headings
+BODY = "#4A3728"       # body copy
+MUTED = "#8A7563"      # labels, captions, metadata
+FAINT = "#A89680"
 
-ACCENT = "#14603F"     # deep green — the brand
-ACCENT_DARK = "#0E4A30"
-ACCENT_TINT = "#EAF1EC"
-ACCENT_EDGE = "#CFE0D5"
+ACCENT = "#7B1E22"     # maroon red — the brand
+ACCENT_DARK = "#5E1519"
+ACCENT_TINT = "#F3E2E1"
+ACCENT_EDGE = "#E4C9C8"
 
-# Buttons are maroon red rather than the brand green. Kept as its own token
-# instead of changing ACCENT, so pills, links and status colours stay green
-# and only the things you press change.
+# Buttons share the brand maroon. Kept as its own token so a future change
+# to one does not silently move the other.
 BUTTON = "#7B1E22"
 BUTTON_DARK = "#5E1519"
 BUTTON_TINT = "#F6E9EA"
@@ -308,7 +308,7 @@ hr {{ border-color: {BORDER}; margin: 18px 0; }}
 
 /* ---- scrollbar & motion ---------------------------------------------- */
 ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
-::-webkit-scrollbar-thumb {{ background: #DDD8CC; border-radius: 6px; }}
+::-webkit-scrollbar-thumb {{ background: #D2BFA4; border-radius: 6px; }}
 ::-webkit-scrollbar-track {{ background: transparent; }}
 @keyframes luFadeUp {{
     from {{ opacity: 0; transform: translateY(5px); }} to {{ opacity: 1; transform: none; }}

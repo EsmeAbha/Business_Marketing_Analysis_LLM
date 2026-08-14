@@ -32,12 +32,12 @@
       "font-family:'Plus Jakarta Sans',system-ui,sans-serif"
     ].join(';');
     el.innerHTML =
-      '<div style="background:#FFFFFF;border:1px solid #E5E0D6;border-radius:14px;' +
+      '<div style="background:#FDFAF4;border:1px solid #DDCDB4;border-radius:14px;' +
       'padding:18px 22px;display:flex;align-items:center;gap:11px;' +
       'box-shadow:0 8px 28px rgba(24,33,29,.10)">' +
-      '<span style="width:8px;height:8px;border-radius:50%;background:#14603F;' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#7B1E22;' +
       'animation:luPulseA 1.1s infinite"></span>' +
-      '<span style="font-size:13.5px;color:#18211D">' + message + '</span></div>' +
+      '<span style="font-size:13.5px;color:#17120F">' + message + '</span></div>' +
       '<style>@keyframes luPulseA{0%,100%{opacity:1}50%{opacity:.3}}</style>';
     document.body.appendChild(el);
   }
@@ -54,9 +54,9 @@
     el.style.cssText = [
       'position:fixed', 'right:18px', 'bottom:18px', 'z-index:9999',
       'max-width:380px', 'padding:13px 15px', 'border-radius:12px',
-      'background:' + (bad ? '#F8E9E6' : '#EAF1EC'),
-      'border:1px solid ' + (bad ? '#A63A2E' : '#14603F'),
-      'color:' + (bad ? '#A63A2E' : '#14603F'),
+      'background:' + (bad ? '#F8E9E6' : '#F3E2E1'),
+      'border:1px solid ' + (bad ? '#A63A2E' : '#7B1E22'),
+      'color:' + (bad ? '#A63A2E' : '#7B1E22'),
       'font:13px/1.5 "Plus Jakarta Sans",system-ui,sans-serif',
       'box-shadow:0 8px 28px rgba(24,33,29,.10)'
     ].join(';');
@@ -103,20 +103,20 @@
       "font-family:'Plus Jakarta Sans',system-ui,sans-serif"
     ].join(';');
     wrap.innerHTML =
-      '<div style="background:#FFFFFF;border:1px solid #E5E0D6;border-radius:14px;' +
+      '<div style="background:#FDFAF4;border:1px solid #DDCDB4;border-radius:14px;' +
       'max-width:760px;width:100%;max-height:82vh;overflow:auto;' +
       'box-shadow:0 18px 50px rgba(24,33,29,.18)">' +
-        '<div style="padding:17px 20px;border-bottom:1px solid #EFEBE1;' +
-        'display:flex;align-items:center;gap:9px;position:sticky;top:0;background:#FFFFFF">' +
+        '<div style="padding:17px 20px;border-bottom:1px solid #E7DAC4;' +
+        'display:flex;align-items:center;gap:9px;position:sticky;top:0;background:#FDFAF4">' +
           '<span style="font-size:11px;font-weight:600;letter-spacing:.05em;' +
-          'text-transform:uppercase;color:#14603F;background:#EAF1EC;' +
+          'text-transform:uppercase;color:#7B1E22;background:#F3E2E1;' +
           'padding:3px 8px;border-radius:6px">Your team</span>' +
-          '<span style="font-size:12px;color:#7C877F">what came back</span>' +
-          '<button id="lucida-close" style="margin-left:auto;border:1px solid #E5E0D6;' +
-          'background:#FFFFFF;color:#4A554E;font-size:12.5px;padding:6px 12px;' +
+          '<span style="font-size:12px;color:#8A7563">what came back</span>' +
+          '<button id="lucida-close" style="margin-left:auto;border:1px solid #DDCDB4;' +
+          'background:#FDFAF4;color:#4A3728;font-size:12.5px;padding:6px 12px;' +
           'border-radius:9px;cursor:pointer">Close</button>' +
         '</div>' +
-        '<div style="padding:6px 20px 20px;font-size:13.5px;color:#18211D">' +
+        '<div style="padding:6px 20px 20px;font-size:13.5px;color:#17120F">' +
           render(text) +
         '</div>' +
       '</div>';
@@ -242,7 +242,7 @@
     block.setAttribute('role', 'link');
     block.setAttribute('tabindex', '0');
     block.addEventListener('mouseenter', function () {
-      block.style.background = '#F1EEE6';
+      block.style.background = '#EFE2CE';
     });
     block.addEventListener('mouseleave', function () {
       block.style.background = 'transparent';

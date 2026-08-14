@@ -6,10 +6,10 @@
 
 [theme]
 base = "light"
-primaryColor = "#14603F"
-backgroundColor = "#F7F5F0"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#18211D"
+primaryColor = "#7B1E22"
+backgroundColor = "#F4EADA"
+secondaryBackgroundColor = "#FDFAF4"
+textColor = "#17120F"
 
 # Registering the faces here rather than relying only on the @import in
 # ui/theme.py: this way Streamlit applies them to the widgets it paints

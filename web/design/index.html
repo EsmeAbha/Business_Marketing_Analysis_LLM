@@ -33,39 +33,6 @@ window.LUCIDA = window.LUCIDA || {};
   margin-right: auto !important;
 }
 
-/* Buttons in maroon red instead of the design's brand green.
-   Matched on the inline style and marked !important, because that is the
-   one thing that outranks an inline style — and the design both paints
-   buttons inline and applies hover by mutating that same inline style.
-
-   The selectors use rgb() rather than #14603F: React re-serialises inline
-   colours, so the hex never appears in the rendered style attribute even
-   though it is what the design source says. */
-button[style*="background: rgb(20, 96, 63)"] {
-  background: #7B1E22 !important;
-}
-button[style*="background: rgb(20, 96, 63)"]:hover {
-  background: #5E1519 !important;
-}
-/* Green label / border on outline and toggle buttons.
-   `color: rgb(...)` also matches inside `border-color: rgb(...)`, which is
-   deliberate — both should move together. */
-button[style*="color: rgb(20, 96, 63)"] { color: #7B1E22 !important; }
-/* Borders are recoloured per side rather than through the `border-color`
-   shorthand: several buttons set their border with the `border` shorthand
-   (`1px solid rgb(…)`), and shorthand-over-shorthand does not reliably win
-   against an inline declaration. The four longhands always do. */
-button[style*="border-color: rgb(20, 96, 63)"],
-button[style*="solid rgb(20, 96, 63)"] {
-  border-top-color: #7B1E22 !important;
-  border-right-color: #7B1E22 !important;
-  border-bottom-color: #7B1E22 !important;
-  border-left-color: #7B1E22 !important;
-}
-/* The pale green wash behind an active nav row / selected toggle. */
-button[style*="background: rgb(234, 241, 236)"] {
-  background: #F6E9EA !important;
-}
 </style>
 <script src="./support.js"></script>
 </head>
@@ -79,39 +46,39 @@ button[style*="background: rgb(234, 241, 236)"] {
 <script src="./image-slot.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; background: #F7F5F0; }
+  html, body { margin: 0; padding: 0; background: #F4EADA; }
   body { -webkit-font-smoothing: antialiased; }
-  a { color: #14603F; text-decoration: none; }
-  a:hover { color: #0E4A30; }
+  a { color: #7B1E22; text-decoration: none; }
+  a:hover { color: #5E1519; }
   input, textarea, button { font-family: inherit; }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-thumb { background: #DDD8CC; border-radius: 6px; }
+  ::-webkit-scrollbar-thumb { background: #D2BFA4; border-radius: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
   @keyframes softPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 </style>
 </helmet>
 
-<div style="min-height: 100vh; background: #F7F5F0; color: #18211D; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; display: grid; grid-template-columns: 244px minmax(0, 1fr); min-width: 1180px;">
+<div style="min-height: 100vh; background: #F4EADA; color: #17120F; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; display: grid; grid-template-columns: 244px minmax(0, 1fr); min-width: 1180px;">
 
-  <aside style="border-right: 1px solid #E5E0D6; background: #FBFAF7; padding: 18px 14px 24px; display: flex; flex-direction: column; gap: 20px; position: sticky; top: 0; height: 100vh;">
+  <aside style="border-right: 1px solid #DDCDB4; background: #FAF3E7; padding: 18px 14px 24px; display: flex; flex-direction: column; gap: 20px; position: sticky; top: 0; height: 100vh;">
     <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px;">
-      <div style="width: 34px; height: 34px; border-radius: 11px; background: #14603F; color: #F4EFE2; display: grid; place-items: center; font-family: 'Instrument Serif', serif; font-size: 19px;">S</div>
+      <div style="width: 34px; height: 34px; border-radius: 11px; background: #7B1E22; color: #F4EFE2; display: grid; place-items: center; font-family: 'Instrument Serif', serif; font-size: 19px;">S</div>
       <div style="display: flex; flex-direction: column; line-height: 1.25; min-width: 0;">
         <span style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ businessName }}</span>
-        <span style="font-size: 11.5px; color: #7C877F;">Mirpur 11, Dhaka</span>
+        <span style="font-size: 11.5px; color: #8A7563;">Mirpur 11, Dhaka</span>
       </div>
     </div>
 
-    <div style="display: flex; gap: 3px; padding: 3px; background: #F1EEE6; border-radius: 10px;">
+    <div style="display: flex; gap: 3px; padding: 3px; background: #EFE2CE; border-radius: 10px;">
       <sc-for list="{{ roles }}" as="r" hint-placeholder-count="2">
-        <button onClick="{{ r.pick }}" style="flex: 1; padding: 7px 4px; border-radius: 8px; border: none; background: {{ r.bg }}; color: {{ r.fg }}; font-size: 12px; font-weight: {{ r.weight }}; cursor: pointer; box-shadow: {{ r.shadow }};" style-hover="color: #14603F">{{ r.label }}</button>
+        <button onClick="{{ r.pick }}" style="flex: 1; padding: 7px 4px; border-radius: 8px; border: none; background: {{ r.bg }}; color: {{ r.fg }}; font-size: 12px; font-weight: {{ r.weight }}; cursor: pointer; box-shadow: {{ r.shadow }};" style-hover="color: #7B1E22">{{ r.label }}</button>
       </sc-for>
     </div>
 
     <nav style="display: flex; flex-direction: column; gap: 2px;">
       <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
-        <button onClick="{{ n.pick }}" style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; border: none; background: {{ n.bg }}; color: {{ n.fg }}; font-size: 13.5px; font-weight: {{ n.weight }}; cursor: pointer; text-align: left; width: 100%;" style-hover="background: #F1EEE6">
+        <button onClick="{{ n.pick }}" style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; border: none; background: {{ n.bg }}; color: {{ n.fg }}; font-size: 13.5px; font-weight: {{ n.weight }}; cursor: pointer; text-align: left; width: 100%;" style-hover="background: #EFE2CE">
           <span style="width: 18px; text-align: center; font-size: 13px; opacity: .85;">{{ n.icon }}</span>
           <span style="flex: 1;">{{ n.label }}</span>
           <span style="min-width: 20px; height: 19px; padding: 0 6px; border-radius: 999px; background: {{ n.badgeBg }}; color: {{ n.badgeFg }}; font-size: 11px; font-weight: 600; display: {{ n.badgeShow }}; align-items: center; justify-content: center;">{{ n.badge }}</span>
@@ -119,13 +86,13 @@ button[style*="background: rgb(234, 241, 236)"] {
       </sc-for>
     </nav>
 
-    <div style="margin-top: auto; border-top: 1px solid #E5E0D6; padding-top: 14px;">
+    <div style="margin-top: auto; border-top: 1px solid #DDCDB4; padding-top: 14px;">
       <div style="display: flex; align-items: center; gap: 8px; padding: 0 6px 9px;">
-        <span style="width: 7px; height: 7px; border-radius: 50%; background: #14603F; animation: softPulse 2.4s infinite;"></span>
-        <span style="font-size: 11.5px; font-weight: 600; color: #4A554E;">{{ footTitle }}</span>
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #7B1E22; animation: softPulse 2.4s infinite;"></span>
+        <span style="font-size: 11.5px; font-weight: 600; color: #4A3728;">{{ footTitle }}</span>
       </div>
-      <div style="font-size: 11.5px; color: #7C877F; line-height: 1.5; padding: 0 6px 12px;">{{ footBody }}</div>
-      <button onClick="{{ footAction }}" style="width: 100%; padding: 8px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">{{ footButton }}</button>
+      <div style="font-size: 11.5px; color: #8A7563; line-height: 1.5; padding: 0 6px 12px;">{{ footBody }}</div>
+      <button onClick="{{ footAction }}" style="width: 100%; padding: 8px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">{{ footButton }}</button>
     </div>
   </aside>
 
@@ -135,33 +102,33 @@ button[style*="background: rgb(234, 241, 236)"] {
       <div style="padding: 30px 36px; max-width: 1120px;">
         <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 26px;">
           <div>
-            <div style="font-size: 12px; color: #7C877F; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px;">Tuesday, 12 August</div>
+            <div style="font-size: 12px; color: #8A7563; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px;">Tuesday, 12 August</div>
             <h1 style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 34px; font-weight: 400; letter-spacing: -0.01em;">Good morning, {{ ownerName }}.</h1>
-            <p style="margin: 7px 0 0; font-size: 14.5px; color: #4A554E; max-width: 620px; line-height: 1.55;">{{ dayLine }}</p>
+            <p style="margin: 7px 0 0; font-size: 14.5px; color: #4A3728; max-width: 620px; line-height: 1.55;">{{ dayLine }}</p>
           </div>
           <div style="margin-left: auto; display: flex; gap: 8px;">
-            <button onClick="{{ goActivity }}" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; font-size: 13px; color: #4A554E; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">See everything it did</button>
+            <button onClick="{{ goActivity }}" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #DDCDB4; background: #FDFAF4; font-size: 13px; color: #4A3728; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">See everything it did</button>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 26px;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
-            <div style="font-size: 12px; color: #7C877F;">Sales today</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #8A7563;">Sales today</div>
             <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">৳6,480</div>
-            <div style="font-size: 12px; color: #14603F; margin-top: 2px;">24 orders · +12% vs last Tue</div>
+            <div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">24 orders · +12% vs last Tue</div>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
-            <div style="font-size: 12px; color: #7C877F;">Preorders waiting</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #8A7563;">Preorders waiting</div>
             <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">312 pcs</div>
-            <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">৳5,616 · 9 customers</div>
+            <div style="font-size: 12px; color: #8A7563; margin-top: 2px;">৳5,616 · 9 customers</div>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #F0DFC2; border-radius: 14px; padding: 15px 16px;">
-            <div style="font-size: 12px; color: #7C877F;">Stock will last</div>
+          <div style="background: #FDFAF4; border: 1px solid #F0DFC2; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #8A7563;">Stock will last</div>
             <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px; color: #B4741B;">4 days</div>
             <div style="font-size: 12px; color: #B4741B; margin-top: 2px;">Beef shingara running low</div>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
-            <div style="font-size: 12px; color: #7C877F;">Profit per pack</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #8A7563;">Profit per pack</div>
             <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">{{ marginNow }}</div>
             <div style="font-size: 12px; color: {{ marginNoteColor }}; margin-top: 2px;">{{ marginNote }}</div>
           </div>
@@ -171,76 +138,76 @@ button[style*="background: rgb(234, 241, 236)"] {
           <section>
             <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px;">
               <h2 style="margin: 0; font-size: 16px; font-weight: 600;">Needs your decision</h2>
-              <span style="font-size: 12.5px; color: #7C877F;">{{ pendingLine }}</span>
+              <span style="font-size: 12.5px; color: #8A7563;">{{ pendingLine }}</span>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 12px;">
               <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="3">
-                <div style="background: #FFFFFF; border: 1px solid {{ d.border }}; border-radius: 14px; padding: 16px 17px; animation: fadeUp .25s ease both;">
+                <div style="background: #FDFAF4; border: 1px solid {{ d.border }}; border-radius: 14px; padding: 16px 17px; animation: fadeUp .25s ease both;">
                   <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
                     <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: {{ d.tagFg }}; background: {{ d.tagBg }}; padding: 3px 8px; border-radius: 6px;">{{ d.tag }}</span>
-                    <span style="font-size: 12px; color: #7C877F;">{{ d.by }}</span>
-                    <span style="margin-left: auto; font-size: 12px; color: #7C877F;">{{ d.when }}</span>
+                    <span style="font-size: 12px; color: #8A7563;">{{ d.by }}</span>
+                    <span style="margin-left: auto; font-size: 12px; color: #8A7563;">{{ d.when }}</span>
                   </div>
                   <div style="font-size: 15.5px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">{{ d.title }}</div>
-                  <div style="font-size: 13.5px; color: #4A554E; line-height: 1.6;">{{ d.body }}</div>
-                  <div style="display: flex; gap: 14px; margin: 12px 0 13px; padding: 11px 13px; background: #F7F5F0; border-radius: 10px;">
+                  <div style="font-size: 13.5px; color: #4A3728; line-height: 1.6;">{{ d.body }}</div>
+                  <div style="display: flex; gap: 14px; margin: 12px 0 13px; padding: 11px 13px; background: #F4EADA; border-radius: 10px;">
                     <sc-for list="{{ d.facts }}" as="f" hint-placeholder-count="3">
                       <div>
-                        <div style="font-size: 11.5px; color: #7C877F;">{{ f.k }}</div>
+                        <div style="font-size: 11.5px; color: #8A7563;">{{ f.k }}</div>
                         <div style="font-size: 14px; font-weight: 600; margin-top: 2px; color: {{ f.color }};">{{ f.v }}</div>
                       </div>
                     </sc-for>
                   </div>
                   <sc-if value="{{ d.open }}" hint-placeholder-val="{{ true }}">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                      <button onClick="{{ d.approve }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">{{ d.yes }}</button>
-                      <button onClick="{{ d.tweak }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">{{ d.edit }}</button>
+                      <button onClick="{{ d.approve }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">{{ d.yes }}</button>
+                      <button onClick="{{ d.tweak }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">{{ d.edit }}</button>
                       <button onClick="{{ d.deny }}" style="padding: 9px 14px; border-radius: 9px; border: none; background: none; color: #A63A2E; font-size: 13px; cursor: pointer;" style-hover="text-decoration: underline">Not now</button>
-                      <span style="margin-left: auto; font-size: 12px; color: #7C877F;">{{ d.hint }}</span>
+                      <span style="margin-left: auto; font-size: 12px; color: #8A7563;">{{ d.hint }}</span>
                     </div>
                   </sc-if>
                   <sc-if value="{{ d.closed }}" hint-placeholder-val="{{ false }}">
                     <div style="display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 10px; background: {{ d.doneBg }}; font-size: 13px; color: {{ d.doneFg }};">
                       <span>{{ d.doneIcon }}</span><span>{{ d.doneText }}</span>
-                      <button onClick="{{ d.undo }}" style="margin-left: auto; border: none; background: none; color: #4A554E; font-size: 12.5px; cursor: pointer; text-decoration: underline;">Undo</button>
+                      <button onClick="{{ d.undo }}" style="margin-left: auto; border: none; background: none; color: #4A3728; font-size: 12.5px; cursor: pointer; text-decoration: underline;">Undo</button>
                     </div>
                   </sc-if>
                 </div>
               </sc-for>
 
               <sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}">
-                <div style="background: #EAF1EC; border: 1px solid #CFE0D5; border-radius: 14px; padding: 18px; font-size: 14px; color: #14603F; line-height: 1.6;">All caught up. Your team will keep working and only interrupt you when money, stock, or a customer's promise is on the line.</div>
+                <div style="background: #F3E2E1; border: 1px solid #E4C9C8; border-radius: 14px; padding: 18px; font-size: 14px; color: #7B1E22; line-height: 1.6;">All caught up. Your team will keep working and only interrupt you when money, stock, or a customer's promise is on the line.</div>
               </sc-if>
             </div>
           </section>
 
           <aside style="display: flex; flex-direction: column; gap: 20px;">
-            <section style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 16px 17px;">
+            <section style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 16px 17px;">
               <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Done while you slept</h2>
-              <p style="margin: 0 0 12px; font-size: 12.5px; color: #7C877F;">No approval needed — these are inside your autopilot rules.</p>
+              <p style="margin: 0 0 12px; font-size: 12.5px; color: #8A7563;">No approval needed — these are inside your autopilot rules.</p>
               <div style="display: flex; flex-direction: column; gap: 11px;">
                 <sc-for list="{{ overnight }}" as="o" hint-placeholder-count="5">
                   <div style="display: flex; gap: 10px;">
-                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #14603F; margin-top: 6px; flex: none;"></span>
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #7B1E22; margin-top: 6px; flex: none;"></span>
                     <div>
                       <div style="font-size: 13.5px; line-height: 1.45;">{{ o.text }}</div>
-                      <div style="font-size: 11.5px; color: #7C877F; margin-top: 2px;">{{ o.by }} · {{ o.t }}</div>
+                      <div style="font-size: 11.5px; color: #8A7563; margin-top: 2px;">{{ o.by }} · {{ o.t }}</div>
                     </div>
                   </div>
                 </sc-for>
               </div>
             </section>
 
-            <section style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 16px 17px;">
+            <section style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 16px 17px;">
               <h2 style="margin: 0 0 11px; font-size: 15px; font-weight: 600;">Ask your team</h2>
               <div style="display: flex; gap: 8px; margin-bottom: 11px;">
-                <input value="{{ askText }}" onChange="{{ onAsk }}" placeholder="e.g. should I sell chicken shingara?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E5E0D6; font-size: 13px; background: #FBFAF7; color: #18211D;" />
-                <button onClick="{{ goGrow }}" style="padding: 10px 13px; border-radius: 10px; border: none; background: #18211D; color: #F7F5F0; font-size: 13px; cursor: pointer;" style-hover="background: #14603F">Ask</button>
+                <input value="{{ askText }}" onChange="{{ onAsk }}" placeholder="e.g. should I sell chicken shingara?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #DDCDB4; font-size: 13px; background: #FAF3E7; color: #17120F;" />
+                <button onClick="{{ goGrow }}" style="padding: 10px 13px; border-radius: 10px; border: none; background: #17120F; color: #F4EADA; font-size: 13px; cursor: pointer;" style-hover="background: #7B1E22">Ask</button>
               </div>
               <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                 <sc-for list="{{ prompts }}" as="p" hint-placeholder-count="3">
-                  <button onClick="{{ p.pick }}" style="padding: 7px 11px; border-radius: 999px; border: 1px solid #E5E0D6; background: #FBFAF7; color: #4A554E; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">{{ p.label }}</button>
+                  <button onClick="{{ p.pick }}" style="padding: 7px 11px; border-radius: 999px; border: 1px solid #DDCDB4; background: #FAF3E7; color: #4A3728; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">{{ p.label }}</button>
                 </sc-for>
               </div>
             </section>
@@ -252,54 +219,54 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1180px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Customers</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Every message from Messenger, Instagram and your page — read, sorted, and answered in your voice. You only step in where it matters.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">Every message from Messenger, Instagram and your page — read, sorted, and answered in your voice. You only step in where it matters.</p>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;">
-            <div style="font-size: 12px; color: #7C877F;">Messages today</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #8A7563;">Messages today</div>
             <div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">47</div>
-            <div style="font-size: 12px; color: #14603F; margin-top: 2px;">38 answered automatically</div>
+            <div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">38 answered automatically</div>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;">
-            <div style="font-size: 12px; color: #7C877F;">Orders found in chat</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #8A7563;">Orders found in chat</div>
             <div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">312 pcs</div>
-            <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">৳5,616 · added to preorders</div>
+            <div style="font-size: 12px; color: #8A7563; margin-top: 2px;">৳5,616 · added to preorders</div>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;">
-            <div style="font-size: 12px; color: #7C877F;">Happy customers</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #8A7563;">Happy customers</div>
             <div style="display: flex; height: 7px; border-radius: 4px; overflow: hidden; margin: 11px 0 8px;">
-              <span style="width: 68%; background: #14603F;"></span><span style="width: 21%; background: #C9C3B4;"></span><span style="width: 11%; background: #A63A2E;"></span>
+              <span style="width: 68%; background: #7B1E22;"></span><span style="width: 21%; background: #CBB99E;"></span><span style="width: 11%; background: #A63A2E;"></span>
             </div>
-            <div style="display: flex; gap: 10px; font-size: 11.5px; color: #7C877F;"><span>68% happy</span><span>21% neutral</span><span>11% upset</span></div>
+            <div style="display: flex; gap: 10px; font-size: 11.5px; color: #8A7563;"><span>68% happy</span><span>21% neutral</span><span>11% upset</span></div>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #F0DFC2; border-radius: 14px; padding: 14px 15px;">
-            <div style="font-size: 12px; color: #7C877F;">Asking for something you don't sell</div>
+          <div style="background: #FDFAF4; border: 1px solid #F0DFC2; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #8A7563;">Asking for something you don't sell</div>
             <div style="font-size: 15px; font-weight: 600; margin-top: 5px;">Chicken shingara</div>
             <div style="font-size: 12px; color: #B4741B; margin-top: 2px;">14 people this month</div>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
             <sc-for list="{{ threads }}" as="th" hint-placeholder-count="6">
-              <button onClick="{{ th.pick }}" style="width: 100%; text-align: left; display: block; padding: 13px 15px; border: none; border-bottom: 1px solid #EFEBE1; border-left: 3px solid {{ th.mark }}; background: {{ th.bg }}; cursor: pointer;" style-hover="background: #F7F5F0">
+              <button onClick="{{ th.pick }}" style="width: 100%; text-align: left; display: block; padding: 13px 15px; border: none; border-bottom: 1px solid #E7DAC4; border-left: 3px solid {{ th.mark }}; background: {{ th.bg }}; cursor: pointer;" style-hover="background: #F4EADA">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <span style="font-size: 13.5px; font-weight: 600;">{{ th.name }}</span>
-                  <span style="font-size: 11px; color: #7C877F;">{{ th.channel }}</span>
-                  <span style="margin-left: auto; font-size: 11.5px; color: #7C877F;">{{ th.t }}</span>
+                  <span style="font-size: 11px; color: #8A7563;">{{ th.channel }}</span>
+                  <span style="margin-left: auto; font-size: 11.5px; color: #8A7563;">{{ th.t }}</span>
                 </div>
-                <div style="font-size: 12.5px; color: #4A554E; margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{ th.preview }}</div>
+                <div style="font-size: 12.5px; color: #4A3728; margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{ th.preview }}</div>
                 <div style="font-size: 11.5px; color: {{ th.stateFg }}; margin-top: 5px; font-weight: 500;">{{ th.state }}</div>
               </button>
             </sc-for>
           </div>
 
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 20px 22px;">
-            <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #EFEBE1;">
-              <div style="width: 34px; height: 34px; border-radius: 50%; background: #EAF1EC; color: #14603F; display: grid; place-items: center; font-size: 13px; font-weight: 600;">{{ thread.initials }}</div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 20px 22px;">
+            <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #E7DAC4;">
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: #F3E2E1; color: #7B1E22; display: grid; place-items: center; font-size: 13px; font-weight: 600;">{{ thread.initials }}</div>
               <div>
                 <div style="font-size: 14.5px; font-weight: 600;">{{ thread.name }}</div>
-                <div style="font-size: 12px; color: #7C877F;">{{ thread.channel }} · {{ thread.history }}</div>
+                <div style="font-size: 12px; color: #8A7563;">{{ thread.channel }} · {{ thread.history }}</div>
               </div>
               <div style="margin-left: auto; display: flex; gap: 6px;">
                 <sc-for list="{{ thread.tags }}" as="tg" hint-placeholder-count="2">
@@ -309,25 +276,25 @@ button[style*="background: rgb(234, 241, 236)"] {
             </div>
 
             <div style="padding: 16px 0; display: flex; flex-direction: column; gap: 12px;">
-              <div style="max-width: 78%; background: #F7F5F0; border-radius: 14px 14px 14px 4px; padding: 12px 14px; font-size: 13.5px; line-height: 1.55;">{{ thread.message }}</div>
-              <div style="font-size: 12px; color: #7C877F; padding-left: 4px;">{{ thread.read }}</div>
+              <div style="max-width: 78%; background: #F4EADA; border-radius: 14px 14px 14px 4px; padding: 12px 14px; font-size: 13.5px; line-height: 1.55;">{{ thread.message }}</div>
+              <div style="font-size: 12px; color: #8A7563; padding-left: 4px;">{{ thread.read }}</div>
             </div>
 
-            <div style="border: 1px solid #CFE0D5; background: #F4F8F5; border-radius: 12px; padding: 14px 15px;">
+            <div style="border: 1px solid #E4C9C8; background: #FAF3E7; border-radius: 12px; padding: 14px 15px;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 9px;">
-                <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #14603F;">Reply drafted for you</span>
-                <span style="font-size: 12px; color: #7C877F;">in your usual tone · Bangla + English</span>
+                <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #7B1E22;">Reply drafted for you</span>
+                <span style="font-size: 12px; color: #8A7563;">in your usual tone · Bangla + English</span>
               </div>
-              <div style="font-size: 13.5px; line-height: 1.65; color: #18211D; white-space: pre-wrap;">{{ thread.draft }}</div>
+              <div style="font-size: 13.5px; line-height: 1.65; color: #17120F; white-space: pre-wrap;">{{ thread.draft }}</div>
               <div style="display: flex; align-items: center; gap: 8px; margin-top: 13px;">
                 <sc-if value="{{ thread.unsent }}" hint-placeholder-val="{{ true }}">
-                  <button onClick="{{ thread.send }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Send reply</button>
+                  <button onClick="{{ thread.send }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Send reply</button>
                 </sc-if>
                 <sc-if value="{{ thread.sent }}" hint-placeholder-val="{{ false }}">
-                  <span style="padding: 9px 14px; border-radius: 9px; background: #EAF1EC; color: #14603F; font-size: 13px; font-weight: 600;">Sent {{ thread.sentAt }}</span>
+                  <span style="padding: 9px 14px; border-radius: 9px; background: #F3E2E1; color: #7B1E22; font-size: 13px; font-weight: 600;">Sent {{ thread.sentAt }}</span>
                 </sc-if>
-                <button style="padding: 9px 14px; border-radius: 9px; border: 1px solid #DFDACE; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Edit first</button>
-                <span style="margin-left: auto; font-size: 12px; color: #7C877F;">{{ thread.action }}</span>
+                <button style="padding: 9px 14px; border-radius: 9px; border: 1px solid #DACAB0; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Edit first</button>
+                <span style="margin-left: auto; font-size: 12px; color: #8A7563;">{{ thread.action }}</span>
               </div>
             </div>
           </div>
@@ -338,62 +305,62 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isStock }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1120px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Stock</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Snap a photo when stock arrives. Your team counts it, tracks what's selling, and tells you when to reorder — before you run out.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">Snap a photo when stock arrives. Your team counts it, tracks what's selling, and tells you when to reorder — before you run out.</p>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden; margin-bottom: 18px;">
-          <div style="display: grid; grid-template-columns: 76px minmax(0,1.4fr) 110px 120px 130px minmax(0,1fr); gap: 14px; padding: 11px 16px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden; margin-bottom: 18px;">
+          <div style="display: grid; grid-template-columns: 76px minmax(0,1.4fr) 110px 120px 130px minmax(0,1fr); gap: 14px; padding: 11px 16px; background: #FAF3E7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #8A7563;">
             <span></span><span>Item</span><span>In stock</span><span>Selling</span><span>Runs out</span><span>What to do</span>
           </div>
           <sc-for list="{{ stock }}" as="s" hint-placeholder-count="3">
-            <div style="display: grid; grid-template-columns: 76px minmax(0,1.4fr) 110px 120px 130px minmax(0,1fr); gap: 14px; padding: 14px 16px; border-top: 1px solid #EFEBE1; align-items: center;">
+            <div style="display: grid; grid-template-columns: 76px minmax(0,1.4fr) 110px 120px 130px minmax(0,1fr); gap: 14px; padding: 14px 16px; border-top: 1px solid #E7DAC4; align-items: center;">
               <div style="width: 52px; height: 52px; border-radius: 11px; background: {{ s.thumbBg }}; color: {{ s.thumbFg }}; display: grid; place-items: center; font-family: 'Instrument Serif', serif; font-size: 20px;">{{ s.initial }}</div>
               <div>
                 <div style="font-size: 14px; font-weight: 600;">{{ s.name }}</div>
-                <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">{{ s.sub }}</div>
+                <div style="font-size: 12px; color: #8A7563; margin-top: 2px;">{{ s.sub }}</div>
               </div>
               <div style="font-size: 14px; font-weight: 600; color: {{ s.qtyColor }};">{{ s.qty }}</div>
-              <div style="font-size: 13px; color: #4A554E;">{{ s.rate }}</div>
+              <div style="font-size: 13px; color: #4A3728;">{{ s.rate }}</div>
               <div style="font-size: 13px; color: {{ s.coverColor }}; font-weight: 500;">{{ s.cover }}</div>
-              <div style="font-size: 13px; color: #4A554E; line-height: 1.45;">{{ s.todo }}</div>
+              <div style="font-size: 13px; color: #4A3728; line-height: 1.45;">{{ s.todo }}</div>
             </div>
           </sc-for>
         </div>
 
         <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start;">
-          <div style="background: #FFFFFF; border: 1px solid {{ poBorder }}; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid {{ poBorder }}; border-radius: 14px; padding: 18px;">
             <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
               <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #B4741B; background: #FBF1E1; padding: 3px 8px; border-radius: 6px;">Reorder suggested</span>
-              <span style="font-size: 12px; color: #7C877F;">based on 4 weeks of sales + 312 pcs already promised</span>
+              <span style="font-size: 12px; color: #8A7563;">based on 4 weeks of sales + 312 pcs already promised</span>
             </div>
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Order 2,000 beef shingara and pilot 600 chicken</div>
-            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A554E; line-height: 1.6;">Karwan Bazar Foods delivers in 2 days — that lands before your beef runs out on Saturday. The chicken pilot answers 14 customers who asked for it this month; if it sells at ৳19 you keep ৳6.90 a piece.</p>
-            <div style="display: flex; gap: 22px; padding: 13px 15px; background: #F7F5F0; border-radius: 11px; margin-bottom: 15px;">
-              <div><div style="font-size: 11.5px; color: #7C877F;">Total cost</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳30,060</div></div>
-              <div><div style="font-size: 11.5px; color: #7C877F;">Already promised</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: #14603F;">৳5,616</div></div>
-              <div><div style="font-size: 11.5px; color: #7C877F;">Arrives</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Thu 14 Aug</div></div>
-              <div><div style="font-size: 11.5px; color: #7C877F;">Money back in</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">11 days</div></div>
+            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A3728; line-height: 1.6;">Karwan Bazar Foods delivers in 2 days — that lands before your beef runs out on Saturday. The chicken pilot answers 14 customers who asked for it this month; if it sells at ৳19 you keep ৳6.90 a piece.</p>
+            <div style="display: flex; gap: 22px; padding: 13px 15px; background: #F4EADA; border-radius: 11px; margin-bottom: 15px;">
+              <div><div style="font-size: 11.5px; color: #8A7563;">Total cost</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳30,060</div></div>
+              <div><div style="font-size: 11.5px; color: #8A7563;">Already promised</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: #7B1E22;">৳5,616</div></div>
+              <div><div style="font-size: 11.5px; color: #8A7563;">Arrives</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Thu 14 Aug</div></div>
+              <div><div style="font-size: 11.5px; color: #8A7563;">Money back in</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">11 days</div></div>
             </div>
             <sc-if value="{{ poOpen }}" hint-placeholder-val="{{ true }}">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <button onClick="{{ approvePo }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Send the order</button>
-                <button style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Change quantity</button>
-                <span style="margin-left: auto; font-size: 12px; color: #7C877F;">Nothing is ordered until you tap.</span>
+                <button onClick="{{ approvePo }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Send the order</button>
+                <button style="padding: 10px 14px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Change quantity</button>
+                <span style="margin-left: auto; font-size: 12px; color: #8A7563;">Nothing is ordered until you tap.</span>
               </div>
             </sc-if>
             <sc-if value="{{ poDone }}" hint-placeholder-val="{{ false }}">
-              <div style="padding: 12px 14px; border-radius: 10px; background: #EAF1EC; color: #14603F; font-size: 13.5px; line-height: 1.55;">Order sent to Karwan Bazar Foods · ref PO-9931. Delivery expected Thu 14 Aug, and your stock page will update itself when it arrives.</div>
+              <div style="padding: 12px 14px; border-radius: 10px; background: #F3E2E1; color: #7B1E22; font-size: 13.5px; line-height: 1.55;">Order sent to Karwan Bazar Foods · ref PO-9931. Delivery expected Thu 14 Aug, and your stock page will update itself when it arrives.</div>
             </sc-if>
           </div>
 
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 5px; font-size: 15px; font-weight: 600;">Add stock with a photo</h2>
-            <p style="margin: 0 0 13px; font-size: 13px; color: #7C877F; line-height: 1.55;">Drop a photo of what arrived. Your team recognises the item, asks only for the count, and updates everything else.</p>
+            <p style="margin: 0 0 13px; font-size: 13px; color: #8A7563; line-height: 1.55;">Drop a photo of what arrived. Your team recognises the item, asks only for the count, and updates everything else.</p>
             <div style="height: 150px; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
               <image-slot id="suite-stock-upload" shape="rounded" radius="12" placeholder="Drop a photo of new stock"></image-slot>
             </div>
             <div style="display: flex; gap: 8px;">
-              <input placeholder="How many pieces?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E5E0D6; font-size: 13px; background: #FBFAF7;" />
-              <button style="padding: 10px 14px; border-radius: 10px; border: none; background: #18211D; color: #F7F5F0; font-size: 13px; cursor: pointer;" style-hover="background: #14603F">Log it</button>
+              <input placeholder="How many pieces?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #DDCDB4; font-size: 13px; background: #FAF3E7;" />
+              <button style="padding: 10px 14px; border-radius: 10px; border: none; background: #17120F; color: #F4EADA; font-size: 13px; cursor: pointer;" style-hover="background: #7B1E22">Log it</button>
             </div>
           </div>
         </div>
@@ -403,34 +370,34 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isMarketing }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1120px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Marketing</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Posts and ads written and scheduled for you. Nothing goes out, and no money is spent, before you say yes.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">Posts and ads written and scheduled for you. Nothing goes out, and no money is spent, before you say yes.</p>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 22px;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">Spent this week</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳2,450</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">Sales from ads</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳11,880</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">৳4.85 back per ৳1</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">Cost per customer</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳37</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">under your ৳41 limit</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">People reached</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">18.4k</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">6 km around Mirpur</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #8A7563;">Spent this week</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳2,450</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #8A7563;">Sales from ads</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳11,880</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">৳4.85 back per ৳1</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #8A7563;">Cost per customer</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳37</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">under your ৳41 limit</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #8A7563;">People reached</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">18.4k</div><div style="font-size: 12px; color: #8A7563; margin-top: 2px;">6 km around Mirpur</div></div>
         </div>
 
         <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 600;">Waiting for your yes</h2>
-        <p style="margin: 0 0 13px; font-size: 13px; color: #7C877F;">Three posts written for this week's ৳350/day budget. Tap a photo box to use your own picture instead.</p>
+        <p style="margin: 0 0 13px; font-size: 13px; color: #8A7563;">Three posts written for this week's ৳350/day budget. Tap a photo box to use your own picture instead.</p>
         <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 16px;">
           <sc-for list="{{ creatives }}" as="c" hint-placeholder-count="3">
-            <div style="background: #FFFFFF; border: 1px solid {{ c.border }}; border-radius: 14px; overflow: hidden;">
+            <div style="background: #FDFAF4; border: 1px solid {{ c.border }}; border-radius: 14px; overflow: hidden;">
               <div style="height: 176px;">
                 <image-slot id="{{ c.slot }}" shape="rect" placeholder="{{ c.ph }}"></image-slot>
               </div>
               <div style="padding: 14px 15px;">
                 <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 8px;">
                   <span style="font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: {{ c.chanFg }};">{{ c.channel }}</span>
-                  <span style="font-size: 11.5px; color: #7C877F;">{{ c.spec }}</span>
+                  <span style="font-size: 11.5px; color: #8A7563;">{{ c.spec }}</span>
                 </div>
-                <div style="font-size: 13px; line-height: 1.6; color: #18211D; min-height: 84px;">{{ c.copy }}</div>
+                <div style="font-size: 13px; line-height: 1.6; color: #17120F; min-height: 84px;">{{ c.copy }}</div>
                 <div style="margin-top: 12px;">
                   <sc-if value="{{ c.pending }}" hint-placeholder-val="{{ true }}">
                     <div style="display: flex; gap: 7px;">
-                      <button onClick="{{ c.approve }}" style="flex: 1; padding: 9px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Publish</button>
-                      <button onClick="{{ c.skip }}" style="padding: 9px 12px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #A63A2E; color: #A63A2E">Skip</button>
+                      <button onClick="{{ c.approve }}" style="flex: 1; padding: 9px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Publish</button>
+                      <button onClick="{{ c.skip }}" style="padding: 9px 12px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #A63A2E; color: #A63A2E">Skip</button>
                     </div>
                   </sc-if>
                   <sc-if value="{{ c.settled }}" hint-placeholder-val="{{ false }}">
@@ -443,15 +410,15 @@ button[style*="background: rgb(234, 241, 236)"] {
         </div>
 
         <h2 style="margin: 22px 0 12px; font-size: 16px; font-weight: 600;">Already running</h2>
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
-          <div style="display: grid; grid-template-columns: minmax(0,1.5fr) 120px 120px 120px 130px; gap: 14px; padding: 11px 16px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: minmax(0,1.5fr) 120px 120px 120px 130px; gap: 14px; padding: 11px 16px; background: #FAF3E7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #8A7563;">
             <span>Campaign</span><span>Where</span><span>Spent</span><span>Orders</span><span>Status</span>
           </div>
           <sc-for list="{{ campaigns }}" as="cp" hint-placeholder-count="2">
-            <div style="display: grid; grid-template-columns: minmax(0,1.5fr) 120px 120px 120px 130px; gap: 14px; padding: 13px 16px; border-top: 1px solid #EFEBE1; align-items: center; font-size: 13.5px;">
-              <div><div style="font-weight: 600;">{{ cp.name }}</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">{{ cp.sub }}</div></div>
-              <span style="color: #4A554E;">{{ cp.where }}</span>
-              <span style="color: #4A554E;">{{ cp.spent }}</span>
+            <div style="display: grid; grid-template-columns: minmax(0,1.5fr) 120px 120px 120px 130px; gap: 14px; padding: 13px 16px; border-top: 1px solid #E7DAC4; align-items: center; font-size: 13.5px;">
+              <div><div style="font-weight: 600;">{{ cp.name }}</div><div style="font-size: 12px; color: #8A7563; margin-top: 2px;">{{ cp.sub }}</div></div>
+              <span style="color: #4A3728;">{{ cp.where }}</span>
+              <span style="color: #4A3728;">{{ cp.spent }}</span>
               <span style="font-weight: 600;">{{ cp.orders }}</span>
               <span style="font-size: 12.5px; color: {{ cp.stateFg }}; font-weight: 500;">{{ cp.state }}</span>
             </div>
@@ -463,40 +430,40 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isMoney }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1120px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Money</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">What each piece really costs you, what you keep, and what to charge when your costs move.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">What each piece really costs you, what you keep, and what to charge when your costs move.</p>
 
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 18px;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">One beef shingara, honestly costed</h2>
             <sc-for list="{{ costRows }}" as="cr" hint-placeholder-count="5">
-              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F1EEE6;">
-                <span style="font-size: 13.5px; color: #4A554E; flex: 1;">{{ cr.k }}</span>
-                <span style="width: 120px; height: 6px; border-radius: 3px; background: #F1EEE6; overflow: hidden;"><span style="display: block; height: 100%; width: {{ cr.pct }}%; background: {{ cr.color }};"></span></span>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #EFE2CE;">
+                <span style="font-size: 13.5px; color: #4A3728; flex: 1;">{{ cr.k }}</span>
+                <span style="width: 120px; height: 6px; border-radius: 3px; background: #EFE2CE; overflow: hidden;"><span style="display: block; height: 100%; width: {{ cr.pct }}%; background: {{ cr.color }};"></span></span>
                 <span style="font-size: 13.5px; font-weight: 600; width: 62px; text-align: right;">{{ cr.v }}</span>
               </div>
             </sc-for>
             <div style="display: flex; justify-content: space-between; padding-top: 13px; font-size: 14.5px; font-weight: 700;">
-              <span>You keep</span><span style="color: #14603F;">{{ keepPerPiece }}</span>
+              <span>You keep</span><span style="color: #7B1E22;">{{ keepPerPiece }}</span>
             </div>
           </div>
 
-          <div style="background: #FFFFFF; border: 1px solid {{ priceBorder }}; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid {{ priceBorder }}; border-radius: 14px; padding: 18px;">
             <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
               <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: {{ priceTagFg }}; background: {{ priceTagBg }}; padding: 3px 8px; border-radius: 6px;">{{ priceTag }}</span>
-              <span style="font-size: 12px; color: #7C877F;">checked against 14 nearby sellers</span>
+              <span style="font-size: 12px; color: #8A7563;">checked against 14 nearby sellers</span>
             </div>
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{ priceHeadline }}</div>
-            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A554E; line-height: 1.6;">{{ priceBody }}</p>
-            <div style="display: flex; gap: 20px; padding: 13px 15px; background: #F7F5F0; border-radius: 11px; margin-bottom: 15px;">
-              <div><div style="font-size: 11.5px; color: #7C877F;">12-pc pack</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ packPrice }}</div></div>
-              <div><div style="font-size: 11.5px; color: #7C877F;">You keep</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: {{ marginNoteColor }};">{{ marginNow }}</div></div>
-              <div><div style="font-size: 11.5px; color: #7C877F;">Wholesale</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳480</div></div>
-              <div><div style="font-size: 11.5px; color: #7C877F;">Nearest rival</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳20/pc</div></div>
+            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A3728; line-height: 1.6;">{{ priceBody }}</p>
+            <div style="display: flex; gap: 20px; padding: 13px 15px; background: #F4EADA; border-radius: 11px; margin-bottom: 15px;">
+              <div><div style="font-size: 11.5px; color: #8A7563;">12-pc pack</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ packPrice }}</div></div>
+              <div><div style="font-size: 11.5px; color: #8A7563;">You keep</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: {{ marginNoteColor }};">{{ marginNow }}</div></div>
+              <div><div style="font-size: 11.5px; color: #8A7563;">Wholesale</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳480</div></div>
+              <div><div style="font-size: 11.5px; color: #8A7563;">Nearest rival</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳20/pc</div></div>
             </div>
             <sc-if value="{{ priceOpen }}" hint-placeholder-val="{{ true }}">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <button onClick="{{ applyPrice }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Raise to ৳228</button>
-                <button onClick="{{ keepPrice }}" style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Keep ৳216 for now</button>
+                <button onClick="{{ applyPrice }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Raise to ৳228</button>
+                <button onClick="{{ keepPrice }}" style="padding: 10px 14px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Keep ৳216 for now</button>
               </div>
             </sc-if>
             <sc-if value="{{ priceSettled }}" hint-placeholder-val="{{ false }}">
@@ -505,16 +472,16 @@ button[style*="background: rgb(234, 241, 236)"] {
           </div>
         </div>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
-          <div style="padding: 15px 18px; border-bottom: 1px solid #EFEBE1; display: flex; align-items: baseline; gap: 10px;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
+          <div style="padding: 15px 18px; border-bottom: 1px solid #E7DAC4; display: flex; align-items: baseline; gap: 10px;">
             <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Last week, in plain numbers</h2>
-            <span style="font-size: 12.5px; color: #7C877F;">5–11 August</span>
+            <span style="font-size: 12.5px; color: #8A7563;">5–11 August</span>
           </div>
           <sc-for list="{{ pnl }}" as="p" hint-placeholder-count="5">
-            <div style="display: grid; grid-template-columns: minmax(0,1fr) 140px 160px; gap: 14px; padding: 12px 18px; border-bottom: 1px solid #F5F2EA; align-items: center;">
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) 140px 160px; gap: 14px; padding: 12px 18px; border-bottom: 1px solid #F2E6D4; align-items: center;">
               <span style="font-size: 13.5px; color: {{ p.keyColor }}; font-weight: {{ p.weight }};">{{ p.k }}</span>
               <span style="font-size: 14px; font-weight: {{ p.weight }}; color: {{ p.vColor }};">{{ p.v }}</span>
-              <span style="font-size: 12.5px; color: #7C877F;">{{ p.note }}</span>
+              <span style="font-size: 12.5px; color: #8A7563;">{{ p.note }}</span>
             </div>
           </sc-for>
         </div>
@@ -524,59 +491,59 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isGrow }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1120px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Grow</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Test an idea before you spend on it, and see what your own customers are already asking for.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">Test an idea before you spend on it, and see what your own customers are already asking for.</p>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 20px; margin-bottom: 18px; display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 20px; align-items: start;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 20px; margin-bottom: 18px; display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 20px; align-items: start;">
           <div>
             <div style="height: 210px; border-radius: 12px; overflow: hidden;">
               <image-slot id="suite-idea-photo" shape="rounded" radius="12" placeholder="Photo of your product idea"></image-slot>
             </div>
-            <div style="font-size: 12px; color: #7C877F; margin-top: 8px; text-align: center;">Drop a photo · or type the idea</div>
+            <div style="font-size: 12px; color: #8A7563; margin-top: 8px; text-align: center;">Drop a photo · or type the idea</div>
           </div>
           <div>
             <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
-              <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #14603F; background: #EAF1EC; padding: 3px 8px; border-radius: 6px;">Worth selling</span>
-              <span style="font-size: 12px; color: #7C877F;">checked yesterday · 14 sellers, 61 posts, your own chat history</span>
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #7B1E22; background: #F3E2E1; padding: 3px 8px; border-radius: 6px;">Worth selling</span>
+              <span style="font-size: 12px; color: #8A7563;">checked yesterday · 14 sellers, 61 posts, your own chat history</span>
             </div>
             <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">Chicken shingara, 58g — start with 600 pieces</h2>
-            <p style="margin: 0 0 16px; font-size: 14px; color: #4A554E; line-height: 1.65; max-width: 640px;">Fourteen of your own customers asked for it this month and nobody within 4 km sells it. Filling costs ৳0.70 more than beef, so at ৳19 a piece you keep slightly more than you do today. Start small: 600 pieces is under two days of your current sales, so a flop costs you ৳7,260, not your month.</p>
+            <p style="margin: 0 0 16px; font-size: 14px; color: #4A3728; line-height: 1.65; max-width: 640px;">Fourteen of your own customers asked for it this month and nobody within 4 km sells it. Filling costs ৳0.70 more than beef, so at ৳19 a piece you keep slightly more than you do today. Start small: 600 pieces is under two days of your current sales, so a flop costs you ৳7,260, not your month.</p>
             <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; max-width: 640px;">
-              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Asked for by</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">14 people</div></div>
-              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Rivals selling it</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">0 nearby</div></div>
-              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Suggested price</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px; color: #14603F;">৳19/pc</div></div>
-              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Risk if it flops</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">৳7,260</div></div>
+              <div style="border: 1px solid #DDCDB4; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #8A7563;">Asked for by</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">14 people</div></div>
+              <div style="border: 1px solid #DDCDB4; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #8A7563;">Rivals selling it</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">0 nearby</div></div>
+              <div style="border: 1px solid #DDCDB4; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #8A7563;">Suggested price</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px; color: #7B1E22;">৳19/pc</div></div>
+              <div style="border: 1px solid #DDCDB4; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #8A7563;">Risk if it flops</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">৳7,260</div></div>
             </div>
             <div style="display: flex; gap: 8px; margin-top: 16px;">
-              <button onClick="{{ goStock }}" style="padding: 10px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Add to the next order</button>
-              <button style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Show me the working</button>
+              <button onClick="{{ goStock }}" style="padding: 10px 15px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Add to the next order</button>
+              <button style="padding: 10px 14px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Show me the working</button>
             </div>
           </div>
         </div>
 
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">What customers keep asking for</h2>
-            <p style="margin: 0 0 14px; font-size: 12.5px; color: #7C877F;">Pulled from your own messages this month — none of these are in your list yet.</p>
+            <p style="margin: 0 0 14px; font-size: 12.5px; color: #8A7563;">Pulled from your own messages this month — none of these are in your list yet.</p>
             <sc-for list="{{ demands }}" as="d" hint-placeholder-count="3">
-              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid #F1EEE6;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid #EFE2CE;">
                 <div style="flex: 1;">
                   <div style="font-size: 13.5px; font-weight: 600;">{{ d.name }}</div>
-                  <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">{{ d.note }}</div>
+                  <div style="font-size: 12px; color: #8A7563; margin-top: 2px;">{{ d.note }}</div>
                 </div>
-                <span style="width: 90px; height: 6px; border-radius: 3px; background: #F1EEE6; overflow: hidden;"><span style="display: block; height: 100%; width: {{ d.pct }}%; background: #14603F;"></span></span>
+                <span style="width: 90px; height: 6px; border-radius: 3px; background: #EFE2CE; overflow: hidden;"><span style="display: block; height: 100%; width: {{ d.pct }}%; background: #7B1E22;"></span></span>
                 <span style="font-size: 13px; font-weight: 600; width: 34px; text-align: right;">{{ d.n }}</span>
               </div>
             </sc-for>
           </div>
 
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Who else sells near you</h2>
-            <p style="margin: 0 0 14px; font-size: 12.5px; color: #7C877F;">14 sellers within 4 km · median price ৳20 a piece.</p>
+            <p style="margin: 0 0 14px; font-size: 12.5px; color: #8A7563;">14 sellers within 4 km · median price ৳20 a piece.</p>
             <sc-for list="{{ rivals }}" as="r" hint-placeholder-count="4">
-              <div style="display: grid; grid-template-columns: minmax(0,1fr) 74px minmax(0,1fr); gap: 12px; padding: 11px 0; border-top: 1px solid #F1EEE6; align-items: center;">
+              <div style="display: grid; grid-template-columns: minmax(0,1fr) 74px minmax(0,1fr); gap: 12px; padding: 11px 0; border-top: 1px solid #EFE2CE; align-items: center;">
                 <span style="font-size: 13.5px;">{{ r.name }}</span>
                 <span style="font-size: 13.5px; font-weight: 600;">{{ r.price }}</span>
-                <span style="font-size: 12px; color: #7C877F;">{{ r.note }}</span>
+                <span style="font-size: 12px; color: #8A7563;">{{ r.note }}</span>
               </div>
             </sc-for>
           </div>
@@ -587,25 +554,25 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1000px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">History</h1>
-        <p style="margin: 0 0 20px; font-size: 14px; color: #4A554E;">Everything your team did, in order, with the reason behind it. Nothing happens that you can't read back later.</p>
+        <p style="margin: 0 0 20px; font-size: 14px; color: #4A3728;">Everything your team did, in order, with the reason behind it. Nothing happens that you can't read back later.</p>
 
         <div style="display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;">
           <sc-for list="{{ historyFilters }}" as="f" hint-placeholder-count="5">
-            <button onClick="{{ f.pick }}" style="padding: 7px 13px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #14603F">{{ f.label }}</button>
+            <button onClick="{{ f.pick }}" style="padding: 7px 13px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #7B1E22">{{ f.label }}</button>
           </sc-for>
         </div>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
           <sc-for list="{{ history }}" as="h" hint-placeholder-count="7">
-            <div onClick="{{ h.toggle }}" style="padding: 14px 18px; border-bottom: 1px solid #F1EEE6; cursor: pointer; background: {{ h.bg }};" style-hover="background: #FBFAF7">
+            <div onClick="{{ h.toggle }}" style="padding: 14px 18px; border-bottom: 1px solid #EFE2CE; cursor: pointer; background: {{ h.bg }};" style-hover="background: #FAF3E7">
               <div style="display: flex; align-items: center; gap: 11px;">
                 <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ h.dot }}; flex: none;"></span>
-                <span style="font-size: 13.5px; color: #18211D; flex: 1;">{{ h.text }}</span>
-                <span style="font-size: 11.5px; color: #7C877F;">{{ h.by }}</span>
-                <span style="font-size: 11.5px; color: #A19B8E; width: 62px; text-align: right;">{{ h.t }}</span>
+                <span style="font-size: 13.5px; color: #17120F; flex: 1;">{{ h.text }}</span>
+                <span style="font-size: 11.5px; color: #8A7563;">{{ h.by }}</span>
+                <span style="font-size: 11.5px; color: #A89680; width: 62px; text-align: right;">{{ h.t }}</span>
               </div>
               <sc-if value="{{ h.open }}" hint-placeholder-val="{{ false }}">
-                <div style="margin: 11px 0 2px 19px; padding: 12px 14px; background: #F7F5F0; border-radius: 10px; font-size: 13px; color: #4A554E; line-height: 1.65;">{{ h.why }}</div>
+                <div style="margin: 11px 0 2px 19px; padding: 12px 14px; background: #F4EADA; border-radius: 10px; font-size: 13px; color: #4A3728; line-height: 1.65;">{{ h.why }}</div>
               </sc-if>
             </div>
           </sc-for>
@@ -616,54 +583,54 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1000px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Settings</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Decide how much your team may do on its own. You can change this any day, and every rule is reversible.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">Decide how much your team may do on its own. You can change this any day, and every rule is reversible.</p>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 20px; margin-bottom: 16px;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 20px; margin-bottom: 16px;">
           <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">How much freedom?</h2>
-          <p style="margin: 0 0 14px; font-size: 12.5px; color: #7C877F;">This sets the switches below in one move.</p>
+          <p style="margin: 0 0 14px; font-size: 12.5px; color: #8A7563;">This sets the switches below in one move.</p>
           <div style="display: flex; gap: 8px;">
             <sc-for list="{{ autopilotOptions }}" as="a" hint-placeholder-count="3">
-              <button onClick="{{ a.pick }}" style="flex: 1; text-align: left; padding: 14px 15px; border-radius: 12px; border: 1px solid {{ a.border }}; background: {{ a.bg }}; cursor: pointer;" style-hover="border-color: #14603F">
+              <button onClick="{{ a.pick }}" style="flex: 1; text-align: left; padding: 14px 15px; border-radius: 12px; border: 1px solid {{ a.border }}; background: {{ a.bg }}; cursor: pointer;" style-hover="border-color: #7B1E22">
                 <div style="font-size: 14px; font-weight: 600; color: {{ a.fg }};">{{ a.label }}</div>
-                <div style="font-size: 12.5px; color: #7C877F; margin-top: 4px; line-height: 1.5;">{{ a.note }}</div>
+                <div style="font-size: 12.5px; color: #8A7563; margin-top: 4px; line-height: 1.5;">{{ a.note }}</div>
               </button>
             </sc-for>
           </div>
         </div>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden; margin-bottom: 16px;">
-          <div style="padding: 15px 18px; border-bottom: 1px solid #EFEBE1; font-size: 15px; font-weight: 600;">What it may do without asking</div>
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden; margin-bottom: 16px;">
+          <div style="padding: 15px 18px; border-bottom: 1px solid #E7DAC4; font-size: 15px; font-weight: 600;">What it may do without asking</div>
           <sc-for list="{{ permissions }}" as="p" hint-placeholder-count="5">
-            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #F5F2EA;">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #F2E6D4;">
               <div style="flex: 1;">
                 <div style="font-size: 13.5px; font-weight: 600;">{{ p.label }}</div>
-                <div style="font-size: 12.5px; color: #7C877F; margin-top: 2px;">{{ p.note }}</div>
+                <div style="font-size: 12.5px; color: #8A7563; margin-top: 2px;">{{ p.note }}</div>
               </div>
               <button onClick="{{ p.toggle }}" style="width: 46px; height: 26px; border-radius: 999px; border: none; background: {{ p.trackBg }}; position: relative; cursor: pointer; flex: none;">
-                <span style="position: absolute; top: 3px; left: {{ p.knobLeft }}px; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .16s ease;"></span>
+                <span style="position: absolute; top: 3px; left: {{ p.knobLeft }}px; width: 20px; height: 20px; border-radius: 50%; background: #FDFAF4; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .16s ease;"></span>
               </button>
             </div>
           </sc-for>
         </div>
 
         <div style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Connected accounts</h2>
             <sc-for list="{{ channels }}" as="ch" hint-placeholder-count="5">
-              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #F1EEE6;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #EFE2CE;">
                 <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ ch.dot }};"></span>
                 <span style="font-size: 13.5px; flex: 1;">{{ ch.name }}</span>
                 <span style="font-size: 12px; color: {{ ch.fg }};">{{ ch.state }}</span>
               </div>
             </sc-for>
           </div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Spending limits</h2>
             <div style="display: flex; flex-direction: column; gap: 13px;">
-              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A554E;">Ads per day</span><span style="font-size: 14px; font-weight: 600;">৳350</span></div>
-              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A554E;">Stock order without asking</span><span style="font-size: 14px; font-weight: 600;">৳5,000</span></div>
-              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A554E;">Discount it may offer</span><span style="font-size: 14px; font-weight: 600;">up to 10%</span></div>
-              <div style="padding-top: 12px; border-top: 1px solid #F1EEE6; font-size: 12.5px; color: #7C877F; line-height: 1.55;">Anything above a limit becomes a decision on your Today page instead of an action.</div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A3728;">Ads per day</span><span style="font-size: 14px; font-weight: 600;">৳350</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A3728;">Stock order without asking</span><span style="font-size: 14px; font-weight: 600;">৳5,000</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A3728;">Discount it may offer</span><span style="font-size: 14px; font-weight: 600;">up to 10%</span></div>
+              <div style="padding-top: 12px; border-top: 1px solid #EFE2CE; font-size: 12.5px; color: #8A7563; line-height: 1.55;">Anything above a limit becomes a decision on your Today page instead of an action.</div>
             </div>
           </div>
         </div>
@@ -675,24 +642,24 @@ button[style*="background: rgb(234, 241, 236)"] {
         <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 22px;">
           <div>
             <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">The workforce</h1>
-            <p style="margin: 0; font-size: 14px; color: #4A554E; max-width: 680px;">One supervisor routes every request to eight specialists. They hand work to each other, write to one shared memory, and stop at your gates.</p>
+            <p style="margin: 0; font-size: 14px; color: #4A3728; max-width: 680px;">One supervisor routes every request to eight specialists. They hand work to each other, write to one shared memory, and stop at your gates.</p>
           </div>
           <div style="margin-left: auto; display: flex; gap: 8px;">
-            <button onClick="{{ goRuns }}" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; font-size: 13px; color: #4A554E; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Watch a run</button>
+            <button onClick="{{ goRuns }}" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #DDCDB4; background: #FDFAF4; font-size: 13px; color: #4A3728; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Watch a run</button>
           </div>
         </div>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px; margin-bottom: 16px;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px; margin-bottom: 16px;">
           <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
             <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Execution graph</h2>
-            <span style="font-size: 12.5px; color: #7C877F;">{{ graphCaption }}</span>
-            <div style="margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #7C877F;">
-              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #14603F;"></span>working now</span>
-              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #9EB3A4;"></span>used this run</span>
+            <span style="font-size: 12.5px; color: #8A7563;">{{ graphCaption }}</span>
+            <div style="margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #8A7563;">
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #7B1E22;"></span>working now</span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #B79E86;"></span>used this run</span>
               <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: #B4741B;"></span>your gate</span>
             </div>
           </div>
-          <div style="position: relative; width: 100%; aspect-ratio: 900 / 440; background: #FBFAF7; border: 1px solid #EFEBE1; border-radius: 12px; overflow: hidden;">
+          <div style="position: relative; width: 100%; aspect-ratio: 900 / 440; background: #FAF3E7; border: 1px solid #E7DAC4; border-radius: 12px; overflow: hidden;">
             <svg viewBox="0 0 900 440" style="position: absolute; inset: 0; width: 100%; height: 100%;">
               <sc-for list="{{ edges }}" as="e" hint-placeholder-count="12">
                 <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}"></line>
@@ -704,27 +671,27 @@ button[style*="background: rgb(234, 241, 236)"] {
                   <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ n.dot }}; flex: none;"></span>
                   <span style="font-size: 12px; font-weight: 600; color: {{ n.fg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ n.name }}</span>
                 </div>
-                <div style="font-size: 11px; color: #7C877F; margin-top: 3px;">{{ n.state }}</div>
+                <div style="font-size: 11px; color: #8A7563; margin-top: 3px;">{{ n.state }}</div>
               </div>
             </sc-for>
           </div>
         </div>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
-          <div style="display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.3fr) 96px 104px; gap: 14px; padding: 11px 18px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.3fr) 96px 104px; gap: 14px; padding: 11px 18px; background: #FAF3E7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #8A7563;">
             <span>Agent</span><span>What it owns</span><span>Tools it may call</span><span>Calls today</span><span>Status</span>
           </div>
           <sc-for list="{{ roster }}" as="a" hint-placeholder-count="9">
-            <div style="display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.3fr) 96px 104px; gap: 14px; padding: 13px 18px; border-top: 1px solid #EFEBE1; align-items: center;">
+            <div style="display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.3fr) 96px 104px; gap: 14px; padding: 13px 18px; border-top: 1px solid #E7DAC4; align-items: center;">
               <div style="display: flex; align-items: center; gap: 9px;">
                 <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ a.dot }}; flex: none;"></span>
                 <div>
                   <div style="font-size: 13.5px; font-weight: 600;">{{ a.name }}</div>
-                  <div style="font-size: 11.5px; color: #7C877F; margin-top: 1px;">{{ a.kind }}</div>
+                  <div style="font-size: 11.5px; color: #8A7563; margin-top: 1px;">{{ a.kind }}</div>
                 </div>
               </div>
-              <span style="font-size: 13px; color: #4A554E; line-height: 1.45;">{{ a.owns }}</span>
-              <span style="font-size: 12px; color: #7C877F; line-height: 1.45;">{{ a.tools }}</span>
+              <span style="font-size: 13px; color: #4A3728; line-height: 1.45;">{{ a.owns }}</span>
+              <span style="font-size: 12px; color: #8A7563; line-height: 1.45;">{{ a.tools }}</span>
               <span style="font-size: 13.5px; font-weight: 600;">{{ a.calls }}</span>
               <span style="font-size: 12.5px; font-weight: 500; color: {{ a.stateFg }};">{{ a.state }}</span>
             </div>
@@ -738,20 +705,20 @@ button[style*="background: rgb(234, 241, 236)"] {
         <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 20px;">
           <div>
             <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Runs</h1>
-            <p style="margin: 0; font-size: 14px; color: #4A554E;">Replay any job step by step: who was asked, what tool ran, what got written down, where it stopped for a human.</p>
+            <p style="margin: 0; font-size: 14px; color: #4A3728;">Replay any job step by step: who was asked, what tool ran, what got written down, where it stopped for a human.</p>
           </div>
           <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 12.5px; color: #7C877F;">{{ runMeta }}</span>
+            <span style="font-size: 12.5px; color: #8A7563;">{{ runMeta }}</span>
             <button onClick="{{ togglePlay }}" style="padding: 9px 15px; border-radius: 10px; border: none; background: {{ playBg }}; color: {{ playFg }}; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="filter: brightness(1.06)">{{ playLabel }}</button>
-            <button onClick="{{ stepNext }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Next step</button>
-            <button onClick="{{ stepBack }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Retry step</button>
-            <button onClick="{{ resetRun }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Restart</button>
+            <button onClick="{{ stepNext }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Next step</button>
+            <button onClick="{{ stepBack }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Retry step</button>
+            <button onClick="{{ resetRun }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #4A3728; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Restart</button>
           </div>
         </div>
 
         <div style="display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;">
           <sc-for list="{{ runTabs }}" as="r" hint-placeholder-count="4">
-            <button onClick="{{ r.pick }}" style="padding: 8px 13px; border-radius: 999px; border: 1px solid {{ r.border }}; background: {{ r.bg }}; color: {{ r.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #14603F">{{ r.label }}</button>
+            <button onClick="{{ r.pick }}" style="padding: 8px 13px; border-radius: 999px; border: 1px solid {{ r.border }}; background: {{ r.bg }}; color: {{ r.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #7B1E22">{{ r.label }}</button>
           </sc-for>
         </div>
 
@@ -759,72 +726,72 @@ button[style*="background: rgb(234, 241, 236)"] {
           <div>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               <sc-for list="{{ steps }}" as="st" hint-placeholder-count="6">
-                <div onClick="{{ st.toggle }}" style="background: #FFFFFF; border: 1px solid {{ st.border }}; border-left: 3px solid {{ st.mark }}; border-radius: 12px; padding: 12px 14px; cursor: pointer; animation: fadeUp .22s ease both;" style-hover="border-color: #CFC8B8">
+                <div onClick="{{ st.toggle }}" style="background: #FDFAF4; border: 1px solid {{ st.border }}; border-left: 3px solid {{ st.mark }}; border-radius: 12px; padding: 12px 14px; cursor: pointer; animation: fadeUp .22s ease both;" style-hover="border-color: #C7B499">
                   <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 11.5px; color: #A19B8E; width: 52px;">{{ st.t }}</span>
-                    <span style="font-size: 11.5px; font-weight: 600; color: #14603F; width: 108px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ st.agent }}</span>
+                    <span style="font-size: 11.5px; color: #A89680; width: 52px;">{{ st.t }}</span>
+                    <span style="font-size: 11.5px; font-weight: 600; color: #7B1E22; width: 108px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ st.agent }}</span>
                     <span style="font-size: 11px; padding: 3px 7px; border-radius: 6px; background: {{ st.kindBg }}; color: {{ st.kindFg }}; font-weight: 600;">{{ st.kind }}</span>
-                    <span style="font-size: 13px; color: #18211D; flex: 1;">{{ st.title }}</span>
-                    <span style="font-size: 11.5px; color: #A19B8E;">{{ st.meta }}</span>
+                    <span style="font-size: 13px; color: #17120F; flex: 1;">{{ st.title }}</span>
+                    <span style="font-size: 11.5px; color: #A89680;">{{ st.meta }}</span>
                   </div>
                   <sc-if value="{{ st.open }}" hint-placeholder-val="{{ false }}">
-                    <div style="margin-top: 10px; padding: 12px 14px; background: #FBFAF7; border: 1px solid #EFEBE1; border-radius: 10px; font-size: 12.5px; color: #4A554E; line-height: 1.7; white-space: pre-wrap;">{{ st.detail }}</div>
+                    <div style="margin-top: 10px; padding: 12px 14px; background: #FAF3E7; border: 1px solid #E7DAC4; border-radius: 10px; font-size: 12.5px; color: #4A3728; line-height: 1.7; white-space: pre-wrap;">{{ st.detail }}</div>
                   </sc-if>
                 </div>
               </sc-for>
             </div>
             <sc-if value="{{ gateWaiting }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top: 10px; background: #FFFFFF; border: 1px solid #DCD3BE; border-radius: 12px; padding: 15px 16px;">
+              <div style="margin-top: 10px; background: #FDFAF4; border: 1px solid #D6C4A8; border-radius: 12px; padding: 15px 16px;">
                 <div style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #B4741B; margin-bottom: 7px;">Stopped for a human</div>
                 <div style="font-size: 14.5px; font-weight: 600; margin-bottom: 5px;">{{ gateTitle }}</div>
-                <div style="font-size: 13px; color: #4A554E; line-height: 1.6; margin-bottom: 13px;">{{ gateBody }}</div>
+                <div style="font-size: 13px; color: #4A3728; line-height: 1.6; margin-bottom: 13px;">{{ gateBody }}</div>
                 <div style="display: flex; gap: 8px;">
-                  <button onClick="{{ approveGate }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Approve &amp; resume</button>
-                  <button onClick="{{ rejectGate }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #A63A2E; font-size: 13px; cursor: pointer;" style-hover="border-color: #A63A2E">Reject</button>
+                  <button onClick="{{ approveGate }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #7B1E22; color: #F4EADA; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Approve &amp; resume</button>
+                  <button onClick="{{ rejectGate }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid #DDCDB4; background: #FDFAF4; color: #A63A2E; font-size: 13px; cursor: pointer;" style-hover="border-color: #A63A2E">Reject</button>
                 </div>
               </div>
             </sc-if>
             <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}">
-              <div style="margin-top: 10px; background: #EAF1EC; border: 1px solid #CFE0D5; border-radius: 12px; padding: 14px 16px; font-size: 13px; color: #14603F; line-height: 1.6;">Run finished. Every handoff and write is saved, so this run can be replayed or resumed from any step.</div>
+              <div style="margin-top: 10px; background: #F3E2E1; border: 1px solid #E4C9C8; border-radius: 12px; padding: 14px 16px; font-size: 13px; color: #7B1E22; line-height: 1.6;">Run finished. Every handoff and write is saved, so this run can be replayed or resumed from any step.</div>
             </sc-if>
           </div>
 
           <div style="display: flex; flex-direction: column; gap: 16px;">
-            <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 16px 17px;">
+            <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 16px 17px;">
               <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Handoffs between agents</h2>
-              <p style="margin: 0 0 12px; font-size: 12.5px; color: #7C877F;">The exact task each agent passed on.</p>
+              <p style="margin: 0 0 12px; font-size: 12.5px; color: #8A7563;">The exact task each agent passed on.</p>
               <div style="display: flex; flex-direction: column; gap: 10px;">
                 <sc-for list="{{ handoffs }}" as="h" hint-placeholder-count="2">
-                  <div style="border: 1px solid #EFEBE1; border-radius: 11px; overflow: hidden;">
-                    <div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #FBFAF7;">
+                  <div style="border: 1px solid #E7DAC4; border-radius: 11px; overflow: hidden;">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #FAF3E7;">
                       <span style="font-size: 12px; font-weight: 600;">{{ h.from }}</span>
-                      <span style="color: #A19B8E;">→</span>
+                      <span style="color: #A89680;">→</span>
                       <span style="font-size: 12px; font-weight: 600;">{{ h.to }}</span>
-                      <span style="margin-left: auto; font-size: 11.5px; color: #A19B8E;">{{ h.t }}</span>
+                      <span style="margin-left: auto; font-size: 11.5px; color: #A89680;">{{ h.t }}</span>
                     </div>
-                    <pre style="margin: 0; padding: 11px 12px; font-size: 11.5px; line-height: 1.65; color: #4A554E; white-space: pre-wrap; font-family: ui-monospace, monospace;">{{ h.payload }}</pre>
+                    <pre style="margin: 0; padding: 11px 12px; font-size: 11.5px; line-height: 1.65; color: #4A3728; white-space: pre-wrap; font-family: ui-monospace, monospace;">{{ h.payload }}</pre>
                   </div>
                 </sc-for>
                 <sc-if value="{{ noHandoffs }}" hint-placeholder-val="{{ false }}">
-                  <div style="font-size: 12.5px; color: #7C877F;">No handoff yet in this run.</div>
+                  <div style="font-size: 12.5px; color: #8A7563;">No handoff yet in this run.</div>
                 </sc-if>
               </div>
             </div>
 
-            <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
-              <div style="display: flex; align-items: center; gap: 10px; padding: 14px 17px; border-bottom: 1px solid #EFEBE1;">
+            <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 14px 17px; border-bottom: 1px solid #E7DAC4;">
                 <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Logs</h2>
                 <div style="margin-left: auto; display: flex; gap: 4px;">
                   <sc-for list="{{ logFilters }}" as="f" hint-placeholder-count="4">
-                    <button onClick="{{ f.pick }}" style="padding: 5px 10px; border-radius: 7px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 11.5px; cursor: pointer;" style-hover="border-color: #14603F">{{ f.label }}</button>
+                    <button onClick="{{ f.pick }}" style="padding: 5px 10px; border-radius: 7px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 11.5px; cursor: pointer;" style-hover="border-color: #7B1E22">{{ f.label }}</button>
                   </sc-for>
                 </div>
               </div>
               <sc-for list="{{ logs }}" as="l" hint-placeholder-count="6">
-                <div style="display: grid; grid-template-columns: 54px 52px minmax(0,1fr); gap: 10px; padding: 9px 17px; border-bottom: 1px solid #F5F2EA; font-size: 11.5px; align-items: baseline; font-family: ui-monospace, monospace;">
-                  <span style="color: #A19B8E;">{{ l.t }}</span>
+                <div style="display: grid; grid-template-columns: 54px 52px minmax(0,1fr); gap: 10px; padding: 9px 17px; border-bottom: 1px solid #F2E6D4; font-size: 11.5px; align-items: baseline; font-family: ui-monospace, monospace;">
+                  <span style="color: #A89680;">{{ l.t }}</span>
                   <span style="color: {{ l.fg }}; font-weight: 600;">{{ l.level }}</span>
-                  <span style="color: #4A554E; line-height: 1.5;">{{ l.msg }}</span>
+                  <span style="color: #4A3728; line-height: 1.5;">{{ l.msg }}</span>
                 </div>
               </sc-for>
             </div>
@@ -836,36 +803,36 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isBrain }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1120px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Shared memory</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">One knowledge base every agent reads and writes. It is why the reporting agent knows what the research agent found three weeks ago.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">One knowledge base every agent reads and writes. It is why the reporting agent knows what the research agent found three weeks ago.</p>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
           <sc-for list="{{ stores }}" as="st" hint-placeholder-count="4">
-            <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
-              <div style="font-size: 11.5px; color: #7C877F;">{{ st.kind }}</div>
+            <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
+              <div style="font-size: 11.5px; color: #8A7563;">{{ st.kind }}</div>
               <div style="font-size: 14px; font-weight: 600; margin: 4px 0 6px;">{{ st.name }}</div>
               <div style="font-family: 'Instrument Serif', serif; font-size: 24px;">{{ st.count }}</div>
-              <div style="font-size: 11.5px; color: #7C877F; margin-top: 2px;">{{ st.unit }}</div>
+              <div style="font-size: 11.5px; color: #8A7563; margin-top: 2px;">{{ st.unit }}</div>
             </div>
           </sc-for>
         </div>
 
         <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;">
           <sc-for list="{{ memFilters }}" as="f" hint-placeholder-count="5">
-            <button onClick="{{ f.pick }}" style="padding: 7px 13px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #14603F">{{ f.label }}</button>
+            <button onClick="{{ f.pick }}" style="padding: 7px 13px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #7B1E22">{{ f.label }}</button>
           </sc-for>
         </div>
 
-        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
-          <div style="display: grid; grid-template-columns: 168px 170px minmax(0,1fr) 128px 96px; gap: 14px; padding: 11px 18px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+        <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 168px 170px minmax(0,1fr) 128px 96px; gap: 14px; padding: 11px 18px; background: #FAF3E7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #8A7563;">
             <span>Store</span><span>Key</span><span>What is remembered</span><span>Written by</span><span>When</span>
           </div>
           <sc-for list="{{ records }}" as="r" hint-placeholder-count="8">
-            <div style="display: grid; grid-template-columns: 168px 170px minmax(0,1fr) 128px 96px; gap: 14px; padding: 12px 18px; border-top: 1px solid #EFEBE1; align-items: center;">
+            <div style="display: grid; grid-template-columns: 168px 170px minmax(0,1fr) 128px 96px; gap: 14px; padding: 12px 18px; border-top: 1px solid #E7DAC4; align-items: center;">
               <span style="font-size: 11.5px; color: {{ r.storeFg }}; font-family: ui-monospace, monospace;">{{ r.store }}</span>
-              <span style="font-size: 11.5px; color: #7C877F; font-family: ui-monospace, monospace;">{{ r.key }}</span>
-              <span style="font-size: 13px; color: #18211D; line-height: 1.45;">{{ r.value }}</span>
-              <span style="font-size: 12px; color: #7C877F;">{{ r.by }}</span>
-              <span style="font-size: 11.5px; color: #A19B8E;">{{ r.when }}</span>
+              <span style="font-size: 11.5px; color: #8A7563; font-family: ui-monospace, monospace;">{{ r.key }}</span>
+              <span style="font-size: 13px; color: #17120F; line-height: 1.45;">{{ r.value }}</span>
+              <span style="font-size: 12px; color: #8A7563;">{{ r.by }}</span>
+              <span style="font-size: 11.5px; color: #A89680;">{{ r.when }}</span>
             </div>
           </sc-for>
         </div>
@@ -875,41 +842,41 @@ button[style*="background: rgb(234, 241, 236)"] {
     <sc-if value="{{ isUsage }}" hint-placeholder-val="{{ false }}">
       <div style="padding: 30px 36px; max-width: 1060px;">
         <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Usage &amp; cost</h1>
-        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">What running this workforce costs, agent by agent — and what breaks when a third-party service does.</p>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A3728;">What running this workforce costs, agent by agent — and what breaks when a third-party service does.</p>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">Today</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$0.61</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">118k tokens · 4 runs</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">This month</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$11.20</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">≈ ৳1,344 · under $20 cap</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">Cost per decision</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$0.15</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">4 gates cleared today</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">Failures caught</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">3</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">0 stopped a workflow</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #8A7563;">Today</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$0.61</div><div style="font-size: 12px; color: #8A7563; margin-top: 2px;">118k tokens · 4 runs</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #8A7563;">This month</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$11.20</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">≈ ৳1,344 · under $20 cap</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #8A7563;">Cost per decision</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$0.15</div><div style="font-size: 12px; color: #8A7563; margin-top: 2px;">4 gates cleared today</div></div>
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #8A7563;">Failures caught</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">3</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">0 stopped a workflow</div></div>
         </div>
 
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start;">
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Where the tokens went today</h2>
             <sc-for list="{{ costBars }}" as="c" hint-placeholder-count="6">
               <div style="padding: 8px 0;">
-                <div style="display: flex; justify-content: space-between; font-size: 12.5px; color: #4A554E; margin-bottom: 4px;">
-                  <span>{{ c.name }}</span><span style="color: #7C877F;">{{ c.tok }} · {{ c.cost }}</span>
+                <div style="display: flex; justify-content: space-between; font-size: 12.5px; color: #4A3728; margin-bottom: 4px;">
+                  <span>{{ c.name }}</span><span style="color: #8A7563;">{{ c.tok }} · {{ c.cost }}</span>
                 </div>
-                <div style="height: 6px; border-radius: 3px; background: #F1EEE6; overflow: hidden;"><div style="height: 100%; width: {{ c.pct }}%; background: {{ c.color }};"></div></div>
+                <div style="height: 6px; border-radius: 3px; background: #EFE2CE; overflow: hidden;"><div style="height: 100%; width: {{ c.pct }}%; background: {{ c.color }};"></div></div>
               </div>
             </sc-for>
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #F1EEE6; font-size: 12.5px; color: #7C877F; line-height: 1.55;">Vision calls are billed per photo, which is why product checks cost more than replies. Routine replies are answered from memory, not fresh research.</div>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #EFE2CE; font-size: 12.5px; color: #8A7563; line-height: 1.55;">Vision calls are billed per photo, which is why product checks cost more than replies. Routine replies are answered from memory, not fresh research.</div>
           </div>
 
-          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
-            <div style="padding: 15px 18px; border-bottom: 1px solid #EFEBE1;">
+          <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; overflow: hidden;">
+            <div style="padding: 15px 18px; border-bottom: 1px solid #E7DAC4;">
               <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Failures and what happened next</h2>
             </div>
             <sc-for list="{{ failures }}" as="f" hint-placeholder-count="3">
-              <div style="padding: 14px 18px; border-bottom: 1px solid #F5F2EA;">
+              <div style="padding: 14px 18px; border-bottom: 1px solid #F2E6D4;">
                 <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 5px;">
                   <span style="font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 6px; background: {{ f.tagBg }}; color: {{ f.tagFg }};">{{ f.level }}</span>
                   <span style="font-size: 13px; font-weight: 600;">{{ f.what }}</span>
-                  <span style="margin-left: auto; font-size: 11.5px; color: #A19B8E;">{{ f.t }}</span>
+                  <span style="margin-left: auto; font-size: 11.5px; color: #A89680;">{{ f.t }}</span>
                 </div>
-                <div style="font-size: 12.5px; color: #4A554E; line-height: 1.6;">{{ f.fix }}</div>
+                <div style="font-size: 12.5px; color: #4A3728; line-height: 1.6;">{{ f.fix }}</div>
               </div>
             </sc-for>
           </div>
@@ -970,9 +937,9 @@ const THREADS = (window.LUCIDA && window.LUCIDA.threads && window.LUCIDA.threads
   { id: 't1', name: 'Nusrat Jahan', initials: 'NJ', channel: 'Messenger', t: '17:52', history: '4th order · joined June',
     preview: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
     message: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
-    state: 'Order found · needs your word on chicken', stateFg: '#B4741B', mark: '#14603F',
+    state: 'Order found · needs your word on chicken', stateFg: '#B4741B', mark: '#7B1E22',
     read: 'Understood as: 24 pieces for Friday, and a request for chicken.',
-    tags: [['Repeat buyer', '#EAF1EC', '#14603F'], ['Wants chicken', '#FBF1E1', '#B4741B']],
+    tags: [['Repeat buyer', '#F3E2E1', '#7B1E22'], ['Wants chicken', '#FBF1E1', '#B4741B']],
     draft: 'Nusrat apu, 24 pcs Friday sokal e ready thakbe — ৳432, cash on delivery.\n\nChicken shingara ekhono nei, kintu apnar motoi onekei chaiche — samne shoptahe test batch ashche. Ami apnar naam list e rakhlam, first e apnake janabo.',
     action: 'Adds 24 pcs to Friday and puts her on the chicken list.' },
   { id: 't2', name: 'Shahana Begum', initials: 'SB', channel: 'Messenger', t: '16:44', history: '2nd order · Pallabi',
@@ -980,77 +947,77 @@ const THREADS = (window.LUCIDA && window.LUCIDA.threads && window.LUCIDA.threads
     message: 'Kal delivery ashe nai, 3 din hoye gelo. Pallabi te ki deliver koren na?',
     state: 'Upset · refund needs you', stateFg: '#A63A2E', mark: '#A63A2E',
     read: 'Understood as: a delivery that never arrived, third day waiting.',
-    tags: [['Complaint', '#F8E9E6', '#A63A2E'], ['Courier fault', '#F1EEE6', '#4A554E']],
+    tags: [['Complaint', '#F8E9E6', '#A63A2E'], ['Courier fault', '#EFE2CE', '#4A3728']],
     draft: 'Shahana apu, amar dosh — courier apnar parcel Pallabi hub e atke rekhechilo. Aj bikel 5 tar age apnar ghore pouche jabe, ar delivery charge ta ami nichchi na.\n\nJodi aj o na pouchay, puro taka ferot deb.',
     action: 'Waives ৳60 delivery. A refund above ৳500 would need your approval.' },
   { id: 't3', name: 'Tanvir Hasan', initials: 'TH', channel: 'Instagram', t: '17:20', history: 'First time',
     preview: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.',
     message: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.',
-    state: 'Answered automatically · 50 pcs logged', stateFg: '#14603F', mark: '#C9C3B4',
+    state: 'Answered automatically · 50 pcs logged', stateFg: '#7B1E22', mark: '#CBB99E',
     read: 'Understood as: a reheating question plus a 50-piece office order.',
-    tags: [['New customer', '#EAF1EC', '#14603F'], ['Bulk', '#F1EEE6', '#4A554E']],
+    tags: [['New customer', '#F3E2E1', '#7B1E22'], ['Bulk', '#EFE2CE', '#4A3728']],
     draft: 'Bhai, freezer theke direct 180°C te 6 minute — crispy thake, ager theke better. 50 pcs holo 4 ta 12-pc pack + 2 pcs extra, ami 50 pcs e ৳880 rakhlam.\n\nOffice address ta din, kal dupur er age pouche debo.',
     action: 'Already sent at 17:21 — inside your autopilot rules.' },
   { id: 't4', name: 'Rakib Ahmed', initials: 'RA', channel: 'Instagram', t: '15:58', history: 'Reseller enquiry',
     preview: '30 pcs pack er dam koto? Ar wholesale hoy?',
     message: '30 pcs pack er dam koto? Ar wholesale hoy?',
-    state: 'Answered automatically · reseller lead', stateFg: '#14603F', mark: '#C9C3B4',
+    state: 'Answered automatically · reseller lead', stateFg: '#7B1E22', mark: '#CBB99E',
     read: 'Understood as: a wholesale enquiry, likely a reseller.',
-    tags: [['Wholesale', '#EAF1EC', '#14603F']],
+    tags: [['Wholesale', '#F3E2E1', '#7B1E22']],
     draft: '30 pcs pack ৳480. Apni jodi regular niten — mashe 10 pack er beshi — tahole ৳450 e dite pari, agei order dile.\n\nApnar dokan ba area ta bolben?',
     action: 'Discount offered is within your 10% limit.' },
   { id: 't5', name: 'Farhana Kabir', initials: 'FK', channel: 'Instagram', t: '14:31', history: '6th order · best customer',
     preview: 'Chicken shingara korle bolben please, ami regular nibo.',
     message: 'Chicken shingara korle bolben please, ami regular nibo.',
-    state: 'Answered automatically · chicken list', stateFg: '#14603F', mark: '#C9C3B4',
+    state: 'Answered automatically · chicken list', stateFg: '#7B1E22', mark: '#CBB99E',
     read: 'Understood as: demand for a product you do not sell yet.',
-    tags: [['Best customer', '#EAF1EC', '#14603F'], ['Wants chicken', '#FBF1E1', '#B4741B']],
+    tags: [['Best customer', '#F3E2E1', '#7B1E22'], ['Wants chicken', '#FBF1E1', '#B4741B']],
     draft: 'Apu apnar jonno first e rakhbo — samne shoptahe 600 pcs chicken test batch ashche. Ami apnake age e message debo, ar first order e 10% off.',
     action: 'Counted as 1 of 14 chicken requests this month.' },
   { id: 't6', name: 'Imran Sheikh', initials: 'IS', channel: 'Messenger', t: '13:07', history: '3rd order',
     preview: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.',
     message: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.',
-    state: 'Answered automatically · 24 pcs logged', stateFg: '#14603F', mark: '#C9C3B4',
+    state: 'Answered automatically · 24 pcs logged', stateFg: '#7B1E22', mark: '#CBB99E',
     read: 'Understood as: 2 packs confirmed, 1 mini-veg request noted.',
-    tags: [['Repeat buyer', '#EAF1EC', '#14603F']],
+    tags: [['Repeat buyer', '#F3E2E1', '#7B1E22']],
     draft: 'Imran bhai, 2 ta 12-pc pack ৳432 — kal sokal e pouche jabe.\n\nVeg er choto version ekhono nei, tobe 6 jon eta cheyeche. Hole apnake janabo.',
     action: 'Sent at 13:08 — inside your autopilot rules.' }
 ]);
 
 const STOCK = (window.LUCIDA && window.LUCIDA.stock && window.LUCIDA.stock.length ? window.LUCIDA.stock : [
-  { initial: 'B', thumbBg: '#EAF1EC', thumbFg: '#14603F', name: 'Beef shingara 58g', sub: 'Your best seller · ৳18 a piece', qty: '620 pcs', qtyColor: '#A63A2E', rate: '155/day', cover: 'Saturday', coverColor: '#A63A2E', todo: 'Reorder today — 2 days delivery' },
-  { initial: 'V', thumbBg: '#F1EEE6', thumbFg: '#4A554E', name: 'Veg samosa 50g', sub: 'Steady · ৳15 a piece', qty: '1,140 pcs', qtyColor: '#18211D', rate: '67/day', cover: 'in 17 days', coverColor: '#4A554E', todo: 'Nothing to do' },
-  { initial: 'C', thumbBg: '#FBF1E1', thumbFg: '#B4741B', name: 'Chicken shingara 58g', sub: 'Not made yet · 14 requests', qty: '—', qtyColor: '#A19B8E', rate: '—', cover: '—', coverColor: '#A19B8E', todo: 'Test 600 pieces with the next order' }
+  { initial: 'B', thumbBg: '#F3E2E1', thumbFg: '#7B1E22', name: 'Beef shingara 58g', sub: 'Your best seller · ৳18 a piece', qty: '620 pcs', qtyColor: '#A63A2E', rate: '155/day', cover: 'Saturday', coverColor: '#A63A2E', todo: 'Reorder today — 2 days delivery' },
+  { initial: 'V', thumbBg: '#EFE2CE', thumbFg: '#4A3728', name: 'Veg samosa 50g', sub: 'Steady · ৳15 a piece', qty: '1,140 pcs', qtyColor: '#17120F', rate: '67/day', cover: 'in 17 days', coverColor: '#4A3728', todo: 'Nothing to do' },
+  { initial: 'C', thumbBg: '#FBF1E1', thumbFg: '#B4741B', name: 'Chicken shingara 58g', sub: 'Not made yet · 14 requests', qty: '—', qtyColor: '#A89680', rate: '—', cover: '—', coverColor: '#A89680', todo: 'Test 600 pieces with the next order' }
 ]);
 
 const CREATIVES = [
-  { id: 'c1', slot: 'suite-ad-ig', ph: 'Instagram photo', channel: 'Instagram', chanFg: '#A6377C', spec: 'square post',
+  { id: 'c1', slot: 'suite-ad-ig', ph: 'Instagram photo', channel: 'Instagram', chanFg: '#7B1E22', spec: 'square post',
     copy: 'Bikeler adda, ar garam shingara. Freezer theke 6 minute — hater banano beef shingara, 12 pcs ৳216. Mirpur e aj e delivery.' },
-  { id: 'c2', slot: 'suite-ad-fb', ph: 'Facebook photo', channel: 'Facebook', chanFg: '#2B5C9B', spec: 'carousel, 3 cards',
+  { id: 'c2', slot: 'suite-ad-fb', ph: 'Facebook photo', channel: 'Facebook', chanFg: '#6B4F3A', spec: 'carousel, 3 cards',
     copy: 'Ma\'r hater shingara, ekhon freezer-ready. 12 pcs ৳216 · 30 pcs ৳480. Ager theke order kore rakhun — dawat, chayer adda, shob e ready.' },
   { id: 'c3', slot: 'suite-ad-yt', ph: 'Video cover', channel: 'YouTube', chanFg: '#A63A2E', spec: 'short, 18 seconds',
     copy: 'Fold, freeze, fry — 18 second e apnar rannaghor. Shesh e 12 pcs ৳216 pack ta dekhano hobe, sathe order korar link.' }
 ];
 
 const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns && window.LUCIDA.campaigns.length ? window.LUCIDA.campaigns : [
-  { name: 'Weekend pack push', sub: 'Started 8 Aug · 12-pc pack', where: 'Facebook, IG', spent: '৳1,750', orders: '38', state: 'Running well', stateFg: '#14603F' },
+  { name: 'Weekend pack push', sub: 'Started 8 Aug · 12-pc pack', where: 'Facebook, IG', spent: '৳1,750', orders: '38', state: 'Running well', stateFg: '#7B1E22' },
   { name: 'Reseller wholesale ad', sub: 'Started 10 Aug · 30-pc pack', where: 'Facebook', spent: '৳700', orders: '6', state: 'Watching', stateFg: '#B4741B' }
 ]);
 
 const COST_ROWS = [
-  { k: 'Beef filling', v: '৳5.10', pct: 100, color: '#14603F' },
-  { k: 'Dough and spice', v: '৳2.30', pct: 45, color: '#14603F' },
+  { k: 'Beef filling', v: '৳5.10', pct: 100, color: '#7B1E22' },
+  { k: 'Dough and spice', v: '৳2.30', pct: 45, color: '#7B1E22' },
   { k: 'Oil (up 9% this week)', v: '৳2.25', pct: 44, color: '#B4741B' },
-  { k: 'Packaging', v: '৳1.20', pct: 24, color: '#14603F' },
-  { k: 'Your time and gas', v: '৳1.20', pct: 24, color: '#14603F' }
+  { k: 'Packaging', v: '৳1.20', pct: 24, color: '#7B1E22' },
+  { k: 'Your time and gas', v: '৳1.20', pct: 24, color: '#7B1E22' }
 ];
 
 const PNL = (window.LUCIDA && window.LUCIDA.pnl && window.LUCIDA.pnl.length ? window.LUCIDA.pnl : [
-  { k: 'Money in', v: '৳48,240', note: '2,680 pieces sold · +14% on last week', weight: '600', keyColor: '#18211D', vColor: '#18211D' },
-  { k: 'Making cost', v: '−৳32,294', note: 'oil price rose midweek', weight: '400', keyColor: '#4A554E', vColor: '#4A554E' },
-  { k: 'Ads', v: '−৳2,450', note: '৳4.85 back for every ৳1', weight: '400', keyColor: '#4A554E', vColor: '#4A554E' },
-  { k: 'Delivery', v: '−৳1,140', note: '38 parcels, 2 redeliveries', weight: '400', keyColor: '#4A554E', vColor: '#4A554E' },
-  { k: 'What you kept', v: '৳12,356', note: '25.6% of money in', weight: '700', keyColor: '#18211D', vColor: '#14603F' }
+  { k: 'Money in', v: '৳48,240', note: '2,680 pieces sold · +14% on last week', weight: '600', keyColor: '#17120F', vColor: '#17120F' },
+  { k: 'Making cost', v: '−৳32,294', note: 'oil price rose midweek', weight: '400', keyColor: '#4A3728', vColor: '#4A3728' },
+  { k: 'Ads', v: '−৳2,450', note: '৳4.85 back for every ৳1', weight: '400', keyColor: '#4A3728', vColor: '#4A3728' },
+  { k: 'Delivery', v: '−৳1,140', note: '38 parcels, 2 redeliveries', weight: '400', keyColor: '#4A3728', vColor: '#4A3728' },
+  { k: 'What you kept', v: '৳12,356', note: '25.6% of money in', weight: '700', keyColor: '#17120F', vColor: '#7B1E22' }
 ]);
 
 const DEMANDS = (window.LUCIDA && window.LUCIDA.demands && window.LUCIDA.demands.length ? window.LUCIDA.demands : [
@@ -1069,11 +1036,11 @@ const RIVALS = [
 const HISTORY = (window.LUCIDA && window.LUCIDA.history && window.LUCIDA.history.length ? window.LUCIDA.history : [
   { id: 'h1', cat: 'Stock', text: 'Flagged beef shingara as low — 4 days left at current sales.', by: 'Stock assistant', t: '8:20 am', dot: '#B4741B',
     why: 'You sold 155 pieces a day over the last two weeks and 620 are left, so Saturday is the last day with stock. Your supplier needs 2 days, and 312 pieces are already promised to customers, which is why this became a decision instead of a note.' },
-  { id: 'h2', cat: 'Money', text: 'Recalculated your cost per piece after the oil price rose.', by: 'Pricing assistant', t: '8:02 am', dot: '#14603F',
+  { id: 'h2', cat: 'Money', text: 'Recalculated your cost per piece after the oil price rose.', by: 'Pricing assistant', t: '8:02 am', dot: '#7B1E22',
     why: 'Soybean oil went up ৳9 a litre at your usual shop, which moves your cost from ৳11.40 to ৳12.05 a piece. At ৳216 a pack you keep 33.1% instead of 36.7%. Raising to ৳228 restores it; based on four weeks of your own orders, about 3% of buyers walk away at that price.' },
-  { id: 'h3', cat: 'Customers', text: 'Read 47 messages, answered 38, kept 9 for you.', by: 'Customer assistant', t: '6:00 am', dot: '#14603F',
+  { id: 'h3', cat: 'Customers', text: 'Read 47 messages, answered 38, kept 9 for you.', by: 'Customer assistant', t: '6:00 am', dot: '#7B1E22',
     why: 'Anything about price, delivery area or reheating is answered from your own past replies. Anything involving a refund, a discount over 10%, or a product you do not sell is left for you — those five are on your Today page.' },
-  { id: 'h4', cat: 'Customers', text: 'Found 9 preorders in chats and reserved 312 pieces for Friday.', by: 'Customer assistant', t: '5:40 am', dot: '#14603F',
+  { id: 'h4', cat: 'Customers', text: 'Found 9 preorders in chats and reserved 312 pieces for Friday.', by: 'Customer assistant', t: '5:40 am', dot: '#7B1E22',
     why: 'Messages like "24 pcs lagbe Friday" are read as orders, matched to a customer, and held against Friday stock. Nobody is charged; you confirm at delivery as usual.' },
   { id: 'h5', cat: 'Marketing', text: 'Wrote three posts for this week and left them for your approval.', by: 'Marketing assistant', t: '6:10 am', dot: '#B4741B',
     why: 'Your best-performing posts this month led with the price and the 6-minute reheat line, so all three keep that. Publishing spends money, so it waits for you regardless of your autopilot setting.' },
@@ -1081,7 +1048,7 @@ const HISTORY = (window.LUCIDA && window.LUCIDA.history && window.LUCIDA.history
     why: 'Steadfast\'s booking service timed out twice. Rather than leave 38 parcels unbooked, your team moved to Pathao at the same rate — consignment PT-4471903, pickup Thursday 2 pm. Nothing was lost; you are told because the courier changed.' },
   { id: 'h7', cat: 'Customers', text: 'Passed one delivery complaint from Pallabi to you.', by: 'Customer assistant', t: '4:44 am', dot: '#A63A2E',
     why: 'Shahana Begum has waited three days. A reply is drafted that waives the ৳60 delivery charge, but a full refund is above the limit you set, so it needs your word.' },
-  { id: 'h8', cat: 'Marketing', text: 'Posted two Instagram stories from Sunday\'s kitchen photos.', by: 'Marketing assistant', t: '7:00 am', dot: '#14603F',
+  { id: 'h8', cat: 'Marketing', text: 'Posted two Instagram stories from Sunday\'s kitchen photos.', by: 'Marketing assistant', t: '7:00 am', dot: '#7B1E22',
     why: 'Stories cost nothing and sit inside your autopilot rules, so they went out without asking. Both used photos you uploaded on Sunday.' }
 ]);
 
@@ -1201,9 +1168,9 @@ const RUNS = (window.LUCIDA && window.LUCIDA.runs && window.LUCIDA.runs.length ?
 ]);
 
 const KIND_STYLE = {
-  plan: ['plan', '#F1EEE6', '#4A554E'], tool: ['tool', '#EAF1EC', '#14603F'], think: ['reason', '#EDEAF6', '#5B4B9B'],
-  memory: ['memory', '#E8F1F2', '#1F6470'], handoff: ['handoff', '#FBF1E1', '#B4741B'],
-  error: ['failure', '#F8E9E6', '#A63A2E'], gate: ['gate', '#FBF1E1', '#B4741B'], act: ['action', '#EAF1EC', '#14603F']
+  plan: ['plan', '#EFE2CE', '#4A3728'], tool: ['tool', '#F3E2E1', '#7B1E22'], think: ['reason', '#EFE2CE', '#6B4F3A'],
+  memory: ['memory', '#EFE2CE', '#4A3728'], handoff: ['handoff', '#FBF1E1', '#B4741B'],
+  error: ['failure', '#F8E9E6', '#A63A2E'], gate: ['gate', '#FBF1E1', '#B4741B'], act: ['action', '#F3E2E1', '#7B1E22']
 };
 
 const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords && window.LUCIDA.memRecords.length ? window.LUCIDA.memRecords : [
@@ -1222,12 +1189,12 @@ const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords && window.LUCIDA.
 ]);
 
 const COST_BARS = (window.LUCIDA && window.LUCIDA.costBars && window.LUCIDA.costBars.length ? window.LUCIDA.costBars : [
-  { name: 'Customer Engagement', tok: '38,400', cost: '$0.19', pct: 100, color: '#14603F' },
-  { name: 'Reporting', tok: '27,100', cost: '$0.16', pct: 71, color: '#14603F' },
-  { name: 'Market Research', tok: '19,800', cost: '$0.11', pct: 52, color: '#14603F' },
+  { name: 'Customer Engagement', tok: '38,400', cost: '$0.19', pct: 100, color: '#7B1E22' },
+  { name: 'Reporting', tok: '27,100', cost: '$0.16', pct: 71, color: '#7B1E22' },
+  { name: 'Market Research', tok: '19,800', cost: '$0.11', pct: 52, color: '#7B1E22' },
   { name: 'Product Vision', tok: '12,600', cost: '$0.08', pct: 33, color: '#B4741B' },
-  { name: 'Pricing & Cost', tok: '11,900', cost: '$0.05', pct: 31, color: '#14603F' },
-  { name: 'Ad Creation', tok: '8,200', cost: '$0.02', pct: 21, color: '#14603F' }
+  { name: 'Pricing & Cost', tok: '11,900', cost: '$0.05', pct: 31, color: '#7B1E22' },
+  { name: 'Ad Creation', tok: '8,200', cost: '$0.02', pct: 21, color: '#7B1E22' }
 ]);
 
 const FAILURES = (window.LUCIDA && window.LUCIDA.failures && window.LUCIDA.failures.length ? window.LUCIDA.failures : [
@@ -1315,12 +1282,12 @@ class Component extends DCLogic {
 
       nav: (s.role === 'builder' ? BUILDER_NAV : OWNER_NAV).map(([id, label, icon]) => ({
         label: label, icon: icon, pick: () => this.go(id),
-        bg: s.page === id ? '#F6E9EA' : 'transparent',
-        fg: s.page === id ? '#7B1E22' : '#4A554E',
+        bg: s.page === id ? '#F3E2E1' : 'transparent',
+        fg: s.page === id ? '#7B1E22' : '#4A3728',
         weight: s.page === id ? '600' : '500',
         badge: counts[id] || '', badgeShow: counts[id] ? 'flex' : 'none',
-        badgeBg: id === 'today' ? '#B4741B' : '#E5E0D6',
-        badgeFg: id === 'today' ? '#FFFFFF' : '#4A554E'
+        badgeBg: id === 'today' ? '#B4741B' : '#DDCDB4',
+        badgeFg: id === 'today' ? '#FDFAF4' : '#4A3728'
       })),
 
       isToday: s.page === 'today', isInbox: s.page === 'inbox', isStock: s.page === 'stock',
@@ -1335,7 +1302,7 @@ class Component extends DCLogic {
 
       marginNow: raised ? '36.9%' : '33.1%',
       marginNote: raised ? 'back to normal after the price change' : 'down from 37% — oil got dearer',
-      marginNoteColor: raised ? '#14603F' : '#B4741B',
+      marginNoteColor: raised ? '#7B1E22' : '#B4741B',
       keepPerPiece: raised ? '৳6.95' : '৳5.95',
       packPrice: raised ? '৳228' : '৳216',
 
@@ -1344,15 +1311,15 @@ class Component extends DCLogic {
         return {
           tag: d.tag, by: d.by, when: d.when, title: d.title, body: d.body,
           yes: d.yes, edit: d.edit, hint: d.hint,
-          facts: d.facts.map(f => ({ k: f[0], v: f[1], color: '#18211D' })),
-          border: choice ? '#E5E0D6' : '#DCD3BE',
-          tagBg: d.tag === 'Money' ? '#EAF1EC' : d.tag === 'Stock' ? '#FBF1E1' : '#F1EEE6',
-          tagFg: d.tag === 'Money' ? '#14603F' : d.tag === 'Stock' ? '#B4741B' : '#4A554E',
+          facts: d.facts.map(f => ({ k: f[0], v: f[1], color: '#17120F' })),
+          border: choice ? '#DDCDB4' : '#D6C4A8',
+          tagBg: d.tag === 'Money' ? '#F3E2E1' : d.tag === 'Stock' ? '#FBF1E1' : '#EFE2CE',
+          tagFg: d.tag === 'Money' ? '#7B1E22' : d.tag === 'Stock' ? '#B4741B' : '#4A3728',
           open: !choice, closed: !!choice,
           doneText: choice === 'yes' ? d.doneText : d.denyText,
           doneIcon: choice === 'yes' ? '✓' : '◦',
-          doneBg: choice === 'yes' ? '#EAF1EC' : '#F1EEE6',
-          doneFg: choice === 'yes' ? '#7B1E22' : '#4A554E',
+          doneBg: choice === 'yes' ? '#F3E2E1' : '#EFE2CE',
+          doneFg: choice === 'yes' ? '#7B1E22' : '#4A3728',
           approve: () => this.decide(d.id, 'yes'),
           deny: () => this.decide(d.id, 'no'),
           tweak: () => this.go(d.id === 'ads' ? 'marketing' : d.id === 'price' ? 'money' : 'stock'),
@@ -1371,9 +1338,9 @@ class Component extends DCLogic {
       threads: THREADS.map(t => ({
         name: t.name, channel: t.channel, t: t.t, preview: t.preview, pick: () => this.setState({ thread: t.id }),
         state: s.sent[t.id] ? 'Answered ' + s.sent[t.id] : t.state,
-        stateFg: s.sent[t.id] ? '#14603F' : t.stateFg,
-        mark: s.sent[t.id] ? '#C9C3B4' : t.mark,
-        bg: s.thread === t.id ? '#F7F5F0' : '#FFFFFF'
+        stateFg: s.sent[t.id] ? '#7B1E22' : t.stateFg,
+        mark: s.sent[t.id] ? '#CBB99E' : t.mark,
+        bg: s.thread === t.id ? '#F4EADA' : '#FDFAF4'
       })),
       thread: {
         name: thread.name, initials: thread.initials, channel: thread.channel, history: thread.history,
@@ -1385,18 +1352,18 @@ class Component extends DCLogic {
 
       stock: STOCK,
       poOpen: !s.po, poDone: !!s.po,
-      poBorder: s.po ? '#E5E0D6' : '#DCD3BE',
+      poBorder: s.po ? '#DDCDB4' : '#D6C4A8',
       approvePo: () => this.decide('stock', 'yes'),
 
       creatives: CREATIVES.map(c => {
         const st = s.creatives[c.id];
         return {
           slot: c.slot, ph: c.ph, channel: c.channel, chanFg: c.chanFg, spec: c.spec, copy: c.copy,
-          border: st ? '#E5E0D6' : '#DCD3BE',
+          border: st ? '#DDCDB4' : '#D6C4A8',
           pending: !st, settled: !!st,
           doneText: st === 'live' ? 'Published · watching results' : 'Skipped for this week',
-          doneBg: st === 'live' ? '#EAF1EC' : '#F1EEE6',
-          doneFg: st === 'live' ? '#7B1E22' : '#4A554E',
+          doneBg: st === 'live' ? '#F3E2E1' : '#EFE2CE',
+          doneFg: st === 'live' ? '#7B1E22' : '#4A3728',
           approve: () => { const x = Object.assign({}, s.creatives); x[c.id] = 'live'; this.setState({ creatives: x }); },
           skip: () => { const x = Object.assign({}, s.creatives); x[c.id] = 'skip'; this.setState({ creatives: x }); }
         };
@@ -1406,10 +1373,10 @@ class Component extends DCLogic {
       costRows: COST_ROWS.map(r => (r.k.indexOf('Oil') === 0 && !raised) ? r : r),
       pnl: PNL,
       priceOpen: !s.price, priceSettled: !!s.price,
-      priceBorder: s.price ? '#E5E0D6' : '#DCD3BE',
+      priceBorder: s.price ? '#DDCDB4' : '#D6C4A8',
       priceTag: raised ? 'Price updated' : s.price ? 'Watching' : 'Suggested change',
-      priceTagBg: raised ? '#EAF1EC' : '#FBF1E1',
-      priceTagFg: raised ? '#14603F' : '#B4741B',
+      priceTagBg: raised ? '#F3E2E1' : '#FBF1E1',
+      priceTagFg: raised ? '#7B1E22' : '#B4741B',
       priceHeadline: raised ? '12-piece pack is now ৳228' : 'Raise the 12-piece pack from ৳216 to ৳228',
       priceBody: raised
         ? 'Live on your page, in your ads, and in the replies your team sends. Wholesale stayed at ৳480 to keep resellers on side, and your margin is back to where it was in July.'
@@ -1417,8 +1384,8 @@ class Component extends DCLogic {
       priceDoneText: raised
         ? 'Price changed everywhere, and this week\'s ad copy was rewritten to match.'
         : 'Kept at ৳216. Your team will warn you if what you keep drops below 30%.',
-      priceDoneBg: raised ? '#EAF1EC' : '#F1EEE6',
-      priceDoneFg: raised ? '#7B1E22' : '#4A554E',
+      priceDoneBg: raised ? '#F3E2E1' : '#EFE2CE',
+      priceDoneFg: raised ? '#7B1E22' : '#4A3728',
       applyPrice: () => this.decide('price', 'yes'),
       keepPrice: () => this.decide('price', 'no'),
 
@@ -1426,36 +1393,36 @@ class Component extends DCLogic {
 
       historyFilters: ['Everything', 'Customers', 'Stock', 'Money', 'Marketing', 'Delivery'].map(f => ({
         label: f, pick: () => this.setState({ filter: f }),
-        bg: s.filter === f ? '#F6E9EA' : '#FFFFFF',
-        border: s.filter === f ? '#7B1E22' : '#E5E0D6',
-        fg: s.filter === f ? '#7B1E22' : '#4A554E'
+        bg: s.filter === f ? '#F3E2E1' : '#FDFAF4',
+        border: s.filter === f ? '#7B1E22' : '#DDCDB4',
+        fg: s.filter === f ? '#7B1E22' : '#4A3728'
       })),
       history: HISTORY.filter(h => s.filter === 'Everything' || h.cat === s.filter).map(h => ({
         text: h.text, by: h.by, t: h.t, why: h.why, dot: h.dot,
-        open: s.openHistory === h.id, bg: s.openHistory === h.id ? '#FBFAF7' : '#FFFFFF',
+        open: s.openHistory === h.id, bg: s.openHistory === h.id ? '#FAF3E7' : '#FDFAF4',
         toggle: () => this.setState({ openHistory: s.openHistory === h.id ? null : h.id })
       })),
 
       autopilotOptions: AUTOPILOT.map(a => ({
         label: a.label, note: a.note, pick: () => this.setState({ autopilot: a.id }),
-        bg: s.autopilot === a.id ? '#F6E9EA' : '#FBFAF7',
-        border: s.autopilot === a.id ? '#7B1E22' : '#E5E0D6',
-        fg: s.autopilot === a.id ? '#7B1E22' : '#18211D'
+        bg: s.autopilot === a.id ? '#F3E2E1' : '#FAF3E7',
+        border: s.autopilot === a.id ? '#7B1E22' : '#DDCDB4',
+        fg: s.autopilot === a.id ? '#7B1E22' : '#17120F'
       })),
       permissions: PERMS.map(p => ({
         label: p.label, note: p.note,
-        trackBg: s.perms[p.id] ? '#14603F' : '#DDD8CC',
+        trackBg: s.perms[p.id] ? '#7B1E22' : '#D2BFA4',
         knobLeft: s.perms[p.id] ? 23 : 3,
         toggle: () => { const x = Object.assign({}, s.perms); x[p.id] = !x[p.id]; this.setState({ perms: x }); }
       })),
       channels: CHANNELS.map(c => ({
-        name: c.name, state: c.state, dot: c.ok ? '#14603F' : '#A63A2E', fg: c.ok ? '#7C877F' : '#A63A2E'
+        name: c.name, state: c.state, dot: c.ok ? '#7B1E22' : '#A63A2E', fg: c.ok ? '#8A7563' : '#A63A2E'
       })),
 
       roles: [['owner', 'Owner'], ['builder', 'Operator']].map(([id, label]) => ({
         label: label, pick: () => this.setRole(id),
-        bg: s.role === id ? '#FFFFFF' : 'transparent',
-        fg: s.role === id ? '#14603F' : '#7C877F',
+        bg: s.role === id ? '#FDFAF4' : 'transparent',
+        fg: s.role === id ? '#7B1E22' : '#8A7563',
         weight: s.role === id ? '600' : '500',
         shadow: s.role === id ? '0 1px 2px rgba(24,33,29,.08)' : 'none'
       })),
@@ -1472,18 +1439,18 @@ class Component extends DCLogic {
 
       roster: ROSTER.map(a => ({
         name: a.name, kind: a.kind, owns: a.owns, tools: a.tools, calls: a.calls, state: a.state,
-        dot: a.bad ? '#A63A2E' : a.wait ? '#B4741B' : a.busy ? '#14603F' : '#9EB3A4',
-        stateFg: a.bad ? '#A63A2E' : a.wait ? '#B4741B' : a.busy ? '#14603F' : '#7C877F'
+        dot: a.bad ? '#A63A2E' : a.wait ? '#B4741B' : a.busy ? '#7B1E22' : '#B79E86',
+        stateFg: a.bad ? '#A63A2E' : a.wait ? '#B4741B' : a.busy ? '#7B1E22' : '#8A7563'
       })),
       nodes: ROSTER.map(a => {
         const p = NODE_POS[a.id], hot = busyNow && a.name === lastAgent, touched = shown.some(x => x.a === a.name);
         return {
           name: a.name, left: (p[0] / 900) * 100, top: (p[1] / 440) * 100,
           state: hot ? 'working now' : touched ? 'used this run' : 'idle',
-          dot: hot ? '#14603F' : touched ? '#9EB3A4' : '#DDD8CC',
-          fg: touched || hot ? '#18211D' : '#7C877F',
-          bg: hot ? '#F6E9EA' : '#FFFFFF',
-          border: hot ? '#14603F' : touched ? '#CFE0D5' : '#E5E0D6',
+          dot: hot ? '#7B1E22' : touched ? '#B79E86' : '#D2BFA4',
+          fg: touched || hot ? '#17120F' : '#8A7563',
+          bg: hot ? '#F3E2E1' : '#FDFAF4',
+          border: hot ? '#7B1E22' : touched ? '#E4C9C8' : '#DDCDB4',
           shadow: hot ? '0 2px 10px rgba(20,96,63,.14)' : '0 1px 2px rgba(24,33,29,.04)'
         };
       }),
@@ -1492,19 +1459,19 @@ class Component extends DCLogic {
         const fn = ROSTER.find(a => a.id === f).name, tn = ROSTER.find(a => a.id === t).name;
         const hot = busyNow && (fn === lastAgent || tn === lastAgent);
         const gateEdge = f === 'supervisor' && (t === 'ads' || t === 'delivery');
-        return { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: hot ? '#14603F' : gateEdge ? '#B4741B' : '#E1DCD1', w: hot ? 2 : 1.2, dash: gateEdge ? '5 5' : '0' };
+        return { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: hot ? '#7B1E22' : gateEdge ? '#B4741B' : '#DCCBB2', w: hot ? 2 : 1.2, dash: gateEdge ? '5 5' : '0' };
       }),
 
       runMeta: run.meta,
       runTabs: RUNS.map(r => ({
         label: r.label, pick: () => this.setState({ run: r.id, cursor: 2, playing: true, openStep: null }),
-        bg: s.run === r.id ? '#F6E9EA' : '#FFFFFF',
-        border: s.run === r.id ? '#7B1E22' : '#E5E0D6',
-        fg: s.run === r.id ? '#7B1E22' : '#4A554E'
+        bg: s.run === r.id ? '#F3E2E1' : '#FDFAF4',
+        border: s.run === r.id ? '#7B1E22' : '#DDCDB4',
+        fg: s.run === r.id ? '#7B1E22' : '#4A3728'
       })),
       playLabel: gateWaiting ? 'Waiting for you' : busyNow ? 'Pause' : runDone ? 'Replay' : 'Resume',
-      playBg: gateWaiting ? '#FBF1E1' : busyNow ? '#F1EEE6' : '#14603F',
-      playFg: gateWaiting ? '#B4741B' : busyNow ? '#4A554E' : '#F7F5F0',
+      playBg: gateWaiting ? '#FBF1E1' : busyNow ? '#EFE2CE' : '#7B1E22',
+      playFg: gateWaiting ? '#B4741B' : busyNow ? '#4A3728' : '#F4EADA',
       togglePlay: () => {
         if (gateWaiting) return;
         if (runDone) { this.setState({ cursor: 2, playing: true, gates: {} }); return; }
@@ -1521,8 +1488,8 @@ class Component extends DCLogic {
           kind: k[0], kindBg: k[1], kindFg: k[2],
           detail: st.detail || (st.h ? st.h.payload : ''),
           open: s.openStep === i,
-          mark: st.k === 'error' ? '#A63A2E' : st.gate ? '#B4741B' : '#14603F',
-          border: st.k === 'error' ? '#F0DAD6' : st.gate ? '#EBDCC2' : '#E5E0D6',
+          mark: st.k === 'error' ? '#A63A2E' : st.gate ? '#B4741B' : '#7B1E22',
+          border: st.k === 'error' ? '#F0DAD6' : st.gate ? '#EBDCC2' : '#DDCDB4',
           toggle: () => this.setState({ openStep: s.openStep === i ? null : i })
         };
       }).reverse(),
@@ -1536,13 +1503,13 @@ class Component extends DCLogic {
 
       logFilters: ['All', 'Info', 'Warn', 'Error'].map(l => ({
         label: l, pick: () => this.setState({ logLevel: l }),
-        bg: s.logLevel === l ? '#F6E9EA' : '#FFFFFF',
-        border: s.logLevel === l ? '#7B1E22' : '#E5E0D6',
-        fg: s.logLevel === l ? '#7B1E22' : '#4A554E'
+        bg: s.logLevel === l ? '#F3E2E1' : '#FDFAF4',
+        border: s.logLevel === l ? '#7B1E22' : '#DDCDB4',
+        fg: s.logLevel === l ? '#7B1E22' : '#4A3728'
       })),
       logs: shown.map(st => {
         const lvl = st.level === 'ERROR' ? 'Error' : st.level === 'WARN' ? 'Warn' : 'Info';
-        return { t: st.t, level: lvl, msg: st.a.toLowerCase().replace(/[^a-z]+/g, '_') + ' · ' + st.title, fg: lvl === 'Error' ? '#A63A2E' : lvl === 'Warn' ? '#B4741B' : '#7C877F' };
+        return { t: st.t, level: lvl, msg: st.a.toLowerCase().replace(/[^a-z]+/g, '_') + ' · ' + st.title, fg: lvl === 'Error' ? '#A63A2E' : lvl === 'Warn' ? '#B4741B' : '#8A7563' };
       }).filter(l => s.logLevel === 'All' || l.level === s.logLevel).reverse(),
 
       stores: [
@@ -1553,13 +1520,13 @@ class Component extends DCLogic {
       ],
       memFilters: ['Everything', 'Business', 'Customers', 'Stock', 'Money', 'Marketing'].map(f => ({
         label: f, pick: () => this.setState({ memCat: f }),
-        bg: s.memCat === f ? '#F6E9EA' : '#FFFFFF',
-        border: s.memCat === f ? '#7B1E22' : '#E5E0D6',
-        fg: s.memCat === f ? '#7B1E22' : '#4A554E'
+        bg: s.memCat === f ? '#F3E2E1' : '#FDFAF4',
+        border: s.memCat === f ? '#7B1E22' : '#DDCDB4',
+        fg: s.memCat === f ? '#7B1E22' : '#4A3728'
       })),
       records: MEM_RECORDS.filter(r => s.memCat === 'Everything' || r.cat === s.memCat).map(r => ({
         store: r.store, key: r.key, value: r.value, by: r.by, when: r.when,
-        storeFg: r.store === 'conversations' ? '#5B4B9B' : '#1F6470'
+        storeFg: r.store === 'conversations' ? '#6B4F3A' : '#4A3728'
       })),
 
       costBars: COST_BARS, failures: FAILURES
