@@ -166,18 +166,34 @@ CHAT_CSS = f"""
 .main {{ height:100vh; }}
 .thread {{ flex:1; overflow-y:auto; padding:28px 0 24px; }}
 .wrap {{ max-width:780px; margin:0 auto; padding:0 24px; }}
-.msg {{ display:flex; gap:13px; margin-bottom:26px; }}
-.who-b {{ width:30px; height:30px; border-radius:9px; flex:none;
-  display:grid; place-items:center; font-size:12px; font-weight:600; }}
-.you {{ background:{SUNKEN}; color:{INK}; }}
+/* Two sides, the way a messaging app does it: what the owner said sits
+   right in a tinted bubble, what the team said sits left with its mark.
+   The team's side is wider because its answers are long — a report squeezed
+   into a chat bubble is harder to read, not friendlier. */
+.msg {{ display:flex; gap:11px; margin-bottom:22px; align-items:flex-start; }}
+.msg.mine {{ flex-direction:row-reverse; }}
+.who-b {{ width:28px; height:28px; border-radius:8px; flex:none;
+  display:grid; place-items:center; font-size:11.5px; font-weight:600;
+  margin-top:2px; }}
+.you {{ background:{SUNKEN}; color:{BODY}; }}
 .them {{ background:{ACCENT}; color:#fff; }}
-.bubble {{ min-width:0; flex:1; }}
-.bubble .name {{ font-size:13px; font-weight:600; margin-bottom:3px; }}
-.bubble .text {{ font-size:15px; line-height:1.68; color:{INK};
-  white-space:pre-wrap; word-wrap:break-word; }}
-.bubble .text h3 {{ font-size:15px; margin:16px 0 5px; font-weight:700; }}
+.bubble {{ min-width:0; }}
+.msg.mine .bubble {{ max-width:72%; }}
+.msg.theirs .bubble {{ max-width:88%; }}
+.bubble .name {{ font-size:12px; font-weight:600; margin-bottom:4px;
+  color:{MUTED}; letter-spacing:-.005em; }}
+.msg.mine .name {{ text-align:right; }}
+.bubble .text {{ font-size:15px; line-height:1.65; color:{INK};
+  word-wrap:break-word; overflow-wrap:anywhere; }}
+/* The owner's own words read as a said-thing; the team's as a written one. */
+.msg.mine .text {{ background:{ACCENT_TINT}; padding:11px 15px;
+  border-radius:16px 4px 16px 16px; }}
+.msg.theirs .text {{ padding-top:1px; }}
+.bubble .text h3 {{ font-size:15px; margin:15px 0 5px; font-weight:700; }}
 .bubble .text ul {{ margin:8px 0; padding-left:20px; }}
 .bubble .text li {{ margin:4px 0; }}
+.bubble .text p:first-child {{ margin-top:0; }}
+.bubble .text p:last-child {{ margin-bottom:0; }}
 .empty {{ text-align:center; padding:60px 20px; }}
 .empty h2 {{ font-size:30px; font-weight:800; letter-spacing:-.032em;
   margin:0 0 8px; }}
@@ -241,11 +257,14 @@ function md(t) {
 }
 
 function bubble(who, name, text, raw) {
+  const mine = who === 'you';
   const el = document.createElement('div');
-  el.className = 'msg';
-  el.innerHTML = '<div class="who-b ' + who + '">' + esc(name[0]) + '</div>'
+  el.className = 'msg ' + (mine ? 'mine' : 'theirs');
+  const mark = mine ? (window.__ME || 'Y') : 'L';
+  el.innerHTML = '<div class="who-b ' + who + '">' + esc(mark) + '</div>'
     + '<div class="bubble"><div class="name">' + esc(name) + '</div>'
-    + '<div class="text">' + (raw ? raw : md(text)) + '</div></div>';
+    + '<div class="text">' + (raw ? raw : (mine ? esc(text) : md(text)))
+    + '</div></div>';
   const empty = document.getElementById('empty');
   if (empty) empty.remove();
   thread.appendChild(el);
@@ -323,11 +342,14 @@ grow();
 
 
 def chat_page(account: dict, history: list[dict], starters: list[str]) -> str:
+    initials = (account or {}).get("initials") or "Y"
     if history:
         msgs = "".join(
-            f"<div class='msg'><div class='who-b "
+            f"<div class='msg "
+            f"{'mine' if m['role'] == 'user' else 'theirs'}'>"
+            f"<div class='who-b "
             f"{'you' if m['role'] == 'user' else 'them'}'>"
-            f"{e((('You' if m['role'] == 'user' else 'Your team'))[0])}</div>"
+            f"{e(initials if m['role'] == 'user' else 'L')}</div>"
             f"<div class='bubble'><div class='name'>"
             f"{'You' if m['role'] == 'user' else 'Your team'}</div>"
             f"<div class='text'>{e(m['text'])}</div></div></div>"
@@ -361,7 +383,10 @@ def chat_page(account: dict, history: list[dict], starters: list[str]) -> str:
         f"nothing is published or paid for without your approval</div>"
         f"</div></div>"
     )
-    return shell("Chat", account, "/", "", body, CHAT_CSS, CHAT_JS)
+    # The owner's own mark, so the two speakers are told apart by initial
+    # rather than by both being a "Y".
+    js = f"window.__ME = {json.dumps(initials)};\n" + CHAT_JS
+    return shell("Chat", account, "/", "", body, CHAT_CSS, js)
 
 
 # ---------------------------------------------------------------------------
