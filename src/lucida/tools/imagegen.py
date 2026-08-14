@@ -36,9 +36,19 @@ MEDIA_DIR = DATA_DIR / "media"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
 POLLINATIONS = "https://image.pollinations.ai/prompt/{prompt}"
-IMAGEN = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "imagen-3.0-generate-002:predict"
+# Google's drawing models. Imagen 3 was retired and Imagen 4 is closed to new
+# keys, so the way in is the Gemini image models, which return the picture as
+# an inline part of an ordinary generateContent reply. Free-tier keys are
+# granted no image quota at all — the call 429s on the per-day counter before
+# it has run once — so this is the path that lights up when the owner turns on
+# billing, not one that works today for free.
+GEMINI_IMAGE_MODELS = (
+    "gemini-3.1-flash-image",
+    "gemini-2.5-flash-image",
+)
+GEMINI_IMAGE = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}"
+    ":generateContent"
 )
 
 # How long the owner's description should be. Measured in words because that
@@ -68,13 +78,14 @@ class Artwork:
 
 
 def available() -> str:
-    """Which provider would be used. Never returns nothing — that is the point."""
-    return "imagen" if settings.google_api_key else "pollinations"
+    """Which provider would be tried. Never returns nothing — that is the point."""
+    return "google" if settings.google_api_key else "pollinations"
 
 
 def status() -> str:
     if settings.google_api_key:
-        return "Google Imagen — using your GOOGLE_API_KEY"
+        return ("Google, falling back to Pollinations — Google's drawing "
+                "models need billing on, free keys are given no image quota")
     return "Pollinations (free, no account) — rough drafts only"
 
 
@@ -86,14 +97,22 @@ def quality_note() -> str:
     object. Letting someone discover that by publishing a wrong picture is
     worse than telling them now.
     """
-    if settings.google_api_key:
-        return ""
-    return (
+    common = (
         "The free drawing model gets the colours and the setting right but "
-        "often invents the object itself. For pictures you would actually "
-        "publish, upload your own photo — or add a free GOOGLE_API_KEY from "
-        "aistudio.google.com/apikey and the studio switches to Google Imagen, "
-        "which is far more accurate (and switches photo reading on too)."
+        "often invents the object itself. For a picture you would actually "
+        "publish, upload your own photo and edit it here."
+    )
+    if settings.google_api_key:
+        return (
+            common + " Your Google key is set and will be tried first, but "
+            "Google grants free keys no image quota — turn billing on at "
+            "aistudio.google.com and the studio switches to Gemini's drawing "
+            "model, which is far more accurate."
+        )
+    return (
+        common + " Adding a free GOOGLE_API_KEY from aistudio.google.com/apikey "
+        "switches photo reading on, and unlocks Google's drawing model once "
+        "billing is enabled."
     )
 
 
@@ -186,34 +205,51 @@ def _pollinations(prompt: str, size: tuple[int, int],
         return Artwork(False, provider="pollinations", error=str(exc))
 
 
-def _imagen(prompt: str, size: tuple[int, int]) -> Artwork:
+def _gemini_image(prompt: str, size: tuple[int, int]) -> Artwork:
+    """Draw with Google, trying each image model in turn.
+
+    Aspect ratio is asked for in words as well as in the config block: the
+    ratio field is honoured inconsistently across these models, and a poster
+    that comes back square when the owner picked a story is a wasted call.
+    """
     w, h = size
     ratio = "1:1" if w == h else ("9:16" if h > w else "16:9")
-    try:
-        with httpx.Client(timeout=120) as c:
-            r = c.post(
-                IMAGEN,
-                params={"key": settings.google_api_key},
-                json={
-                    "instances": [{"prompt": prompt}],
-                    "parameters": {"sampleCount": 1, "aspectRatio": ratio},
-                },
-            )
-        if r.status_code != 200:
-            logger.warning("imagen returned %s", r.status_code)
-            return Artwork(False, provider="imagen",
-                           error=f"Imagen returned {r.status_code}")
-        preds = r.json().get("predictions") or []
-        raw = preds[0].get("bytesBase64Encoded") if preds else None
-        if not raw:
-            return Artwork(False, provider="imagen", error="no image returned")
-        content = base64.b64decode(raw)
-        path = _save(content, prompt, "png")
-        logger.info("generated artwork via imagen (%d bytes)", len(content))
-        return Artwork(True, str(path), w, h, len(content), "imagen", prompt)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("imagen failed: %s", exc)
-        return Artwork(False, provider="imagen", error=str(exc))
+    shape = {"1:1": "square", "9:16": "tall vertical", "16:9": "wide"}[ratio]
+    last = ""
+    for model in GEMINI_IMAGE_MODELS:
+        try:
+            with httpx.Client(timeout=180) as c:
+                r = c.post(
+                    GEMINI_IMAGE.format(model=model),
+                    headers={"x-goog-api-key": settings.google_api_key},
+                    json={
+                        "contents": [{"parts": [
+                            {"text": f"{prompt}. {shape} {ratio} composition."}
+                        ]}],
+                        "generationConfig": {"imageConfig":
+                                             {"aspectRatio": ratio}},
+                    },
+                )
+            if r.status_code != 200:
+                last = f"{model} returned {r.status_code}"
+                logger.info("%s", last)
+                continue
+            parts = ((r.json().get("candidates") or [{}])[0]
+                     .get("content", {}).get("parts") or [])
+            raw = next((p.get("inlineData", p.get("inline_data", {})).get("data")
+                        for p in parts
+                        if p.get("inlineData") or p.get("inline_data")), None)
+            if not raw:
+                last = f"{model} returned no picture"
+                continue
+            content = base64.b64decode(raw)
+            path = _save(content, prompt, "png")
+            logger.info("generated artwork via %s (%d bytes)", model, len(content))
+            return Artwork(True, str(path), w, h, len(content), model, prompt)
+        except Exception as exc:  # noqa: BLE001
+            last = str(exc)
+            logger.warning("%s failed: %s", model, exc)
+    return Artwork(False, provider="google", error=last or "no image returned")
 
 
 def generate(prompt: str, preset: str = "square",
@@ -221,10 +257,10 @@ def generate(prompt: str, preset: str = "square",
     """Make one image. Falls back to the keyless provider if the paid one fails."""
     size = PRESETS.get(preset, PRESETS["square"])
     if settings.google_api_key:
-        art = _imagen(prompt, size)
+        art = _gemini_image(prompt, size)
         if art.ok:
             return art
-        logger.info("imagen unavailable, falling back to pollinations")
+        logger.info("Google drawing unavailable, falling back to pollinations")
     return _pollinations(prompt, size, seed)
 
 
