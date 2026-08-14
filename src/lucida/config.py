@@ -46,7 +46,15 @@ DB_PATH = DATA_DIR / "lucida.db"
 CHECKPOINT_PATH = DATA_DIR / "checkpoints.db"
 LOG_PATH = DATA_DIR / "lucida.log"
 
-for _d in (DATA_DIR, UPLOAD_DIR, VECTOR_DIR):
+# Accounts live apart from shop data: one accounts database shared by every
+# owner, and one private database per shop. Keeping each owner's business in
+# its own file means isolation does not depend on remembering a WHERE clause
+# in any of the dozen tables the agents write to.
+ACCOUNTS_DB = DATA_DIR / "accounts.db"
+SHOPS_DIR = DATA_DIR / "shops"
+AVATAR_DIR = DATA_DIR / "avatars"
+
+for _d in (DATA_DIR, UPLOAD_DIR, VECTOR_DIR, SHOPS_DIR, AVATAR_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 
