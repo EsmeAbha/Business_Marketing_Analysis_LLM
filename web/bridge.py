@@ -550,10 +550,12 @@ def runs(current_session: str) -> list[dict]:
     """
     out = []
     for s in bus.sessions(30):
-        # Only real owner sessions. WorkforceRuntime mints "sess-…" ids; the
-        # component test suite writes traces under its own short ids, and
-        # those would otherwise show up as runs the owner never made.
-        if not str(s["session_id"]).startswith("sess-"):
+        # Only *this owner's* sessions. The trace database is one file for the
+        # whole machine, so without this filter every shop reads every other
+        # shop's activity — their products, their customers, their name.
+        # The session id is derived from the account id, so comparing it is
+        # the same test as comparing owners.
+        if str(s["session_id"]) != str(current_session):
             continue
         events = bus.load(s["session_id"], 400)
         if not events:
@@ -656,15 +658,19 @@ _HISTORY_CAT = {
 }
 
 
-def history() -> list[dict]:
-    """What the team has actually done, newest first.
+def history(current_session: str = "") -> list[dict]:
+    """What *this* team has actually done, newest first.
 
     Shape: {id, cat, text, by, t, dot, why}. Built from the durable trace so
     it survives a restart, with each agent's own summary as the `why`.
+
+    Scoped to the signed-in owner's session for the same reason as `runs`:
+    the trace is a single machine-wide file, and an unfiltered read hands one
+    shop the contents of another's day.
     """
     rows = []
-    for s in bus.sessions(10):
-        if not str(s["session_id"]).startswith("sess-"):
+    for s in bus.sessions(30):
+        if str(s["session_id"]) != str(current_session):
             continue
         for e in reversed(bus.load(s["session_id"], 300)):
             if e["kind"] not in ("agent_end", "approval", "error"):
@@ -859,7 +865,7 @@ def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
         "channels": channels(),
         "pnl": pnl(),
         "demands": demands(),
-        "history": history(),
+        "history": history(session_id),
         "roster": roster(session_id),
         "runs": runs(session_id),
         "memRecords": mem_records(),
