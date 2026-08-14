@@ -12,6 +12,7 @@ Parameter handling differs per provider, and getting it wrong is a hard error:
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -131,11 +132,110 @@ def build_client(provider: str, model: str, max_tokens: int):
     return client
 
 
+# Groq meters each model separately, so a daily cap on one says nothing about
+# the others. Ordered by capability: drop only as far as needed.
+GROQ_FALLBACKS = (
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-20b",
+    "llama-3.1-8b-instant",
+)
+
+
+def is_rate_limited(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return "rate_limit" in text or "429" in text or "rate limit" in text
+
+
+def retry_after(exc: Exception) -> str:
+    """The wait the provider asked for, as it wrote it. '' when it did not."""
+    m = re.search(r"try again in ([0-9hms\.]+)", str(exc))
+    return m.group(1) if m else ""
+
+
+class AllModelsBusy(ProviderError):
+    """Every model we can reach is over its cap.
+
+    Carries the wait so the caller can tell the owner when to come back
+    rather than making them read a provider traceback.
+    """
+
+    def __init__(self, wait: str = "") -> None:
+        self.wait = wait
+        super().__init__(
+            "Your daily free allowance with Groq is used up"
+            + (f" — it resets in about {wait}." if wait else ".")
+            + " Nothing is broken; the model is just rationed. Wait it out, or"
+              " add a paid key or a GOOGLE_API_KEY in .env to keep going."
+        )
+
+
+class _Failover:
+    """A client that moves to the next model when one is capped.
+
+    Wraps rather than subclasses because each provider returns its own client
+    type, and the only thing every caller uses is `.invoke`.
+    """
+
+    def __init__(self, models: list[str], max_tokens: int) -> None:
+        self._models = models
+        self._max_tokens = max_tokens
+
+    def invoke(self, *args, **kwargs):
+        last: Exception | None = None
+        for i, model in enumerate(self._models):
+            try:
+                return build_client(settings.provider, model,
+                                    self._max_tokens).invoke(*args, **kwargs)
+            except Exception as exc:  # noqa: BLE001
+                if not is_rate_limited(exc):
+                    raise
+                last = exc
+                if i + 1 < len(self._models):
+                    logger.warning("%s is over its daily cap; trying %s",
+                                   model, self._models[i + 1])
+        raise AllModelsBusy(retry_after(last) if last else "")
+
+    def with_structured_output(self, *args, **kwargs):
+        """Structured calls fail over too — that is most of the agent work."""
+        outer = self
+
+        class _Structured:
+            def invoke(self, *a, **kw):
+                last: Exception | None = None
+                for i, model in enumerate(outer._models):
+                    try:
+                        client = build_client(settings.provider, model,
+                                              outer._max_tokens)
+                        return client.with_structured_output(
+                            *args, **kwargs).invoke(*a, **kw)
+                    except Exception as exc:  # noqa: BLE001
+                        if not is_rate_limited(exc):
+                            raise
+                        last = exc
+                        if i + 1 < len(outer._models):
+                            logger.warning("%s is over its daily cap; trying %s",
+                                           model, outer._models[i + 1])
+                raise AllModelsBusy(retry_after(last) if last else "")
+
+        return _Structured()
+
+
 def get_llm(model: str | None = None, max_tokens: int | None = None):
-    """The main text client used by the supervisor and every text agent."""
-    return build_client(
-        settings.provider, model or settings.model, max_tokens or settings.max_tokens
-    )
+    """The main text client used by the supervisor and every text agent.
+
+    On Groq this fails over between models rather than surfacing a 429: the
+    caps are per-model and per-day, so one being exhausted is not the same as
+    having no model at all.
+    """
+    chosen = model or settings.model
+    budget = max_tokens or settings.max_tokens
+
+    if settings.provider == "groq":
+        chain = [chosen] + [m for m in GROQ_FALLBACKS if m != chosen]
+        return _Failover(chain, budget)
+    return build_client(settings.provider, chosen, budget)
 
 
 def get_fast_llm(max_tokens: int = 2000):

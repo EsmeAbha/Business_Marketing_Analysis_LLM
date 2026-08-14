@@ -600,6 +600,45 @@ async def api_state(request):
     return JSONResponse(_snapshot(_session_for(account["id"]), account))
 
 
+# Openers that need a person, not a workforce. Running the planner, the
+# router and eight specialists to answer "hey" is what emptied a day's token
+# allowance — and it is a worse answer, too.
+SMALL_TALK = {
+    "hi", "hey", "hello", "yo", "salam", "assalamu alaikum", "hii", "helo",
+    "good morning", "good afternoon", "good evening", "how are you",
+    "thanks", "thank you", "ok", "okay", "cool", "nice", "test", "testing",
+}
+
+
+def _small_talk_reply(text: str, account: dict) -> str | None:
+    """A direct answer when there is nothing to delegate.
+
+    Deliberately not a model call: it costs nothing, cannot be rate limited,
+    and a greeting has one right answer anyway.
+    """
+    plain = text.strip().lower().strip("!?.,")
+    if plain not in SMALL_TALK and len(plain.split()) > 3:
+        return None
+    if plain not in SMALL_TALK:
+        return None
+
+    name = (account.get("owner_name") or "").split(" ")[0]
+    hello = f"Hello {name}." if name else "Hello."
+    if plain.startswith(("thank", "ok", "okay", "cool", "nice")):
+        return "Any time. What next?"
+    return (
+        f"{hello} Your team is here — nine specialists between "
+        f"research, pricing, stock, marketing, customers and delivery."
+        "\n\nAsk me something real and I will put it to them. For example:"
+        "\n\n- What should I sell to make money this month?"
+        "\n- Write an Instagram ad for what I sell"
+        "\n- Am I charging enough?"
+        "\n- What are customers asking for that I don't have?"
+        "\n\nOr send a photo of a product and I will tell you whether it is "
+        "worth selling."
+    )
+
+
 async def api_ask(request):
     """Run one turn of the workforce and return the refreshed snapshot."""
     if not settings.has_llm:
@@ -617,6 +656,12 @@ async def api_ask(request):
     if not text:
         return JSONResponse({"error": "empty message"}, status_code=400)
 
+    quick = _small_talk_reply(text, account)
+    if quick is not None:
+        snap = _snapshot(session_id, account)
+        snap["answer"] = quick
+        return JSONResponse(snap)
+
     async with _run_lock:
         try:
             # The graph is synchronous; keep the event loop free while it runs.
@@ -626,6 +671,11 @@ async def api_ask(request):
             logger.error("turn failed: %s", exc)
             bus.emit(session_id, "error", "web", f"turn failed: {exc}",
                      level="error")
+            from lucida.llm import AllModelsBusy, is_rate_limited
+            if isinstance(exc, AllModelsBusy) or is_rate_limited(exc):
+                # Not a failure of the app — say so plainly and give the wait,
+                # rather than showing the owner a provider traceback.
+                return JSONResponse({"error": str(exc)}, status_code=429)
             return JSONResponse({"error": str(exc)}, status_code=500)
 
     snap = _snapshot(session_id, account)
