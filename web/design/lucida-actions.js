@@ -344,12 +344,52 @@
     }
   }
 
+  /* ---- editable reply ----------------------------------------------------
+   * The design shows the drafted reply in a read-only div — it assumed the
+   * owner either sends it or opens the thread elsewhere to change it. Making
+   * that div editable is the smallest change that lets them correct a word
+   * before it goes to a customer, which is the whole point of a draft.
+   */
+  function wireDraft() {
+    var label = [...document.querySelectorAll('span')]
+      .find(function (s) { return /reply drafted for you/i.test(s.textContent || ''); });
+    if (!label) return;
+    var card = label.closest('div').parentElement;
+    if (!card) return;
+    var box = [...card.querySelectorAll('div')].find(function (d) {
+      return (d.style || {}).whiteSpace === 'pre-wrap';
+    });
+    if (!box || box.__lucidaDraft) return;
+    box.__lucidaDraft = true;
+
+    box.setAttribute('contenteditable', 'true');
+    box.setAttribute('spellcheck', 'true');
+    box.style.outline = 'none';
+    box.style.borderRadius = '8px';
+    box.style.padding = '6px 8px';
+    box.style.margin = '-6px -8px';
+    box.style.transition = 'background .15s';
+    box.title = 'You can edit this before sending';
+    box.addEventListener('focus', function () {
+      box.style.background = '#FAF3E7';
+    });
+    box.addEventListener('blur', function () {
+      box.style.background = 'transparent';
+    });
+    // The Send handler reads the live text, so an edit here is what goes.
+    box.addEventListener('input', function () {
+      window.__lucidaDraftText = box.innerText;
+    });
+    window.__lucidaDraftText = box.innerText;
+  }
+
   // The design re-renders on every navigation, so re-attach when the Stock
   // page mounts rather than only once at boot.
   function wireAll() {
     applyIdentity();
     wirePhoto();
     wireProfile();
+    wireDraft();
     firstRunNotice();
   }
   document.addEventListener('DOMContentLoaded', wireAll);
@@ -371,6 +411,28 @@
         return;
       }
       post('/api/ask', { text: text }, 'Your team is working on it…', true);
+    },
+
+    /** Send a reply to one customer message. */
+    reply: function (messageId, text) {
+      text = (text || '').trim();
+      if (!text) {
+        toast('Write a reply first.', 'error');
+        return;
+      }
+      // Thread ids are the real social_messages row id; anything else is the
+      // design's own sample thread, which has nowhere to send to.
+      var id = parseInt(messageId, 10);
+      if (!id) {
+        toast('This is a sample conversation — nothing to reply to.', 'error');
+        return;
+      }
+      post('/api/reply', { message_id: id, text: text }, 'Sending your reply…');
+    },
+
+    /** Pull new customer messages in from the connected platforms. */
+    syncInbox: function () {
+      post('/api/inbox/sync', {}, 'Checking for new messages…');
     },
 
     /** Answer the approval gate the graph is suspended on. */

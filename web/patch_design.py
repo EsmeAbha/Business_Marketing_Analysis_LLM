@@ -305,6 +305,18 @@ HANDLERS = [
         "      reorderBody: R().body,\n"
         "      salesToday: K().salesToday, salesTodayNote: K().salesTodayNote,",
     ),
+    # The Send button only marked the thread answered in local state. It
+    # sends the reply now — through LucidaActions so a failure leaves the
+    # message visibly unanswered rather than silently ticked off.
+    (
+        "send: () => { const x = Object.assign({}, s.sent); x[thread.id] = "
+        "'just now'; this.setState({ sent: x }); }",
+        "send: () => window.LucidaActions.reply(thread.id, "
+        "(s.drafts && s.drafts[thread.id]) !== undefined "
+        "? s.drafts[thread.id] : thread.draft),\n"
+        "        onDraft: e => this.setState({ drafts: Object.assign({}, "
+        "s.drafts, { [thread.id]: e.target.value }) })",
+    ),
     (
         "const EMPTY_THREAD = {",
         "function R() {\n"

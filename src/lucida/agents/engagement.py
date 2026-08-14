@@ -12,6 +12,7 @@ from collections import Counter
 from ..memory import memory
 from ..observability import bus
 from ..state import WorkforceState
+from ..tools import inbox
 from ..tools.social import social
 from .base import AgentResult, BaseAgent
 from .schemas import EngagementResult
@@ -47,14 +48,38 @@ class EngagementAgent(BaseAgent):
         session_id = state.get("session_id", "")
         limit = int(state.get("owner_context", {}).get("message_limit", 10) or 10)
 
-        messages, simulated = social.fetch_messages(limit=limit)
+        # Pull anything new from Messenger, Instagram and the comments under
+        # published posts into the shop's own inbox first, then read from
+        # there. Storing before analysing means a message survives a failed
+        # run, and the same message is never analysed twice.
+        synced = inbox.sync(memory.db, limit=limit)
+        simulated = synced.simulated
+        rows = inbox.threads(memory.db, limit=limit)
+        messages = [
+            {
+                "id": r["id"],
+                "customer": r.get("sender_name") or "Customer",
+                "channel": r.get("platform") or "message",
+                "message": r.get("message") or "",
+                "kind": r.get("kind") or "dm",
+            }
+            for r in rows
+        ]
+
         bus.emit(
             session_id,
             kind="tool_call",
             actor=self.name,
-            summary=f"fetched {len(messages)} customer messages"
+            summary=f"synced {synced.stored} new of {synced.fetched} fetched; "
+                    f"{len(messages)} conversation(s) to read"
             + (" [SIMULATED inbox]" if simulated else " [LIVE]"),
-            payload={"count": len(messages), "simulated": simulated},
+            payload={
+                "fetched": synced.fetched, "new": synced.stored,
+                "per_platform": synced.per_platform,
+                "unanswered": inbox.unanswered(memory.db),
+                "simulated": simulated,
+                "errors": synced.errors,
+            },
             level="warning" if simulated else "info",
         )
 
@@ -79,6 +104,30 @@ Analyse every message above. Anything a customer asks for that is not in the pro
 list is unmet demand — capture it in `requested_item` and `unmet_demand`."""
 
         result = self.ask(state, EngagementResult, SYSTEM, prompt)
+
+        # The agent's own reply drafts are what the Customers page offers the
+        # owner to send. Matched back by message text: the model may reorder
+        # or merge what it was given, so position is not reliable.
+        # One text can map to several rows: the same question often arrives
+        # on Messenger and Instagram both. Every unanswered copy gets the
+        # draft, rather than only whichever the dict happened to keep last.
+        by_text: dict[str, list[int]] = {}
+        for r in rows:
+            by_text.setdefault((r.get("message") or "").strip(), []).append(r["id"])
+
+        drafted = 0
+        for m in result.analysed:
+            reply_text = (m.suggested_reply or "").strip()
+            if not reply_text:
+                continue
+            for row_id in by_text.get((m.message or "").strip(), []):
+                memory.db.execute(
+                    "UPDATE social_messages SET draft_reply=?, sentiment=?, "
+                    "intent=?, requested_item=? WHERE id=? AND replied=0",
+                    (reply_text, m.sentiment, m.intent, m.requested_item,
+                     row_id),
+                )
+                drafted += 1
 
         # Persist each analysed message and every extracted pre-order.
         preorder_count = 0
@@ -132,6 +181,8 @@ list is unmet demand — capture it in `requested_item` and `unmet_demand`."""
             summary += f" 🔎 Customers are asking for: {', '.join(unmet)}."
         if result.urgent_issues:
             summary += f" ⚠️ {len(result.urgent_issues)} urgent issue(s) need a reply today."
+        if drafted:
+            summary += f" ✍️ {drafted} reply/replies drafted for you to send."
         if simulated:
             summary += " (Inbox came from the SIMULATED adapter.)"
 

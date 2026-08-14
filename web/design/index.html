@@ -1380,7 +1380,8 @@ class Component extends DCLogic {
         message: thread.message, read: thread.read, draft: thread.draft, action: thread.action,
         tags: thread.tags.map(t => ({ label: t[0], bg: t[1], fg: t[2] })),
         unsent: !s.sent[thread.id], sent: !!s.sent[thread.id], sentAt: s.sent[thread.id] || '',
-        send: () => { const x = Object.assign({}, s.sent); x[thread.id] = 'just now'; this.setState({ sent: x }); }
+        send: () => window.LucidaActions.reply(thread.id, (s.drafts && s.drafts[thread.id]) !== undefined ? s.drafts[thread.id] : thread.draft),
+        onDraft: e => this.setState({ drafts: Object.assign({}, s.drafts, { [thread.id]: e.target.value }) })
       },
 
       stock: STOCK,

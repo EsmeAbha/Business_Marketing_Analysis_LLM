@@ -325,6 +325,12 @@ MIGRATIONS: dict[str, dict[str, str]] = {
         "total_charge": "REAL NOT NULL DEFAULT 0",
         "is_cod": "INTEGER NOT NULL DEFAULT 1",
     },
+    "social_messages": {
+        # What the Engagement agent drafted, kept apart from `reply_text`
+        # which is what was actually sent. Conflating the two would make an
+        # unsent suggestion look like an answered customer.
+        "draft_reply": "TEXT",
+    },
     "campaigns": {
         "media_id": "INTEGER REFERENCES media_assets(id)",
         "budget_daily": "REAL",
