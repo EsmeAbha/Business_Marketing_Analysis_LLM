@@ -1,4 +1,4 @@
-__pycache__/
+﻿__pycache__/
 *.py[cod]
 .venv/
 venv/
@@ -7,11 +7,19 @@ env/
 .streamlit/secrets.toml
 
 # Runtime state — regenerated on first run
-data/aiworkforce.db
+data/lucida.db
 data/checkpoints.db
+data/checkpoints.db-shm
+data/checkpoints.db-wal
 data/vectors/
 data/uploads/
 !data/.gitkeep
+
+# Design bundle archive — the extracted files under web/design/ are what ship
+Form selections needed.zip
+
+# Local jsdom harness used to verify the design boots
+node_modules/
 
 *.log
 .DS_Store

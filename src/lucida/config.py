@@ -1,4 +1,4 @@
-"""Central configuration.
+﻿"""Central configuration.
 
 Every knob the system has lives here so agents never read os.environ directly.
 Missing optional credentials are not an error — they flip the corresponding
@@ -23,15 +23,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Trust the operating system's certificate store rather than only certifi's
+# bundle. On machines where antivirus or a corporate proxy inspects TLS, the
+# intercepting root CA is installed in the OS store but not in certifi, so
+# every provider call fails with CERTIFICATE_VERIFY_FAILED — which surfaces
+# confusingly as `APIConnectionError: Connection error`. Best-effort: if
+# truststore isn't installed we carry on with the default bundle.
+try:
+    import truststore
+
+    truststore.inject_into_ssl()
+except Exception:  # noqa: BLE001 — never block startup over this
+    pass
+
 # --- Filesystem layout -----------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 VECTOR_DIR = DATA_DIR / "vectors"
-DB_PATH = DATA_DIR / "aiworkforce.db"
+DB_PATH = DATA_DIR / "lucida.db"
 CHECKPOINT_PATH = DATA_DIR / "checkpoints.db"
-LOG_PATH = DATA_DIR / "aiworkforce.log"
+LOG_PATH = DATA_DIR / "lucida.log"
 
 for _d in (DATA_DIR, UPLOAD_DIR, VECTOR_DIR):
     _d.mkdir(parents=True, exist_ok=True)

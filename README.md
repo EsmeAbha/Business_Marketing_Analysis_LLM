@@ -1,4 +1,4 @@
-# 🏪 AI Business Workforce
+﻿# 🏪 Lucida
 
 A multi-agent AI system that acts as an **autonomous workforce for a small business** —
 from deciding what to sell, through sourcing, pricing, marketing, customer listening
@@ -151,14 +151,56 @@ system.
 
 ## Running it
 
+There are two front-ends over the same workforce. Both read and write the same
+shared memory, so you can switch between them freely.
+
+### The Business Suite workspace (primary)
+
+```bash
+python serve.py
+```
+
+Open **http://127.0.0.1:8000**.
+
+This serves the `Business Suite` design bundle in [`web/design/`](web/design/)
+exactly as authored — its own markup, its own React runtime, its own fonts.
+Nothing is redrawn. Two additive patches make it Lucida's:
+
+* `window.__resources` points the runtime's CDN URLs at vendored copies of
+  React / ReactDOM / Babel, so the page runs with no external requests.
+* Each data constant prefers `window.LUCIDA.<key>`, which the server injects
+  inline before the runtime boots. **Where the database is empty the design
+  falls back to its own literals**, so a fresh install still renders as drawn
+  and real data replaces it section by section as agents populate memory.
+
+The design's own controls are wired through: **Ask** puts a question to the
+workforce, and a decision card's approve / not-now answers a real approval gate.
+
+Re-apply the patches after replacing the bundle:
+
+```bash
+python web/patch_design.py     # idempotent; keeps a pristine index.orig.html
+```
+
+### The Streamlit app (fallback)
+
 ```bash
 streamlit run app.py
 ```
 
-Open **http://localhost:8501**.
+Open **http://localhost:8501**. Kept as a working fallback; it additionally
+supports photo upload and streams agent narration live, which the workspace
+does not yet do.
 
-The sidebar shows a live 🟢 LIVE / 🟡 SIMULATED / 🔴 MISSING status for every
-integration, so it is always unambiguous which parts are calling real APIs.
+Either way, integration status is shown as 🟢 LIVE / 🟡 SIMULATED / 🔴 MISSING,
+so it is always unambiguous which parts are calling real APIs.
+
+> **TLS-inspected networks.** If provider calls fail with
+> `APIConnectionError: Connection error`, the real cause is usually
+> `CERTIFICATE_VERIFY_FAILED`: antivirus or a corporate proxy is intercepting
+> TLS with a root CA that lives in the OS trust store but not in certifi's
+> bundle. `truststore` (in `requirements.txt`) is injected in
+> [`config.py`](src/lucida/config.py) to make Python use the OS store instead.
 
 ### Tests
 
@@ -268,10 +310,17 @@ code change**.
 ## Project structure
 
 ```
-app.py                     Streamlit entry point
+serve.py                   Business Suite workspace entry point (port 8000)
+web/design/                The design bundle, served as authored
+web/design/index.orig.html Pristine bundle — patches are re-applied from this
+web/patch_design.py        Adds the offline + data hooks to the bundle
+web/bridge.py              Maps shared memory onto the design's data shapes
+app.py                     Streamlit entry point (port 8501, fallback)
+ui/theme.py                Design tokens + components for the Streamlit UI
+ui/pages.py                Streamlit section renderers
 ui/panels.py               Panel render functions
 docs/architecture.md       Full architecture write-up
-src/aiworkforce/
+src/lucida/
   config.py                Settings + LIVE/SIMULATED capability flags
   pricing.py               Token accounting + USD cost estimation
   llm.py                   Claude client factory

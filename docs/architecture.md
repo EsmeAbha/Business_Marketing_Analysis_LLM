@@ -1,8 +1,8 @@
-# Architecture
+﻿# Architecture
 
 ## 1. System overview
 
-The AI Business Workforce is a **supervisor-routed multi-agent system** built on
+Lucida is a **supervisor-routed multi-agent system** built on
 LangGraph. A single Supervisor agent interprets the owner's request, plans, and
 delegates to eight specialists — one per stage of the small-business lifecycle.
 Specialists never call each other directly; they return to the Supervisor, which
@@ -202,7 +202,7 @@ subtracted from the input count and re-billed at their own multipliers (0.1× re
 ```
 app.py                     Streamlit entry point
 ui/panels.py               Panel render functions
-src/aiworkforce/
+src/lucida/
   config.py                Settings + LIVE/SIMULATED capability flags
   pricing.py               Token accounting and USD cost estimation
   llm.py                   Claude client factory (effort, no rejected params)

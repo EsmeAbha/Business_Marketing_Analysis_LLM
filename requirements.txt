@@ -17,6 +17,7 @@ streamlit>=1.41.0
 # --- Data / validation ---
 pydantic>=2.9.0
 python-dotenv>=1.0.1
+truststore>=0.10.0          # use the OS cert store; fixes TLS-inspected networks
 
 # --- Tools ---
 tavily-python>=0.5.0        # primary web search (optional, falls back to ddgs)

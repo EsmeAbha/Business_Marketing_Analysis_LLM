@@ -1,4 +1,4 @@
-"""Component tests that run without an API key.
+﻿"""Component tests that run without an API key.
 
 Everything here exercises the deterministic parts of the system — sandbox,
 memory, RAG, adapters, cost accounting and graph wiring — so a reviewer can
@@ -15,11 +15,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from aiworkforce.memory.vector import VectorStore, embed  # noqa: E402
-from aiworkforce.pricing import CallUsage, UsageLedger, estimate_cost  # noqa: E402
-from aiworkforce.tools.code_exec import margin_analysis, run_calculation  # noqa: E402
-from aiworkforce.tools.courier import courier  # noqa: E402
-from aiworkforce.tools.social import social  # noqa: E402
+from lucida.memory.vector import VectorStore, embed  # noqa: E402
+from lucida.pricing import CallUsage, UsageLedger, estimate_cost  # noqa: E402
+from lucida.tools.code_exec import margin_analysis, run_calculation  # noqa: E402
+from lucida.tools.courier import courier  # noqa: E402
+from lucida.tools.social import social  # noqa: E402
 
 
 # --- Code execution sandbox ------------------------------------------------
@@ -200,7 +200,7 @@ def test_ledger_aggregates_per_agent():
 
 
 def test_graph_has_supervisor_and_eight_specialists():
-    from aiworkforce.graph import AGENT_NAMES, agent_roster, build_graph
+    from lucida.graph import AGENT_NAMES, agent_roster, build_graph
 
     app = build_graph()
     nodes = set(app.get_graph().nodes)
@@ -212,7 +212,7 @@ def test_graph_has_supervisor_and_eight_specialists():
 
 
 def test_approval_gated_agents_are_declared():
-    from aiworkforce.agents import build_agents
+    from lucida.agents import build_agents
 
     agents = build_agents()
     gated = {n for n, a in agents.items() if a.requires_approval}
@@ -220,7 +220,7 @@ def test_approval_gated_agents_are_declared():
 
 
 def test_every_agent_declares_its_identity():
-    from aiworkforce.agents import build_agents
+    from lucida.agents import build_agents
 
     for name, agent in build_agents().items():
         assert agent.name == name
@@ -235,7 +235,7 @@ def test_every_agent_declares_its_identity():
 
 
 def _state(**over):
-    from aiworkforce.state import new_state
+    from lucida.state import new_state
 
     s = new_state("t", "what should I sell?")
     s.update(over)
@@ -243,7 +243,7 @@ def _state(**over):
 
 
 def test_completed_agents_are_removed_from_the_allowed_set():
-    from aiworkforce.supervisor import supervisor
+    from lucida.supervisor import supervisor
 
     state = _state(
         agent_outputs={
@@ -259,7 +259,7 @@ def test_completed_agents_are_removed_from_the_allowed_set():
 
 
 def test_failed_agent_gets_one_retry_then_is_dropped():
-    from aiworkforce.supervisor import supervisor
+    from lucida.supervisor import supervisor
 
     failed_once = _state(
         agent_outputs={"delivery": {"ok": False, "error": "no address"}},
@@ -275,15 +275,15 @@ def test_failed_agent_gets_one_retry_then_is_dropped():
 
 
 def test_product_vision_is_unroutable_without_an_image():
-    from aiworkforce.supervisor import supervisor
+    from lucida.supervisor import supervisor
 
     assert "product_vision" not in supervisor._allowed_agents(_state(image_paths=[]))
     assert "product_vision" in supervisor._allowed_agents(_state(image_paths=["a.jpg"]))
 
 
 def test_rerouting_a_completed_agent_falls_forward_to_the_plan():
-    from aiworkforce.agents.schemas import RoutingDecision
-    from aiworkforce.supervisor import supervisor
+    from lucida.agents.schemas import RoutingDecision
+    from lucida.supervisor import supervisor
 
     state = _state(
         agent_outputs={"market_research": {"ok": True, "summary": "done"}},
@@ -298,8 +298,8 @@ def test_rerouting_a_completed_agent_falls_forward_to_the_plan():
 
 
 def test_router_finishes_when_every_agent_is_done():
-    from aiworkforce.agents.schemas import RoutingDecision
-    from aiworkforce.supervisor import supervisor
+    from lucida.agents.schemas import RoutingDecision
+    from lucida.supervisor import supervisor
 
     state = _state(
         agent_outputs={a: {"ok": True, "summary": "d"} for a in supervisor.ALL_AGENTS},
@@ -318,7 +318,7 @@ def test_router_finishes_when_every_agent_is_done():
 
 
 def test_graph_interrupt_is_not_swallowed_by_the_error_boundary():
-    from aiworkforce.agents.base import _CONTROL_FLOW, AgentResult, BaseAgent
+    from lucida.agents.base import _CONTROL_FLOW, AgentResult, BaseAgent
 
     class Suspending(BaseAgent):
         name = "suspending_test_agent"
@@ -351,7 +351,7 @@ def test_graph_interrupt_is_not_swallowed_by_the_error_boundary():
 
 
 def test_approval_writes_are_idempotent_across_interrupt_replay():
-    from aiworkforce.memory import memory
+    from lucida.memory import memory
 
     for _ in range(3):
         memory.db.add_approval("replay-test", "publish_ads", "request_changes", "shorter")
@@ -365,7 +365,7 @@ def test_approval_writes_are_idempotent_across_interrupt_replay():
 
 
 def test_provider_defaults_and_vision_gating():
-    from aiworkforce.config import PROVIDER_LIMITS, TEXT_DEFAULTS, VISION_DEFAULTS
+    from lucida.config import PROVIDER_LIMITS, TEXT_DEFAULTS, VISION_DEFAULTS
 
     for provider, (main, fast) in TEXT_DEFAULTS.items():
         assert main and fast, f"{provider} is missing a model default"
@@ -378,7 +378,7 @@ def test_provider_defaults_and_vision_gating():
 
 
 def test_unknown_provider_fails_loudly():
-    from aiworkforce.llm import ProviderError, build_client
+    from lucida.llm import ProviderError, build_client
 
     try:
         build_client("not-a-provider", "some-model", 100)

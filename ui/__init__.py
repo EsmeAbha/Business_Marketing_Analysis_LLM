@@ -1,1 +1,1 @@
-"""Streamlit UI components for the AI Business Workforce."""
+"""Streamlit UI components for Lucida."""
