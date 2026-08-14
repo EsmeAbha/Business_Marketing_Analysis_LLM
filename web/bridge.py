@@ -666,9 +666,23 @@ def decisions(pending: dict[str, Any] | None) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def is_first_run() -> bool:
+    """True while this shop's memory is still empty.
+
+    Matters because the design falls back to its own demo figures when a key
+    is empty — good for keeping the layout intact, bad for a new owner who
+    would otherwise read someone else's sales as their own. The front-end uses
+    this to say plainly that the numbers are samples.
+    """
+    s = memory.stats()
+    return not any((s["products"], s["conversations"], s["campaigns"],
+                    s["preorders"], s["reports"]))
+
+
 def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
     """Everything the design needs, keyed to the constants it declares."""
     return {
+        "firstRun": is_first_run(),
         "businessName": (memory.profile() or {}).get("business_name") or "Lucida",
         "ownerName": (memory.profile() or {}).get("owner_name") or "",
         "location": settings.location,

@@ -183,6 +183,28 @@ HANDLERS = [
         "  schedule() {\n    clearTimeout(this.timer);\n"
         "    if (!RUNS.length) return;\n",
     ),
+    # The rail's second line is the demo shop's address, written straight into
+    # the markup. Turned into a binding so it can show the owner's own.
+    (
+        ">Mirpur 11, Dhaka<",
+        ">{{ shopLocation }}<",
+    ),
+    (
+        "goSettings: () => this.go('settings'), goActivity: () => this.go('history'),",
+        "goSettings: () => this.go('settings'), goActivity: () => this.go('history'),\n"
+        "      shopLocation: (window.LUCIDA && window.LUCIDA.location)\n"
+        "        || 'Add your area in Settings',",
+    ),
+    # On an empty shop the figures below are the design's samples. Say so,
+    # instead of greeting a new owner with a night's work they never had.
+    (
+        "      dayLine: open.length",
+        "      dayLine: (window.LUCIDA && window.LUCIDA.firstRun)\n"
+        "        ? 'Your team is ready, but has not learned anything about your "
+        "shop yet. The figures below are examples — ask a question or add a "
+        "photo of what you sell, and they fill in with yours.'\n"
+        "        : open.length",
+    ),
 ]
 
 

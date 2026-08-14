@@ -66,7 +66,7 @@ window.LUCIDA = window.LUCIDA || {};
       <div style="width: 34px; height: 34px; border-radius: 11px; background: #7B1E22; color: #F4EFE2; display: grid; place-items: center; font-family: 'Instrument Serif', serif; font-size: 19px;">S</div>
       <div style="display: flex; flex-direction: column; line-height: 1.25; min-width: 0;">
         <span style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ businessName }}</span>
-        <span style="font-size: 11.5px; color: #8A7563;">Mirpur 11, Dhaka</span>
+        <span style="font-size: 11.5px; color: #8A7563;">{{ shopLocation }}</span>
       </div>
     </div>
 
@@ -1278,6 +1278,8 @@ class Component extends DCLogic {
       autopilotLabel: autopilotLabel,
       teamSummary: '8 assistants · 3 working now, 5 waiting for their turn. Last check 4 minutes ago.',
       goSettings: () => this.go('settings'), goActivity: () => this.go('history'),
+      shopLocation: (window.LUCIDA && window.LUCIDA.location)
+        || 'Add your area in Settings',
       goGrow: () => window.LucidaActions.ask(this.state.ask), goStock: () => this.go('stock'),
 
       nav: (s.role === 'builder' ? BUILDER_NAV : OWNER_NAV).map(([id, label, icon]) => ({
@@ -1294,7 +1296,9 @@ class Component extends DCLogic {
       isMarketing: s.page === 'marketing', isMoney: s.page === 'money', isGrow: s.page === 'grow',
       isHistory: s.page === 'history', isSettings: s.page === 'settings',
 
-      dayLine: open.length
+      dayLine: (window.LUCIDA && window.LUCIDA.firstRun)
+        ? 'Your team is ready, but has not learned anything about your shop yet. The figures below are examples — ask a question or add a photo of what you sell, and they fill in with yours.'
+        : open.length
         ? 'Your team worked through the night and handled 38 messages on its own. ' + open.length + (open.length === 1 ? ' thing needs' : ' things need') + ' your decision — about five minutes of your morning.'
         : 'Everything is handled. Your team is watching the inbox, the stock and the ads, and will only interrupt you if money or a promise is at stake.',
       pendingLine: open.length ? open.length + ' waiting · oldest at 6:10 am' : 'nothing waiting',

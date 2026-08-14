@@ -327,9 +327,14 @@ def verify_page(
             f"<div style='margin-top:6px;font-size:12px;'>Set AIW_SMTP_* in "
             f".env to send these by email instead.</div></div>"
         )
+    # When no mail server is configured, the block above already explains that
+    # and shows the code. Repeating "Email is not set up on this server" under
+    # it says the same thing twice, in a red box that reads like a failure —
+    # so the delivery problem is only shown when it is a *different* problem,
+    # i.e. sending was attempted and went wrong.
     problem = (
         f"<div class='alert'>{_e(delivery_problem)}</div>"
-        if delivery_problem else ""
+        if delivery_problem and not dev_code else ""
     )
     wait = (
         f"<span class='note'>You can ask for another in {resend_in}s.</span>"
