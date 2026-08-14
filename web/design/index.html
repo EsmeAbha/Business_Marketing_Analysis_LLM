@@ -102,7 +102,7 @@ window.LUCIDA = window.LUCIDA || {};
       <div style="padding: 30px 36px; max-width: 1120px;">
         <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 26px;">
           <div>
-            <div style="font-size: 12px; color: #71717A; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px;">Tuesday, 12 August</div>
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 10px; font-size: 13px;"><a href="/" style="color: #7B1E22; font-weight: 600; text-decoration: none;">&larr; Chat</a><a href="/studio" style="color: #71717A; text-decoration: none;">Ad studio</a><a href="/connect" style="color: #71717A; text-decoration: none;">Connect</a></div><div style="font-size: 12px; color: #71717A; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px;">{{ todayLabel }}</div>
             <h1 style="margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 34px; font-weight: 400; letter-spacing: -0.01em;">Good morning, {{ ownerName }}.</h1>
             <p style="margin: 7px 0 0; font-size: 14.5px; color: #3F3F46; max-width: 620px; line-height: 1.55;">{{ dayLine }}</p>
           </div>
@@ -202,7 +202,7 @@ window.LUCIDA = window.LUCIDA || {};
             <section style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 16px 17px;">
               <h2 style="margin: 0 0 11px; font-size: 15px; font-weight: 600;">Ask your team</h2>
               <div style="display: flex; gap: 8px; margin-bottom: 11px;">
-                <input value="{{ askText }}" onChange="{{ onAsk }}" placeholder="e.g. should I sell chicken shingara?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4E4E7; font-size: 13px; background: #FAFAFA; color: #000000;" />
+                <input value="{{ askText }}" onChange="{{ onAsk }}" placeholder="Ask your team anything about your shop" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4E4E7; font-size: 13px; background: #FAFAFA; color: #000000;" />
                 <button onClick="{{ goGrow }}" style="padding: 10px 13px; border-radius: 10px; border: none; background: #000000; color: #FFFFFF; font-size: 13px; cursor: pointer;" style-hover="background: #7B1E22">Ask</button>
               </div>
               <div style="display: flex; flex-wrap: wrap; gap: 6px;">
@@ -225,24 +225,24 @@ window.LUCIDA = window.LUCIDA || {};
           <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;">
             <div style="font-size: 12px; color: #71717A;">Messages today</div>
             <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">47</div>
-            <div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">38 answered automatically</div>
+            <div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">{{ inboxAnswered }}</div>
           </div>
           <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;">
             <div style="font-size: 12px; color: #71717A;">Orders found in chat</div>
-            <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">312 pcs</div>
-            <div style="font-size: 12px; color: #71717A; margin-top: 2px;">৳5,616 · added to preorders</div>
+            <div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">{{ ordersFoundUnits }}</div>
+            <div style="font-size: 12px; color: #71717A; margin-top: 2px;">{{ ordersFoundValue }}</div>
           </div>
           <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;">
             <div style="font-size: 12px; color: #71717A;">Happy customers</div>
             <div style="display: flex; height: 7px; border-radius: 4px; overflow: hidden; margin: 11px 0 8px;">
-              <span style="width: 68%; background: #7B1E22;"></span><span style="width: 21%; background: #D4D4D8;"></span><span style="width: 11%; background: #B91C1C;"></span>
+              <span style="width: {{ happyBar }}; background: #7B1E22;"></span><span style="width: {{ neutralBar }}; background: #D4D4D8;"></span><span style="width: {{ upsetBar }}; background: #B91C1C;"></span>
             </div>
-            <div style="display: flex; gap: 10px; font-size: 11.5px; color: #71717A;"><span>68% happy</span><span>21% neutral</span><span>11% upset</span></div>
+            <div style="display: flex; gap: 10px; font-size: 11.5px; color: #71717A;"><span>{{ happyPct }} happy</span><span>{{ neutralPct }} neutral</span><span>{{ upsetPct }} upset</span></div>
           </div>
           <div style="background: #FFFFFF; border: 1px solid #FDE68A; border-radius: 14px; padding: 14px 15px;">
             <div style="font-size: 12px; color: #71717A;">Asking for something you don't sell</div>
-            <div style="font-size: 15px; font-weight: 600; margin-top: 5px;">Chicken shingara</div>
-            <div style="font-size: 12px; color: #A16207; margin-top: 2px;">14 people this month</div>
+            <div style="font-size: 15px; font-weight: 600; margin-top: 5px;">{{ topDemand }}</div>
+            <div style="font-size: 12px; color: #A16207; margin-top: 2px;">{{ topDemandNote }}</div>
           </div>
         </div>
 
@@ -335,10 +335,10 @@ window.LUCIDA = window.LUCIDA || {};
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{ reorderTitle }}</div>
             <p style="margin: 0 0 14px; font-size: 13.5px; color: #3F3F46; line-height: 1.6;">{{ reorderBody }}</p>
             <div style="display: flex; gap: 22px; padding: 13px 15px; background: #FFFFFF; border-radius: 11px; margin-bottom: 15px;">
-              <div><div style="font-size: 11.5px; color: #71717A;">Total cost</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳30,060</div></div>
-              <div><div style="font-size: 11.5px; color: #71717A;">Already promised</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: #7B1E22;">৳5,616</div></div>
-              <div><div style="font-size: 11.5px; color: #71717A;">Arrives</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Thu 14 Aug</div></div>
-              <div><div style="font-size: 11.5px; color: #71717A;">Money back in</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">11 days</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">Total cost</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ poTotal }}</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">Already promised</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: #7B1E22;">{{ promisedValue }}</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">Arrives</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ poArrives }}</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">Money back in</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ poPayback }}</div></div>
             </div>
             <sc-if value="{{ poOpen }}" hint-placeholder-val="{{ true }}">
               <div style="display: flex; align-items: center; gap: 8px;">
@@ -373,19 +373,24 @@ window.LUCIDA = window.LUCIDA || {};
         <p style="margin: 0 0 22px; font-size: 14px; color: #3F3F46;">Posts and ads written and scheduled for you. Nothing goes out, and no money is spent, before you say yes.</p>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 22px;">
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">Spent this week</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">৳2,450</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">Sales from ads</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">৳11,880</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">৳4.85 back per ৳1</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">Cost per customer</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">৳37</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">under your ৳41 limit</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">People reached</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">18.4k</div><div style="font-size: 12px; color: #71717A; margin-top: 2px;">6 km around Mirpur</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">Spent this week</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">{{ adSpentWeek }}</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">Sales from ads</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">{{ adSales }}</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">{{ adReturn }}</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">Cost per customer</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">{{ adCostPerCustomer }}</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">{{ adCostLimit }}</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #71717A;">People reached</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 24px; margin-top: 3px;">{{ adReach }}</div><div style="font-size: 12px; color: #71717A; margin-top: 2px;">{{ adArea }}</div></div>
         </div>
 
         <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 600;">Waiting for your yes</h2>
-        <p style="margin: 0 0 13px; font-size: 13px; color: #71717A;">Three posts written for this week's ৳350/day budget. Tap a photo box to use your own picture instead.</p>
+        <p style="margin: 0 0 13px; font-size: 13px; color: #71717A;">{{ marketingNote }}</p>
         <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 16px;">
           <sc-for list="{{ creatives }}" as="c" hint-placeholder-count="3">
             <div style="background: #FFFFFF; border: 1px solid {{ c.border }}; border-radius: 14px; overflow: hidden;">
-              <div style="height: 176px;">
-                <image-slot id="{{ c.slot }}" shape="rect" placeholder="{{ c.ph }}"></image-slot>
+              <div style="height: 176px; background: #FAFAFA; display: grid; place-items: center; overflow: hidden;">
+                <sc-if value="{{ c.hasImage }}" hint-placeholder-val="{{ true }}">
+                  <div role="img" style="width: 100%; height: 176px; background-image: {{ c.imageCss }}; background-size: cover; background-position: center;"></div>
+                </sc-if>
+                <sc-if value="{{ c.noImage }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size: 12px; color: #A1A1AA; padding: 0 14px; text-align: center;">{{ c.ph }}</span>
+                </sc-if>
               </div>
               <div style="padding: 14px 15px;">
                 <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 8px;">
@@ -434,7 +439,7 @@ window.LUCIDA = window.LUCIDA || {};
 
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 18px;">
           <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 18px;">
-            <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">One beef shingara, honestly costed</h2>
+            <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">{{ costTitle }}</h2><p style="margin: 0 0 11px; font-size: 12.5px; color: #71717A;">{{ costSubtitle }}</p>
             <sc-for list="{{ costRows }}" as="cr" hint-placeholder-count="5">
               <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F4F4F5;">
                 <span style="font-size: 13.5px; color: #3F3F46; flex: 1;">{{ cr.k }}</span>
@@ -457,13 +462,13 @@ window.LUCIDA = window.LUCIDA || {};
             <div style="display: flex; gap: 20px; padding: 13px 15px; background: #FFFFFF; border-radius: 11px; margin-bottom: 15px;">
               <div><div style="font-size: 11.5px; color: #71717A;">12-pc pack</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ packPrice }}</div></div>
               <div><div style="font-size: 11.5px; color: #71717A;">You keep</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: {{ marginNoteColor }};">{{ marginNow }}</div></div>
-              <div><div style="font-size: 11.5px; color: #71717A;">Wholesale</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳480</div></div>
-              <div><div style="font-size: 11.5px; color: #71717A;">Nearest rival</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳20/pc</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">Wholesale</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ wholesale }}</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">Nearest rival</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ rivalPrice }}</div></div>
             </div>
             <sc-if value="{{ priceOpen }}" hint-placeholder-val="{{ true }}">
               <div style="display: flex; align-items: center; gap: 8px;">
-                <button onClick="{{ applyPrice }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #7B1E22; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Raise to ৳228</button>
-                <button onClick="{{ keepPrice }}" style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #3F3F46; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">Keep ৳216 for now</button>
+                <button onClick="{{ applyPrice }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #7B1E22; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">{{ raiseTo }}</button>
+                <button onClick="{{ keepPrice }}" style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E4E4E7; background: #FFFFFF; color: #3F3F46; font-size: 13px; cursor: pointer;" style-hover="border-color: #7B1E22; color: #7B1E22">{{ keepFor }}</button>
               </div>
             </sc-if>
             <sc-if value="{{ priceSettled }}" hint-placeholder-val="{{ false }}">
@@ -503,15 +508,15 @@ window.LUCIDA = window.LUCIDA || {};
           <div>
             <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
               <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #7B1E22; background: #FBEBEB; padding: 3px 8px; border-radius: 6px;">Worth selling</span>
-              <span style="font-size: 12px; color: #71717A;">checked yesterday · 14 sellers, 61 posts, your own chat history</span>
+              <span style="font-size: 12px; color: #71717A;">{{ growSource }}</span>
             </div>
-            <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">Chicken shingara, 58g — start with 600 pieces</h2>
-            <p style="margin: 0 0 16px; font-size: 14px; color: #3F3F46; line-height: 1.65; max-width: 640px;">Fourteen of your own customers asked for it this month and nobody within 4 km sells it. Filling costs ৳0.70 more than beef, so at ৳19 a piece you keep slightly more than you do today. Start small: 600 pieces is under two days of your current sales, so a flop costs you ৳7,260, not your month.</p>
+            <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">{{ growTitle }}</h2>
+            <p style="margin: 0 0 16px; font-size: 14px; color: #3F3F46; line-height: 1.65; max-width: 640px;">{{ growBody }}</p>
             <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; max-width: 640px;">
-              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Asked for by</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">14 people</div></div>
-              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Rivals selling it</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">0 nearby</div></div>
-              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Suggested price</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px; color: #7B1E22;">৳19/pc</div></div>
-              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Risk if it flops</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">৳7,260</div></div>
+              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Asked for by</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">{{ growAskedBy }}</div></div>
+              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Rivals selling it</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">{{ growRivals }}</div></div>
+              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Suggested price</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px; color: #7B1E22;">{{ growPrice }}</div></div>
+              <div style="border: 1px solid #E4E4E7; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #71717A;">Risk if it flops</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">{{ growRisk }}</div></div>
             </div>
             <div style="display: flex; gap: 8px; margin-top: 16px;">
               <button onClick="{{ goStock }}" style="padding: 10px 15px; border-radius: 9px; border: none; background: #7B1E22; color: #FFFFFF; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #5E1519">Add to the next order</button>
@@ -538,7 +543,7 @@ window.LUCIDA = window.LUCIDA || {};
 
           <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Who else sells near you</h2>
-            <p style="margin: 0 0 14px; font-size: 12.5px; color: #71717A;">14 sellers within 4 km · median price ৳20 a piece.</p>
+            <p style="margin: 0 0 14px; font-size: 12.5px; color: #71717A;">{{ rivalsNote }}</p>
             <sc-for list="{{ rivals }}" as="r" hint-placeholder-count="4">
               <div style="display: grid; grid-template-columns: minmax(0,1fr) 74px minmax(0,1fr); gap: 12px; padding: 11px 0; border-top: 1px solid #F4F4F5; align-items: center;">
                 <span style="font-size: 13.5px;">{{ r.name }}</span>
@@ -627,9 +632,9 @@ window.LUCIDA = window.LUCIDA || {};
           <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 18px;">
             <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Spending limits</h2>
             <div style="display: flex; flex-direction: column; gap: 13px;">
-              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #3F3F46;">Ads per day</span><span style="font-size: 14px; font-weight: 600;">৳350</span></div>
-              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #3F3F46;">Stock order without asking</span><span style="font-size: 14px; font-weight: 600;">৳5,000</span></div>
-              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #3F3F46;">Discount it may offer</span><span style="font-size: 14px; font-weight: 600;">up to 10%</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #3F3F46;">Ads per day</span><span style="font-size: 14px; font-weight: 600;">{{ limitAds }}</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #3F3F46;">Stock order without asking</span><span style="font-size: 14px; font-weight: 600;">{{ limitStock }}</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #3F3F46;">Discount it may offer</span><span style="font-size: 14px; font-weight: 600;">{{ limitDiscount }}</span></div>
               <div style="padding-top: 12px; border-top: 1px solid #F4F4F5; font-size: 12.5px; color: #71717A; line-height: 1.55;">Anything above a limit becomes a decision on your Today page instead of an action.</div>
             </div>
           </div>
@@ -656,15 +661,21 @@ window.LUCIDA = window.LUCIDA || {};
             <div style="margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #71717A;">
               <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #7B1E22;"></span>working now</span>
               <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #A1A1AA;"></span>used this run</span>
-              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: #A16207;"></span>your gate</span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: #C4879A;"></span>handed off, numbered in order</span>
             </div>
           </div>
           <div style="position: relative; width: 100%; aspect-ratio: 900 / 440; background: #FAFAFA; border: 1px solid #F4F4F5; border-radius: 12px; overflow: hidden;">
-            <svg viewBox="0 0 900 440" style="position: absolute; inset: 0; width: 100%; height: 100%;">
-              <sc-for list="{{ edges }}" as="e" hint-placeholder-count="12">
-                <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}"></line>
-              </sc-for>
-            </svg>
+            <sc-for list="{{ edges }}" as="e" hint-placeholder-count="12">
+              <div style="position: absolute; left: {{ e.left }}%; top: {{ e.top }}%; width: {{ e.len }}%; height: 1px; background: {{ e.stroke }}; transform: rotate({{ e.deg }}deg); transform-origin: 0 50%;"></div>
+            </sc-for>
+            <sc-for list="{{ flow }}" as="f" hint-placeholder-count="6">
+              <div style="position: absolute; left: {{ f.left }}%; top: {{ f.top }}%; width: {{ f.len }}%; height: {{ f.w }}px; background: {{ f.stroke }}; border-radius: 2px; transform: rotate({{ f.deg }}deg); transform-origin: 0 50%;"></div>
+              <div style="position: absolute; left: {{ f.headLeft }}%; top: {{ f.headTop }}%; width: 0; height: 0; border-left: 8px solid {{ f.stroke }}; border-top: 5px solid transparent; border-bottom: 5px solid transparent; transform: translate(-100%, -50%) rotate({{ f.deg }}deg); transform-origin: 100% 50%;"></div>
+            </sc-for>
+
+            <sc-for list="{{ flow }}" as="f" hint-placeholder-count="6">
+              <div style="position: absolute; left: {{ f.midLeft }}%; top: {{ f.midTop }}%; transform: translate(-50%, -50%); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: {{ f.labelBg }}; color: {{ f.labelFg }}; border: 1px solid {{ f.stroke }};">{{ f.n }}</div>
+            </sc-for>
             <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="9">
               <div style="position: absolute; left: {{ n.left }}%; top: {{ n.top }}%; transform: translate(-50%, -50%); width: 17.5%; min-width: 132px; padding: 9px 11px; border-radius: 11px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; box-shadow: {{ n.shadow }};">
                 <div style="display: flex; align-items: center; gap: 7px;">
@@ -845,10 +856,10 @@ window.LUCIDA = window.LUCIDA || {};
         <p style="margin: 0 0 22px; font-size: 14px; color: #3F3F46;">What running this workforce costs, agent by agent — and what breaks when a third-party service does.</p>
 
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">Today</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">$0.61</div><div style="font-size: 12px; color: #71717A; margin-top: 2px;">118k tokens · 4 runs</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">This month</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">$11.20</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">≈ ৳1,344 · under $20 cap</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">Cost per decision</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">$0.15</div><div style="font-size: 12px; color: #71717A; margin-top: 2px;">4 gates cleared today</div></div>
-          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">Failures caught</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">3</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">0 stopped a workflow</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">Today</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">{{ usageToday }}</div><div style="font-size: 12px; color: #71717A; margin-top: 2px;">{{ usageTokens }}</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">This month</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">{{ usageMonth }}</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">{{ usageMonthNote }}</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">Cost per decision</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">{{ costPerDecision }}</div><div style="font-size: 12px; color: #71717A; margin-top: 2px;">{{ decisionsNote }}</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #71717A;">Failures caught</div><div style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; font-size: 26px; margin-top: 4px;">{{ failuresCaught }}</div><div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">{{ failuresNote }}</div></div>
         </div>
 
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start;">
@@ -888,19 +899,18 @@ window.LUCIDA = window.LUCIDA || {};
 </div>
 
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;businessName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Shomvob Kitchen&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;},&quot;ownerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Rifat&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;businessName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Your shop&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;},&quot;ownerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;}}">
 function K() {
   return (window.LUCIDA && window.LUCIDA.kpi) || {
     salesToday: '\u2014', salesTodayNote: 'no sales logged yet',
-    preorderUnits: '\u2014', preorderNote: 'none yet',
+    preorderUnits: '\u2014', preorderNote: 'no promises made yet',
     coverDays: '\u2014', coverNote: 'needs sales history'
   };
 }
 function R() {
   return (window.LUCIDA && window.LUCIDA.reorder) || {
-    basis: 'nothing to base this on yet',
-    title: 'Nothing needs reordering',
-    body: 'Your stock is above the levels you set, or none has been recorded yet.'
+    basis: 'nothing to reorder yet', title: 'No stock recorded',
+    body: 'Tell your team what you have in stock and it will watch it for you.'
   };
 }
 const EMPTY_THREAD = { id: '', name: 'No messages yet', initials: '\u2014',
@@ -919,136 +929,24 @@ const NAV = [
   ['history', 'History', '◔'], ['settings', 'Settings', '⚙']
 ];
 
-const DECISIONS = (window.LUCIDA && window.LUCIDA.decisions !== undefined ? window.LUCIDA.decisions : [
-  {
-    id: 'ads', tag: 'Marketing', by: 'Written by your marketing assistant', when: '6:10 am',
-    title: 'Three posts are ready for this week — shall I publish them?',
-    body: 'One Instagram post, one Facebook carousel and an 18-second video, all pointing at the 12-piece pack. Budget ৳350 a day for 6 km around Mirpur.',
-    facts: [['Daily spend', '৳350'], ['Expected reach', '4.2k/day'], ['Cost per order', 'under ৳41']],
-    yes: 'Publish all three', edit: 'Read the posts first', hint: 'Money starts moving only after this.',
-    doneText: 'Published to Facebook, Instagram and YouTube. First results by this evening.',
-    denyText: 'Held back. Your assistant will keep them ready and ask again tomorrow.'
-  },
-  {
-    id: 'price', tag: 'Money', by: 'Spotted by your pricing assistant', when: '8:02 am',
-    title: 'Oil went up 9% — raise the 12-piece pack to ৳228?',
-    body: 'Your cost per piece moved from ৳11.40 to ৳12.05. At ৳216 a pack you now keep 33% instead of 37%. Raising to ৳228 puts you back where you were and still sits under the ৳20-a-piece seller down the road.',
-    facts: [['Keep now', '33.1%'], ['After change', '36.9%'], ['Likely lost sales', 'about 3%']],
-    yes: 'Raise to ৳228', edit: 'Try another price', hint: 'Customers see this change.',
-    doneText: 'New price live everywhere, and your ad copy was updated to match.',
-    denyText: 'Price unchanged. Your assistant will watch the margin and warn you if it slips under 30%.'
-  },
-  {
-    id: 'stock', tag: 'Stock', by: 'Flagged by your stock assistant', when: '8:20 am',
-    title: 'Beef runs out Saturday — send a ৳30,060 order to Karwan Bazar Foods?',
-    body: '2,000 beef pieces to refill, plus 600 chicken as a first test since 14 customers asked for it. Delivery takes 2 days, so ordering today keeps you from a dry weekend.',
-    facts: [['Order cost', '৳30,060'], ['Already promised', '৳5,616'], ['Arrives', 'Thu 14 Aug']],
-    yes: 'Send the order', edit: 'Change quantity', hint: 'Supplier is paid on delivery.',
-    doneText: 'Order PO-9931 sent. Stock page will update itself when it arrives Thursday.',
-    denyText: 'Not ordered. Your assistant will remind you tomorrow morning — 3 days of stock left then.'
-  }
-]);
+const DECISIONS = (window.LUCIDA && window.LUCIDA.decisions !== undefined ? window.LUCIDA.decisions : []);
 
-const OVERNIGHT = (window.LUCIDA && window.LUCIDA.overnight !== undefined ? window.LUCIDA.overnight : [
-  { text: 'Answered 38 of 47 messages — prices, delivery areas, reheating questions.', by: 'Customer assistant', t: '11:20 pm – 6:00 am' },
-  { text: 'Found 9 preorders hidden in chats and logged 312 pieces against Friday.', by: 'Customer assistant', t: '5:40 am' },
-  { text: 'Counted down stock after yesterday\'s 47 sales and raised the low-stock flag.', by: 'Stock assistant', t: '6:02 am' },
-  { text: 'Posted two Instagram stories from Sunday\'s kitchen photos.', by: 'Marketing assistant', t: '7:00 am' },
-  { text: 'Passed one delivery complaint from Pallabi to you — a refund needs your word.', by: 'Customer assistant', t: '4:44 am' }
-]);
+const OVERNIGHT = (window.LUCIDA && window.LUCIDA.overnight !== undefined ? window.LUCIDA.overnight : []);
 
-const THREADS = (window.LUCIDA && window.LUCIDA.threads !== undefined ? window.LUCIDA.threads : [
-  { id: 't1', name: 'Nusrat Jahan', initials: 'NJ', channel: 'Messenger', t: '17:52', history: '4th order · joined June',
-    preview: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
-    message: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
-    state: 'Order found · needs your word on chicken', stateFg: '#A16207', mark: '#7B1E22',
-    read: 'Understood as: 24 pieces for Friday, and a request for chicken.',
-    tags: [['Repeat buyer', '#FBEBEB', '#7B1E22'], ['Wants chicken', '#FEF9C3', '#A16207']],
-    draft: 'Nusrat apu, 24 pcs Friday sokal e ready thakbe — ৳432, cash on delivery.\n\nChicken shingara ekhono nei, kintu apnar motoi onekei chaiche — samne shoptahe test batch ashche. Ami apnar naam list e rakhlam, first e apnake janabo.',
-    action: 'Adds 24 pcs to Friday and puts her on the chicken list.' },
-  { id: 't2', name: 'Shahana Begum', initials: 'SB', channel: 'Messenger', t: '16:44', history: '2nd order · Pallabi',
-    preview: 'Kal delivery ashe nai, 3 din hoye gelo. Pallabi te ki deliver koren na?',
-    message: 'Kal delivery ashe nai, 3 din hoye gelo. Pallabi te ki deliver koren na?',
-    state: 'Upset · refund needs you', stateFg: '#B91C1C', mark: '#B91C1C',
-    read: 'Understood as: a delivery that never arrived, third day waiting.',
-    tags: [['Complaint', '#FEE2E2', '#B91C1C'], ['Courier fault', '#F4F4F5', '#3F3F46']],
-    draft: 'Shahana apu, amar dosh — courier apnar parcel Pallabi hub e atke rekhechilo. Aj bikel 5 tar age apnar ghore pouche jabe, ar delivery charge ta ami nichchi na.\n\nJodi aj o na pouchay, puro taka ferot deb.',
-    action: 'Waives ৳60 delivery. A refund above ৳500 would need your approval.' },
-  { id: 't3', name: 'Tanvir Hasan', initials: 'TH', channel: 'Instagram', t: '17:20', history: 'First time',
-    preview: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.',
-    message: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.',
-    state: 'Answered automatically · 50 pcs logged', stateFg: '#7B1E22', mark: '#D4D4D8',
-    read: 'Understood as: a reheating question plus a 50-piece office order.',
-    tags: [['New customer', '#FBEBEB', '#7B1E22'], ['Bulk', '#F4F4F5', '#3F3F46']],
-    draft: 'Bhai, freezer theke direct 180°C te 6 minute — crispy thake, ager theke better. 50 pcs holo 4 ta 12-pc pack + 2 pcs extra, ami 50 pcs e ৳880 rakhlam.\n\nOffice address ta din, kal dupur er age pouche debo.',
-    action: 'Already sent at 17:21 — inside your autopilot rules.' },
-  { id: 't4', name: 'Rakib Ahmed', initials: 'RA', channel: 'Instagram', t: '15:58', history: 'Reseller enquiry',
-    preview: '30 pcs pack er dam koto? Ar wholesale hoy?',
-    message: '30 pcs pack er dam koto? Ar wholesale hoy?',
-    state: 'Answered automatically · reseller lead', stateFg: '#7B1E22', mark: '#D4D4D8',
-    read: 'Understood as: a wholesale enquiry, likely a reseller.',
-    tags: [['Wholesale', '#FBEBEB', '#7B1E22']],
-    draft: '30 pcs pack ৳480. Apni jodi regular niten — mashe 10 pack er beshi — tahole ৳450 e dite pari, agei order dile.\n\nApnar dokan ba area ta bolben?',
-    action: 'Discount offered is within your 10% limit.' },
-  { id: 't5', name: 'Farhana Kabir', initials: 'FK', channel: 'Instagram', t: '14:31', history: '6th order · best customer',
-    preview: 'Chicken shingara korle bolben please, ami regular nibo.',
-    message: 'Chicken shingara korle bolben please, ami regular nibo.',
-    state: 'Answered automatically · chicken list', stateFg: '#7B1E22', mark: '#D4D4D8',
-    read: 'Understood as: demand for a product you do not sell yet.',
-    tags: [['Best customer', '#FBEBEB', '#7B1E22'], ['Wants chicken', '#FEF9C3', '#A16207']],
-    draft: 'Apu apnar jonno first e rakhbo — samne shoptahe 600 pcs chicken test batch ashche. Ami apnake age e message debo, ar first order e 10% off.',
-    action: 'Counted as 1 of 14 chicken requests this month.' },
-  { id: 't6', name: 'Imran Sheikh', initials: 'IS', channel: 'Messenger', t: '13:07', history: '3rd order',
-    preview: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.',
-    message: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.',
-    state: 'Answered automatically · 24 pcs logged', stateFg: '#7B1E22', mark: '#D4D4D8',
-    read: 'Understood as: 2 packs confirmed, 1 mini-veg request noted.',
-    tags: [['Repeat buyer', '#FBEBEB', '#7B1E22']],
-    draft: 'Imran bhai, 2 ta 12-pc pack ৳432 — kal sokal e pouche jabe.\n\nVeg er choto version ekhono nei, tobe 6 jon eta cheyeche. Hole apnake janabo.',
-    action: 'Sent at 13:08 — inside your autopilot rules.' }
-]);
+const THREADS = (window.LUCIDA && window.LUCIDA.threads !== undefined ? window.LUCIDA.threads : []);
 
-const STOCK = (window.LUCIDA && window.LUCIDA.stock !== undefined ? window.LUCIDA.stock : [
-  { initial: 'B', thumbBg: '#FBEBEB', thumbFg: '#7B1E22', name: 'Beef shingara 58g', sub: 'Your best seller · ৳18 a piece', qty: '620 pcs', qtyColor: '#B91C1C', rate: '155/day', cover: 'Saturday', coverColor: '#B91C1C', todo: 'Reorder today — 2 days delivery' },
-  { initial: 'V', thumbBg: '#F4F4F5', thumbFg: '#3F3F46', name: 'Veg samosa 50g', sub: 'Steady · ৳15 a piece', qty: '1,140 pcs', qtyColor: '#000000', rate: '67/day', cover: 'in 17 days', coverColor: '#3F3F46', todo: 'Nothing to do' },
-  { initial: 'C', thumbBg: '#FEF9C3', thumbFg: '#A16207', name: 'Chicken shingara 58g', sub: 'Not made yet · 14 requests', qty: '—', qtyColor: '#A1A1AA', rate: '—', cover: '—', coverColor: '#A1A1AA', todo: 'Test 600 pieces with the next order' }
-]);
+const STOCK = (window.LUCIDA && window.LUCIDA.stock !== undefined ? window.LUCIDA.stock : []);
 
-const CREATIVES = [
-  { id: 'c1', slot: 'suite-ad-ig', ph: 'Instagram photo', channel: 'Instagram', chanFg: '#7B1E22', spec: 'square post',
-    copy: 'Bikeler adda, ar garam shingara. Freezer theke 6 minute — hater banano beef shingara, 12 pcs ৳216. Mirpur e aj e delivery.' },
-  { id: 'c2', slot: 'suite-ad-fb', ph: 'Facebook photo', channel: 'Facebook', chanFg: '#52525B', spec: 'carousel, 3 cards',
-    copy: 'Ma\'r hater shingara, ekhon freezer-ready. 12 pcs ৳216 · 30 pcs ৳480. Ager theke order kore rakhun — dawat, chayer adda, shob e ready.' },
-  { id: 'c3', slot: 'suite-ad-yt', ph: 'Video cover', channel: 'YouTube', chanFg: '#B91C1C', spec: 'short, 18 seconds',
-    copy: 'Fold, freeze, fry — 18 second e apnar rannaghor. Shesh e 12 pcs ৳216 pack ta dekhano hobe, sathe order korar link.' }
-];
+const CREATIVES = (window.LUCIDA && window.LUCIDA.creatives !== undefined ? window.LUCIDA.creatives : []);
 
-const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns !== undefined ? window.LUCIDA.campaigns : [
-  { name: 'Weekend pack push', sub: 'Started 8 Aug · 12-pc pack', where: 'Facebook, IG', spent: '৳1,750', orders: '38', state: 'Running well', stateFg: '#7B1E22' },
-  { name: 'Reseller wholesale ad', sub: 'Started 10 Aug · 30-pc pack', where: 'Facebook', spent: '৳700', orders: '6', state: 'Watching', stateFg: '#A16207' }
-]);
+const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns !== undefined ? window.LUCIDA.campaigns : []);
 
-const COST_ROWS = [
-  { k: 'Beef filling', v: '৳5.10', pct: 100, color: '#7B1E22' },
-  { k: 'Dough and spice', v: '৳2.30', pct: 45, color: '#7B1E22' },
-  { k: 'Oil (up 9% this week)', v: '৳2.25', pct: 44, color: '#A16207' },
-  { k: 'Packaging', v: '৳1.20', pct: 24, color: '#7B1E22' },
-  { k: 'Your time and gas', v: '৳1.20', pct: 24, color: '#7B1E22' }
-];
+const COST_ROWS = (window.LUCIDA && window.LUCIDA.costRows !== undefined
+  ? window.LUCIDA.costRows : []);
 
-const PNL = (window.LUCIDA && window.LUCIDA.pnl !== undefined ? window.LUCIDA.pnl : [
-  { k: 'Money in', v: '৳48,240', note: '2,680 pieces sold · +14% on last week', weight: '600', keyColor: '#000000', vColor: '#000000' },
-  { k: 'Making cost', v: '−৳32,294', note: 'oil price rose midweek', weight: '400', keyColor: '#3F3F46', vColor: '#3F3F46' },
-  { k: 'Ads', v: '−৳2,450', note: '৳4.85 back for every ৳1', weight: '400', keyColor: '#3F3F46', vColor: '#3F3F46' },
-  { k: 'Delivery', v: '−৳1,140', note: '38 parcels, 2 redeliveries', weight: '400', keyColor: '#3F3F46', vColor: '#3F3F46' },
-  { k: 'What you kept', v: '৳12,356', note: '25.6% of money in', weight: '700', keyColor: '#000000', vColor: '#7B1E22' }
-]);
+const PNL = (window.LUCIDA && window.LUCIDA.pnl !== undefined ? window.LUCIDA.pnl : []);
 
-const DEMANDS = (window.LUCIDA && window.LUCIDA.demands !== undefined ? window.LUCIDA.demands : [
-  { name: 'Chicken shingara', note: 'nobody within 4 km sells it', n: 14, pct: 100 },
-  { name: 'Mini veg samosa', note: 'office snack boxes', n: 6, pct: 43 },
-  { name: 'Frozen paratha', note: 'asked with breakfast orders', n: 3, pct: 21 }
-]);
+const DEMANDS = (window.LUCIDA && window.LUCIDA.demands !== undefined ? window.LUCIDA.demands : []);
 
 const RIVALS = [
   { name: 'Pallabi Frozen Foods', price: '৳22', note: 'veg only · 4.1k followers' },
@@ -1057,24 +955,7 @@ const RIVALS = [
   { name: '11 smaller sellers', price: '৳16–28', note: 'mostly veg, irregular stock' }
 ];
 
-const HISTORY = (window.LUCIDA && window.LUCIDA.history !== undefined ? window.LUCIDA.history : [
-  { id: 'h1', cat: 'Stock', text: 'Flagged beef shingara as low — 4 days left at current sales.', by: 'Stock assistant', t: '8:20 am', dot: '#A16207',
-    why: 'You sold 155 pieces a day over the last two weeks and 620 are left, so Saturday is the last day with stock. Your supplier needs 2 days, and 312 pieces are already promised to customers, which is why this became a decision instead of a note.' },
-  { id: 'h2', cat: 'Money', text: 'Recalculated your cost per piece after the oil price rose.', by: 'Pricing assistant', t: '8:02 am', dot: '#7B1E22',
-    why: 'Soybean oil went up ৳9 a litre at your usual shop, which moves your cost from ৳11.40 to ৳12.05 a piece. At ৳216 a pack you keep 33.1% instead of 36.7%. Raising to ৳228 restores it; based on four weeks of your own orders, about 3% of buyers walk away at that price.' },
-  { id: 'h3', cat: 'Customers', text: 'Read 47 messages, answered 38, kept 9 for you.', by: 'Customer assistant', t: '6:00 am', dot: '#7B1E22',
-    why: 'Anything about price, delivery area or reheating is answered from your own past replies. Anything involving a refund, a discount over 10%, or a product you do not sell is left for you — those five are on your Today page.' },
-  { id: 'h4', cat: 'Customers', text: 'Found 9 preorders in chats and reserved 312 pieces for Friday.', by: 'Customer assistant', t: '5:40 am', dot: '#7B1E22',
-    why: 'Messages like "24 pcs lagbe Friday" are read as orders, matched to a customer, and held against Friday stock. Nobody is charged; you confirm at delivery as usual.' },
-  { id: 'h5', cat: 'Marketing', text: 'Wrote three posts for this week and left them for your approval.', by: 'Marketing assistant', t: '6:10 am', dot: '#A16207',
-    why: 'Your best-performing posts this month led with the price and the 6-minute reheat line, so all three keep that. Publishing spends money, so it waits for you regardless of your autopilot setting.' },
-  { id: 'h6', cat: 'Delivery', text: 'Steadfast did not respond, so Thursday\'s pickup was booked with Pathao instead.', by: 'Delivery assistant', t: '8:15 am', dot: '#B91C1C',
-    why: 'Steadfast\'s booking service timed out twice. Rather than leave 38 parcels unbooked, your team moved to Pathao at the same rate — consignment PT-4471903, pickup Thursday 2 pm. Nothing was lost; you are told because the courier changed.' },
-  { id: 'h7', cat: 'Customers', text: 'Passed one delivery complaint from Pallabi to you.', by: 'Customer assistant', t: '4:44 am', dot: '#B91C1C',
-    why: 'Shahana Begum has waited three days. A reply is drafted that waives the ৳60 delivery charge, but a full refund is above the limit you set, so it needs your word.' },
-  { id: 'h8', cat: 'Marketing', text: 'Posted two Instagram stories from Sunday\'s kitchen photos.', by: 'Marketing assistant', t: '7:00 am', dot: '#7B1E22',
-    why: 'Stories cost nothing and sit inside your autopilot rules, so they went out without asking. Both used photos you uploaded on Sunday.' }
-]);
+const HISTORY = (window.LUCIDA && window.LUCIDA.history !== undefined ? window.LUCIDA.history : []);
 
 const PERMS = [
   { id: 'p1', label: 'Answer common questions', note: 'Prices, delivery areas, how to reheat — using your past replies.', on: true },
@@ -1085,13 +966,7 @@ const PERMS = [
   { id: 'p6', label: 'Change prices on its own', note: 'Not recommended — customers see this immediately.', on: false }
 ];
 
-const CHANNELS = (window.LUCIDA && window.LUCIDA.channels !== undefined ? window.LUCIDA.channels : [
-  { name: 'Facebook page', state: 'Connected', ok: true },
-  { name: 'Instagram', state: 'Connected', ok: true },
-  { name: 'YouTube', state: 'Connected', ok: true },
-  { name: 'Pathao courier', state: 'Connected', ok: true },
-  { name: 'Steadfast courier', state: 'Not responding today', ok: false }
-]);
+const CHANNELS = (window.LUCIDA && window.LUCIDA.channels !== undefined ? window.LUCIDA.channels : []);
 
 const AUTOPILOT = [
   { id: 'ask', label: 'Ask me everything', note: 'Nothing happens without your tap. Good for the first week.' },
@@ -1105,17 +980,30 @@ const BUILDER_NAV = [
   ['history', 'History', '◔'], ['settings', 'Settings', '⚙']
 ];
 
-const ROSTER = (window.LUCIDA && window.LUCIDA.roster !== undefined ? window.LUCIDA.roster : [
-  { id: 'supervisor', name: 'Supervisor', kind: 'router', owns: 'Reads the owner\'s request, picks the stage, plans the order of work, holds the gates.', tools: 'planner · state graph · checkpoints', calls: 14, state: 'working', busy: true },
-  { id: 'market', name: 'Market Research', kind: 'specialist', owns: 'Finds gaps and rival prices around the shop.', tools: 'web search · page & profile lookups', calls: 6, state: 'used this run' },
-  { id: 'vision', name: 'Product Vision', kind: 'specialist', owns: 'Turns a photo into a named product with a price band.', tools: 'vision model · web search', calls: 3, state: 'used this run' },
-  { id: 'pricing', name: 'Pricing & Cost', kind: 'specialist', owns: 'Costs, margins, break-even, price changes.', tools: 'python · cost tables (RAG)', calls: 9, state: 'used this run' },
-  { id: 'inventory', name: 'Inventory', kind: 'specialist', owns: 'Counts, photos, run rate, low-stock flags, purchase orders.', tools: 'database · photo store', calls: 11, state: 'used this run' },
-  { id: 'ads', name: 'Ad Creation', kind: 'specialist', owns: 'Writes and schedules posts and paid ads.', tools: 'Meta API · YouTube API · image gen', calls: 5, state: 'waiting on you', wait: true },
-  { id: 'engage', name: 'Customer Engagement', kind: 'specialist', owns: 'Reads every message, drafts replies, extracts orders and unmet demand.', tools: 'Messenger & IG API · sentiment', calls: 47, state: 'working', busy: true },
-  { id: 'delivery', name: 'Delivery', kind: 'specialist', owns: 'Books pickups, handles courier failures.', tools: 'Pathao API · Steadfast API', calls: 2, state: 'degraded', bad: true },
-  { id: 'report', name: 'Reporting', kind: 'specialist', owns: 'Weekly numbers, restock and pricing replans.', tools: 'RAG over memory · python', calls: 4, state: 'used this run' }
-]);
+const ROSTER = (window.LUCIDA && window.LUCIDA.roster !== undefined ? window.LUCIDA.roster : []);
+
+/* Values the design used to type in by hand. Each reads what the server
+   injected, and falls back to an honest blank rather than a sample shop. */
+function M() {
+  return (window.LUCIDA && window.LUCIDA.margin) || {
+    now: '\u2014', note: 'no sales recorded yet', noteColor: '#71717A',
+    keepPerPiece: '\u2014', packPrice: '\u2014',
+    title: 'Nothing costed yet',
+    subtitle: 'Log a sale and the real breakdown appears here.'
+  };
+}
+function T() {
+  return (window.LUCIDA && window.LUCIDA.team)
+    || { summary: 'Your team is idle.', working: '0', waiting: '0' };
+}
+function D() {
+  return (window.LUCIDA && window.LUCIDA.dayLine)
+    || { line: 'Your team is ready.', pending: 'nothing waiting' };
+}
+function G() {
+  return (window.LUCIDA && window.LUCIDA.grow)
+    || { title: 'Nothing to chase yet', body: '' };
+}
 
 const NODE_POS = {
   supervisor: [450, 220], vision: [450, 46], market: [150, 84], pricing: [750, 84],
@@ -1127,69 +1015,7 @@ const GRAPH_EDGES = [
   ['market', 'pricing'], ['engage', 'inventory'], ['inventory', 'report'], ['ads', 'pricing']
 ];
 
-const RUNS = (window.LUCIDA && window.LUCIDA.runs !== undefined ? window.LUCIDA.runs : [
-  { id: 'r1', label: 'Photo → is it worth selling?', meta: 'run 014 · 12 steps · $0.081',
-    gate: { title: 'Approve the plan for chicken shingara?', body: 'Nothing is sourced or spent until you approve. Rejecting sends the research back with your reason attached.' },
-    steps: [
-      { t: '09:41', a: 'Supervisor', k: 'plan', title: 'Understood as: is this product worth selling?', meta: '640 tok', detail: 'Input: one photo, caption "ei jinish ki bikri hobe?"\nStage chosen: product validation (confidence 0.88)\nPlan: vision → market research → pricing → reporting\nGate placed before any sourcing.' },
-      { t: '09:41', a: 'Product Vision', k: 'tool', title: 'Read the photo', meta: '1,180 tok', detail: 'Vision model on upload_0219.jpg\n→ hand-folded beef shingara, about 58 g, par-fried, freezer-ready (confidence 0.93)\nNext guess was onion pakora at 0.11, so this is a safe read.' },
-      { t: '09:41', a: 'Product Vision', k: 'memory', title: 'Saved a draft product to memory', meta: 'wrote 1 record', detail: 'catalog/prod_draft_014 · description also embedded so later agents can find it by meaning, not just by name.' },
-      { t: '09:41', a: 'Market Research', k: 'tool', title: 'Searched what rivals charge nearby', meta: '2,450 tok', detail: 'Web search across 34 results → 14 sellers within 4 km.\nMedian ৳20 a piece, range ৳15–28. Only 2 sell the beef version.' },
-      { t: '09:41', a: 'Market Research', k: 'handoff', title: 'Handed the price data to Pricing', meta: '320 tok',
-        h: { from: 'Market Research', to: 'Pricing & Cost', t: '09:41', payload: 'task: work out unit economics\nproduct: prod_draft_014\nrival prices: 22, 20, 15, 18, 24, 28, 16, 19, 20, 21\nmedian: ৳20 · demand trend: +18% this month\ncompetition: low on the beef version' } },
-      { t: '09:41', a: 'Pricing & Cost', k: 'tool', title: 'Ran the numbers in Python', meta: '1,420 tok', detail: 'Cost per piece: 5.10 + 2.30 + 1.60 + 1.20 + 1.20 = ৳11.40\nAt ৳18 you keep 36.7%. Break-even is 1,240 pieces a month.\nAt ৳16 that falls to 28.8%, at ৳20 it rises to 43%.' },
-      { t: '09:41', a: 'Pricing & Cost', k: 'error', title: 'Rival price service refused the request', meta: 'retried', level: 'ERROR', detail: 'The social API answered "too many requests". Waited 2s, then 4s, and the second try succeeded. The run was never interrupted and the owner was not bothered.' },
-      { t: '09:41', a: 'Reporting', k: 'think', title: 'Wrote the recommendation', meta: '3,180 tok', detail: 'Pulled the draft product, the rival prices and the last three pricing decisions out of memory.\nVerdict: worth selling. Two packs — 12 pieces at ৳216 and 30 at ৳480. First order 1,500 pieces, money back in about 3.5 weeks.\nConfidence noted as medium-high: thin data on how the beef version reacts to price.' },
-      { t: '09:41', a: 'Supervisor', k: 'gate', title: 'Stopped and asked the owner', meta: 'run paused', gate: true, detail: 'Saved the whole run so it can resume exactly here, then notified the owner in the app and on Messenger.' },
-      { t: '09:43', a: 'Supervisor', k: 'act', title: 'Owner approved · plan locked', meta: '240 tok', detail: 'Resumed from the saved point. Plan version 1 frozen so later reports compare against what was actually agreed.' },
-      { t: '09:43', a: 'Inventory', k: 'memory', title: 'Wrote the sourcing checklist', meta: 'wrote 1 record', detail: 'inventory/sourcing_014 · 1,500 pieces, three shortlisted suppliers, ৳17,100 budget. Waits for the owner to photograph stock on arrival.' }
-    ] },
-  { id: 'r2', label: 'Write and publish this week\'s ads', meta: 'run 021 · 10 steps · $0.076',
-    gate: { title: 'Publish three creatives and start spending ৳350/day?', body: 'Publishing is irreversible and spends money, so the graph always stops here regardless of the autopilot setting.' },
-    steps: [
-      { t: '11:02', a: 'Supervisor', k: 'plan', title: 'Understood as: run marketing for the week', meta: '590 tok', detail: 'Plan: reporting pulls context → ads writes copy → ads renders images → pricing checks the offer → gate → publish.' },
-      { t: '11:02', a: 'Reporting', k: 'memory', title: 'Recovered the approved plan from memory', meta: '1,640 tok', detail: 'Read plan_014, the catalog entry and past customer chats. Recovered the price, the pack sizes and the owner\'s tone: warm, Banglish, home-kitchen.' },
-      { t: '11:02', a: 'Ad Creation', k: 'think', title: 'Wrote three posts', meta: '4,120 tok', detail: 'One Instagram square, one Facebook carousel, one 18-second Short. All three lead with the price and the six-minute reheat line, which performed best last month.' },
-      { t: '11:02', a: 'Ad Creation', k: 'tool', title: 'Rendered the images', meta: '$0.04', detail: 'Three assets at 1:1, 1.91:1 and 9:16, stored so the owner can swap in a real kitchen photo.' },
-      { t: '11:02', a: 'Ad Creation', k: 'handoff', title: 'Asked Pricing to sanity-check the offer', meta: '300 tok',
-        h: { from: 'Ad Creation', to: 'Pricing & Cost', t: '11:02', payload: 'task: check the offer still makes money\noffer: 12-piece pack at ৳216\nad spend: ৳350 a day\nquestion: what is the most we can pay per order?' } },
-      { t: '11:02', a: 'Pricing & Cost', k: 'tool', title: 'Worked out the ceiling per order', meta: '980 tok', detail: 'A pack leaves ৳79.20 after ingredients. Spending more than ৳43.56 to win one order eats the profit, so the target was set at ৳41.' },
-      { t: '11:02', a: 'Supervisor', k: 'gate', title: 'Stopped for approval before spending', meta: 'run paused', gate: true, detail: 'Reason recorded: irreversible and spends budget.' },
-      { t: '11:06', a: 'Ad Creation', k: 'act', title: 'Published to Facebook and Instagram', meta: '260 tok', detail: 'Posted through the Meta adapter (simulated in this build) — campaign live with the ৳41 target.' },
-      { t: '11:06', a: 'Ad Creation', k: 'act', title: 'Uploaded the Short to YouTube', meta: '210 tok', detail: 'Unlisted first, public after five minutes so the owner can pull it back.' },
-      { t: '11:06', a: 'Ad Creation', k: 'memory', title: 'Saved the campaign', meta: 'wrote 1 record', detail: 'campaigns/cmp_4412 · the engagement agent now watches the comments on these posts.' }
-    ] },
-  { id: 'r3', label: 'Read today\'s messages, plan a restock', meta: 'run 036 · 12 steps · $0.062',
-    gate: { title: 'Send a ৳30,060 purchase order?', body: 'Above the owner\'s ৳5,000 automatic limit, so it becomes a decision instead of an action.' },
-    steps: [
-      { t: '18:20', a: 'Supervisor', k: 'plan', title: 'Nightly job started', meta: '420 tok', detail: 'Plan: read messages → judge mood → pull out orders → check stock → cost the restock → write the plan → gate.' },
-      { t: '18:20', a: 'Customer Engagement', k: 'tool', title: 'Fetched 47 messages and comments', meta: '2,870 tok', detail: '31 Messenger threads and 16 comments on the live campaign.' },
-      { t: '18:20', a: 'Customer Engagement', k: 'think', title: 'Judged mood and intent', meta: '3,320 tok', detail: '68% happy, 21% neutral, 11% upset. The upset ones are all one thing: three delivery delays in Pallabi.\nIntents: 9 orders, 12 price questions, 20 requests for something not sold, 3 complaints.' },
-      { t: '18:20', a: 'Customer Engagement', k: 'think', title: 'Pulled 312 pieces of orders out of chat', meta: '1,980 tok', detail: 'Nine orders worth ৳5,616. Unmet demand counted: chicken shingara 14, mini veg samosa 6, paratha 3.' },
-      { t: '18:20', a: 'Customer Engagement', k: 'memory', title: 'Saved orders and demand signals', meta: 'wrote 2 records', detail: 'orders/preorders_0811 plus 47 conversations embedded, so next week\'s report can cite today\'s complaints.' },
-      { t: '18:20', a: 'Customer Engagement', k: 'handoff', title: 'Asked Inventory whether stock covers it', meta: '290 tok',
-        h: { from: 'Customer Engagement', to: 'Inventory', t: '18:20', payload: 'task: check cover\npromised: 312 pieces of beef shingara\nnot in catalog but asked for: chicken shingara ×14, mini veg samosa ×6' } },
-      { t: '18:20', a: 'Inventory', k: 'tool', title: 'Counted stock and raised the flag', meta: '760 tok', detail: '620 beef pieces left against 155 sold a day → four days of cover → low-stock flag. Chicken is not in the catalog at all.' },
-      { t: '18:20', a: 'Inventory', k: 'error', title: 'Photo store did not answer in time', meta: 'warning', level: 'WARN', detail: 'A stock photo took longer than five seconds to load. Quantities come from the database, so counting continued and the photo loads later. Logged as a warning, not shown to the owner.' },
-      { t: '18:20', a: 'Pricing & Cost', k: 'tool', title: 'Costed the order and the pilot', meta: '1,120 tok', detail: '2,000 beef at ৳11.40 is ৳22,800. 600 chicken at ৳12.10 is ৳7,260. At ৳19 the chicken keeps 36.3% and pays back in 11 days.' },
-      { t: '18:20', a: 'Reporting', k: 'think', title: 'Wrote the restock plan', meta: '2,740 tok', detail: 'Order now: the supplier takes two days and cover runs out in four. The 312 promised pieces already fund a quarter of the order.' },
-      { t: '18:20', a: 'Supervisor', k: 'gate', title: 'Stopped for approval — spend above limit', meta: 'run paused', gate: true, detail: 'Owner limit is ৳5,000 without asking; this is ৳30,060.' },
-      { t: '18:31', a: 'Inventory', k: 'act', title: 'Order sent, replies queued', meta: '520 tok', detail: 'PO-9931 to Karwan Bazar Foods, arriving Thursday. Nine order confirmations drafted for the owner to glance at.' }
-    ] },
-  { id: 'r4', label: 'Weekly report, reprice, book delivery', meta: 'run 042 · 9 steps · $0.066',
-    gate: { title: 'Raise the 12-piece pack to ৳228?', body: 'Customers see this immediately, so it is never automatic.' },
-    steps: [
-      { t: '08:00', a: 'Supervisor', k: 'plan', title: 'Monday job started', meta: '480 tok', detail: 'Plan: read the week from memory → recheck costs → write a revised plan → gate → book the delivery.' },
-      { t: '08:00', a: 'Reporting', k: 'memory', title: 'Read the whole week out of memory', meta: '5,240 tok', detail: 'Orders, the live campaign, 203 conversation chunks and the pricing history. Revenue ৳48,240, up 14%. Cost per order ৳37.' },
-      { t: '08:00', a: 'Pricing & Cost', k: 'tool', title: 'Re-based the cost after oil rose', meta: '1,380 tok', detail: 'Oil up ৳9 a litre → cost per piece ৳12.05. At ৳216 a pack the owner keeps 33.1%. To get back to 36.9% the price needs to be ৳19 a piece, or ৳228 a pack.' },
-      { t: '08:00', a: 'Reporting', k: 'think', title: 'Wrote the revised plan', meta: '3,620 tok', detail: 'Raise retail, hold wholesale at ৳480 to keep resellers. Four weeks of the owner\'s own orders suggest about 3% of buyers walk away. A smaller 10-piece pack was modelled and rejected — it reads as worse value.' },
-      { t: '08:00', a: 'Supervisor', k: 'gate', title: 'Stopped for approval — customers see this', meta: 'run paused', gate: true, detail: 'Price changes are always a gate, even on the most permissive autopilot setting.' },
-      { t: '08:14', a: 'Pricing & Cost', k: 'memory', title: 'Saved price version 3', meta: 'wrote 1 record', detail: 'pricing_history/price_v3 · the ads agent was told to refresh the copy that quotes the old price.' },
-      { t: '08:14', a: 'Delivery', k: 'error', title: 'Steadfast never answered', meta: 'failed over', level: 'ERROR', detail: 'Two attempts, both timed out after ten seconds. Rather than leave 38 parcels unbooked, the agent moved down its fallback list to Pathao at the same rate.' },
-      { t: '08:15', a: 'Delivery', k: 'act', title: 'Booked Pathao instead', meta: '410 tok', detail: 'Pickup Thursday 2 pm, 38 parcels, ৳9,120 collected on delivery. The owner is told because the courier changed, not because anything failed.' },
-      { t: '08:15', a: 'Reporting', k: 'memory', title: 'Archived the week', meta: 'wrote 1 record', detail: 'reports/week_32 · summary embedded so next month can compare like for like.' }
-    ] }
-]);
+const RUNS = (window.LUCIDA && window.LUCIDA.runs !== undefined ? window.LUCIDA.runs : []);
 
 const KIND_STYLE = {
   plan: ['plan', '#F4F4F5', '#3F3F46'], tool: ['tool', '#FBEBEB', '#7B1E22'], think: ['reason', '#F4F4F5', '#52525B'],
@@ -1197,35 +1023,11 @@ const KIND_STYLE = {
   error: ['failure', '#FEE2E2', '#B91C1C'], gate: ['gate', '#FEF9C3', '#A16207'], act: ['action', '#FBEBEB', '#7B1E22']
 };
 
-const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords !== undefined ? window.LUCIDA.memRecords : [
-  { store: 'business_profile', key: 'shomvob_kitchen', value: 'Home kitchen, Mirpur 11 · owner Rifat Ara · sells in BDT · two helpers', by: 'Supervisor', when: '02 Aug', cat: 'Business' },
-  { store: 'catalog', key: 'prod_014', value: 'Beef shingara 58g · ৳18 a piece · 12 and 30-piece packs', by: 'Product Vision', when: '05 Aug', cat: 'Business' },
-  { store: 'catalog', key: 'prod_009', value: 'Veg samosa 50g · ৳15 a piece', by: 'Product Vision', when: '02 Aug', cat: 'Business' },
-  { store: 'pricing_history', key: 'price_v2', value: '12-piece pack ৳216 · kept 36.7% · in force from 06 Aug', by: 'Pricing & Cost', when: '06 Aug', cat: 'Money' },
-  { store: 'pricing_history', key: 'cost_baseline', value: 'Cost per piece ৳12.05 after oil rose ৳9 a litre', by: 'Pricing & Cost', when: '11 Aug', cat: 'Money' },
-  { store: 'orders', key: 'preorders_0811', value: '9 promises · 312 pieces · ৳5,616 held against Friday', by: 'Customer Engagement', when: '11 Aug', cat: 'Customers' },
-  { store: 'conversations', key: '203 embeddings', value: 'Every customer message 2–11 Aug, searchable by meaning', by: 'Customer Engagement', when: '11 Aug', cat: 'Customers' },
-  { store: 'conversations', key: 'unmet_demand', value: 'chicken shingara ×14 · mini veg samosa ×6 · paratha ×3', by: 'Customer Engagement', when: '11 Aug', cat: 'Customers' },
-  { store: 'inventory', key: 'stock_0812', value: 'Beef 620 pcs · veg 1,140 pcs · run rate 155/day · low-stock flag on', by: 'Inventory', when: 'today', cat: 'Stock' },
-  { store: 'campaigns', key: 'cmp_4412', value: '3 creatives live · ৳350 a day · ৳41 cost-per-order ceiling', by: 'Ad Creation', when: '08 Aug', cat: 'Marketing' },
-  { store: 'reports', key: 'week_31', value: 'Revenue ৳42,310 · 2,190 pieces · cost per order ৳44', by: 'Reporting', when: '04 Aug', cat: 'Money' },
-  { store: 'graph_state', key: 'run_042', value: 'Paused at the price gate — resumable from step 5', by: 'Supervisor', when: 'today', cat: 'Business' }
-]);
+const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords !== undefined ? window.LUCIDA.memRecords : []);
 
-const COST_BARS = (window.LUCIDA && window.LUCIDA.costBars !== undefined ? window.LUCIDA.costBars : [
-  { name: 'Customer Engagement', tok: '38,400', cost: '$0.19', pct: 100, color: '#7B1E22' },
-  { name: 'Reporting', tok: '27,100', cost: '$0.16', pct: 71, color: '#7B1E22' },
-  { name: 'Market Research', tok: '19,800', cost: '$0.11', pct: 52, color: '#7B1E22' },
-  { name: 'Product Vision', tok: '12,600', cost: '$0.08', pct: 33, color: '#A16207' },
-  { name: 'Pricing & Cost', tok: '11,900', cost: '$0.05', pct: 31, color: '#7B1E22' },
-  { name: 'Ad Creation', tok: '8,200', cost: '$0.02', pct: 21, color: '#7B1E22' }
-]);
+const COST_BARS = (window.LUCIDA && window.LUCIDA.costBars !== undefined ? window.LUCIDA.costBars : []);
 
-const FAILURES = (window.LUCIDA && window.LUCIDA.failures !== undefined ? window.LUCIDA.failures : [
-  { level: 'Failure', what: 'Steadfast courier never answered', t: '8:15 am', tagBg: '#FEE2E2', tagFg: '#B91C1C', fix: 'Two attempts timed out. The delivery agent moved to the next courier on its list, Pathao, at the same rate. The owner was told the courier changed; the pickup still happened.' },
-  { level: 'Failure', what: 'Rival price service rate-limited us', t: '9:41 am', tagBg: '#FEE2E2', tagFg: '#B91C1C', fix: 'Backed off 2 seconds, then 4, and the retry worked. Nothing surfaced to the owner because nothing was lost.' },
-  { level: 'Warning', what: 'Photo store slow to respond', t: '6:20 pm', tagBg: '#FEF9C3', tagFg: '#A16207', fix: 'Stock counting reads from the database, so it continued without the photo and loaded it afterwards.' }
-]);
+const FAILURES = (window.LUCIDA && window.LUCIDA.failures !== undefined ? window.LUCIDA.failures : []);
 
 class Component extends DCLogic {
   state = {
@@ -1290,17 +1092,26 @@ class Component extends DCLogic {
     const shown = run.steps.slice(0, s.cursor);
     const gateReached = shown.some(x => x.gate);
     const gateWaiting = gateReached && !s.gates[s.run];
-    const runDone = s.cursor >= run.steps.length && !gateWaiting;
+    // A run with no steps has not finished — it has not started. Saying
+    // "run finished" to someone who has never asked anything is nonsense.
+    const runDone = run.steps.length > 0 && s.cursor >= run.steps.length && !gateWaiting;
     const busyNow = s.playing && !gateWaiting && !runDone;
     const lastAgent = shown.length ? shown[shown.length - 1].a : '';
     const counts = { today: open.length, inbox: THREADS.filter(t => !s.sent[t.id]).length, stock: s.po ? 0 : 1, marketing: CREATIVES.filter(c => !s.creatives[c.id]).length, money: s.price ? 0 : 1, grow: 0, history: 0, settings: 0, team: 0, runs: gateWaiting ? 1 : 0, brain: 0, usage: 0 };
     const autopilotLabel = (AUTOPILOT.find(a => a.id === s.autopilot) || AUTOPILOT[1]).label;
 
     return {
-      businessName: this.props.businessName ?? 'Shomvob Kitchen',
-      ownerName: this.props.ownerName ?? 'Rifat',
+      /* Everything the server counted, spread in as-is: the date line, the
+         inbox mood, what advertising cost, what the workforce cost. Each was
+         a number typed into this file before. */
+      ...(window.LUCIDA && window.LUCIDA.facts ? window.LUCIDA.facts : {}),
+      todayLabel: (window.LUCIDA && window.LUCIDA.todayLabel) || '',
+      businessName: (window.LUCIDA && window.LUCIDA.businessName)
+        || this.props.businessName || 'Your shop',
+      ownerName: (window.LUCIDA && window.LUCIDA.ownerName)
+        || this.props.ownerName || '',
       autopilotLabel: autopilotLabel,
-      teamSummary: '8 assistants · 3 working now, 5 waiting for their turn. Last check 4 minutes ago.',
+      teamSummary: T().summary,
       goSettings: () => this.go('settings'), goActivity: () => this.go('history'),
       shopLocation: (window.LUCIDA && window.LUCIDA.location)
         || 'Add your area in Settings',
@@ -1325,19 +1136,21 @@ class Component extends DCLogic {
       isMarketing: s.page === 'marketing', isMoney: s.page === 'money', isGrow: s.page === 'grow',
       isHistory: s.page === 'history', isSettings: s.page === 'settings',
 
-      dayLine: (window.LUCIDA && window.LUCIDA.firstRun)
-        ? 'Your team is ready, but has not learned anything about your shop yet. The figures below are examples — ask a question or add a photo of what you sell, and they fill in with yours.'
-        : open.length
-        ? 'Your team worked through the night and handled 38 messages on its own. ' + open.length + (open.length === 1 ? ' thing needs' : ' things need') + ' your decision — about five minutes of your morning.'
-        : 'Everything is handled. Your team is watching the inbox, the stock and the ads, and will only interrupt you if money or a promise is at stake.',
-      pendingLine: open.length ? open.length + ' waiting · oldest at 6:10 am' : 'nothing waiting',
+      dayLine: D().line,
+      pendingLine: D().pending,
       allClear: open.length === 0,
 
-      marginNow: raised ? '36.9%' : '33.1%',
-      marginNote: raised ? 'back to normal after the price change' : 'down from 37% — oil got dearer',
-      marginNoteColor: raised ? '#7B1E22' : '#A16207',
-      keepPerPiece: raised ? '৳6.95' : '৳5.95',
-      packPrice: raised ? '৳228' : '৳216',
+      growTitle: G().title, growBody: G().body,
+      growSource: (DEMANDS.length
+        ? 'from ' + DEMANDS.length + ' request(s) your customers actually made'
+        : 'nothing asked for yet'),
+      topDemand: (DEMANDS[0] && DEMANDS[0].name) || 'Nothing yet',
+      topDemandNote: (DEMANDS[0]
+        ? DEMANDS[0].n + ' asked this month' : 'no unmet requests'),
+      marginNow: M().now, marginNote: M().note,
+      marginNoteColor: M().noteColor,
+      keepPerPiece: M().keepPerPiece, packPrice: M().packPrice,
+      costTitle: M().title, costSubtitle: M().subtitle,
 
       decisions: DECISIONS.map(d => {
         const choice = s.decided[d.id];
@@ -1362,7 +1175,7 @@ class Component extends DCLogic {
 
       overnight: OVERNIGHT,
       prompts: [
-        { label: 'Should I sell chicken shingara?', pick: () => this.go('grow') },
+        { label: 'What should I sell next?', pick: () => this.go('grow') },
         { label: 'Am I making money this week?', pick: () => this.go('money') },
         { label: 'Who is unhappy with me?', pick: () => this.go('inbox') }
       ],
@@ -1389,6 +1202,9 @@ class Component extends DCLogic {
       poBorder: s.po ? '#E4E4E7' : '#E4E4E7',
       approvePo: () => this.decide('stock', 'yes'),
 
+      marketingNote: CREATIVES.length
+        ? CREATIVES.length + ' post(s) your team wrote. Nothing is published until you approve it.'
+        : 'No ad copy written yet. Ask your team for one, or make a poster in the Ad studio.',
       creatives: CREATIVES.map(c => {
         const st = s.creatives[c.id];
         return {
@@ -1463,13 +1279,17 @@ class Component extends DCLogic {
       footTitle: s.role === 'builder' ? (gateWaiting ? 'Run paused at a gate' : busyNow ? 'Run in progress' : 'Workforce idle') : 'Your AI team is working',
       footBody: s.role === 'builder'
         ? run.label + ' · step ' + shown.length + ' of ' + run.steps.length + ' · one supervisor, 8 specialists'
-        : '8 assistants · 3 working now, 5 waiting for their turn. Last check 4 minutes ago.',
+        : T().summary,
       footButton: s.role === 'builder' ? 'Open the run' : 'Autopilot: ' + autopilotLabel,
       footAction: () => this.go(s.role === 'builder' ? 'runs' : 'settings'),
 
       isTeam: s.page === 'team', isRuns: s.page === 'runs', isBrain: s.page === 'brain', isUsage: s.page === 'usage',
       goRuns: () => this.go('runs'),
-      graphCaption: gateWaiting ? 'paused at a human gate' : busyNow ? lastAgent + ' is working' : 'all specialists idle',
+      graphCaption: gateWaiting
+        ? 'paused at a human gate'
+        : busyNow ? lastAgent + ' is working'
+        : shown.length > 1 ? 'the path this run took, in order'
+        : 'nothing has run yet — press play on a run to watch the work move',
 
       roster: ROSTER.map(a => ({
         name: a.name, kind: a.kind, owns: a.owns, tools: a.tools, calls: a.calls, state: a.state,
@@ -1488,13 +1308,61 @@ class Component extends DCLogic {
           shadow: hot ? '0 2px 10px rgba(20,96,63,.14)' : '0 1px 2px rgba(24,33,29,.04)'
         };
       }),
+      /* The fixed topology, drawn faintly. It is the map, not the journey. */
       edges: GRAPH_EDGES.map(([f, t]) => {
         const p1 = NODE_POS[f], p2 = NODE_POS[t];
-        const fn = ROSTER.find(a => a.id === f).name, tn = ROSTER.find(a => a.id === t).name;
-        const hot = busyNow && (fn === lastAgent || tn === lastAgent);
-        const gateEdge = f === 'supervisor' && (t === 'ads' || t === 'delivery');
-        return { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: hot ? '#7B1E22' : gateEdge ? '#A16207' : '#E4E4E7', w: hot ? 2 : 1.2, dash: gateEdge ? '5 5' : '0' };
+        const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+        return {
+          left: (p1[0] / 900) * 100, top: (p1[1] / 440) * 100,
+          len: (Math.sqrt(dx * dx + dy * dy) / 900) * 100,
+          deg: Math.atan2(dy * (900 / 440), dx) * 180 / Math.PI,
+          stroke: '#EDEDF0'
+        };
       }),
+
+      /* The journey: who actually handed to whom, in the order it happened.
+         Every hop the run has reached so far is drawn as a numbered arrow, so
+         the picture reads as a sequence instead of a lit-up star. Nodes are
+         short of centre at both ends so the arrowhead lands on the card edge
+         rather than under it. */
+      flow: (function () {
+        const idFor = (name) => {
+          const hit = ROSTER.find((a) => a.name === name);
+          return hit ? hit.id : '';
+        };
+        const seq = [];
+        shown.forEach((st) => {
+          const id = idFor(st.a);
+          if (id && NODE_POS[id] && seq[seq.length - 1] !== id) seq.push(id);
+        });
+        const hops = [];
+        for (let i = 0; i < seq.length - 1; i++) {
+          const p1 = NODE_POS[seq[i]], p2 = NODE_POS[seq[i + 1]];
+          const dx = p2[0] - p1[0], dy = p2[1] - p1[1];
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const pad = 78;                       // half a node card, near enough
+          const latest = i === seq.length - 2;
+          const ax = p1[0] + (dx / len) * pad, ay = p1[1] + (dy / len) * pad;
+          const bx = p2[0] - (dx / len) * pad, by = p2[1] - (dy / len) * pad;
+          const hx = bx - ax, hy = by - ay;
+          hops.push({
+            left: (ax / 900) * 100, top: (ay / 440) * 100,
+            len: (Math.sqrt(hx * hx + hy * hy) / 900) * 100,
+            deg: Math.atan2(hy * (900 / 440), hx) * 180 / Math.PI,
+            headLeft: (bx / 900) * 100, headTop: (by / 440) * 100,
+            midLeft: ((p1[0] + p2[0]) / 2 / 900) * 100,
+            midTop: ((p1[1] + p2[1]) / 2 / 440) * 100,
+            n: String(i + 1),
+            stroke: latest && busyNow ? '#7B1E22' : '#C4879A',
+            w: latest && busyNow ? 2.4 : 1.6,
+            labelBg: latest && busyNow ? '#7B1E22' : '#FFFFFF',
+            labelFg: latest && busyNow ? '#FFFFFF' : '#7B1E22'
+          });
+        }
+        return hops;
+      })(),
+
+      flowEmpty: shown.length < 2,
 
       runMeta: run.meta,
       runTabs: RUNS.map(r => ({

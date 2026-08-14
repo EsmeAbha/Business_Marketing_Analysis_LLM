@@ -18,6 +18,7 @@ Run:  python serve.py         (then open http://127.0.0.1:8000)
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import secrets
@@ -45,7 +46,10 @@ from lucida.memory import memory  # noqa: E402
 from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
-from lucida.tools import channels, connections, imagegen, research  # noqa: E402
+from lucida.tools import (  # noqa: E402
+    channels, connections, delivery_pricing, imagegen, research,
+)
+from lucida.tools.courier import courier  # noqa: E402
 from web import (  # noqa: E402
     app_ui, auth, bridge, google_oauth, mailer, screens,
 )
@@ -76,9 +80,24 @@ _SESSIONS: dict[str, str] = {}
 
 
 def _session_for(account_id: str) -> str:
+    """A fresh run id for this owner, carrying who they are.
+
+    The trace is one file for the whole machine, so the id has to say which
+    shop a run belonged to or the dashboard cannot tell them apart. The owner
+    goes in as a prefix rather than the whole id: a new id per process keeps
+    graph checkpoints from resuming yesterday's half-finished state, while the
+    shared prefix still gathers every run this owner has ever made.
+    """
     if account_id not in _SESSIONS:
-        _SESSIONS[account_id] = WorkforceRuntime.new_session_id()
+        tag = hashlib.sha256(str(account_id).encode()).hexdigest()[:10]
+        _SESSIONS[account_id] = (
+            f"sess-{tag}-{WorkforceRuntime.new_session_id().split('-')[-1]}")
     return _SESSIONS[account_id]
+
+
+def owner_runs_prefix(account_id: str) -> str:
+    """Every session id this owner has ever used starts with this."""
+    return "sess-" + hashlib.sha256(str(account_id).encode()).hexdigest()[:10] + "-"
 
 # One graph run at a time — the runtime keeps per-session state in SQLite and
 # concurrent turns on one session would interleave writes.
@@ -139,6 +158,103 @@ def _snapshot(session_id: str, account: dict | None = None) -> dict:
         }
     return snap
 
+
+
+# ---------------------------------------------------------------------------
+# Delivery
+# ---------------------------------------------------------------------------
+
+
+async def delivery_page(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    return page(app_ui.delivery_page(
+        _who(account),
+        products=memory.db.query(
+            "SELECT name, weight_g, sell_price FROM products ORDER BY name"),
+        zones=delivery_pricing.zones(memory.db),
+        courier=connections.courier_ready(memory.db),
+        note=request.session.pop("delivery_note", "")))
+
+
+async def api_delivery_quote(request):
+    """What this parcel costs to send, before anyone commits to it."""
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, 401)
+    body = await request.json()
+
+    items = [{"product_name": str(body.get("product") or ""),
+              "quantity": int(body.get("quantity") or 1)}]
+    # The shop's own city decides whether an address is local. Without it
+    # every parcel would price as the most expensive zone.
+    kind = delivery_pricing.classify_address(
+        area=str(body.get("area") or ""),
+        city=str(body.get("city") or ""),
+        shop_city=str((account.get("location") or "").split(",")[0].strip()),
+        shop_area=str(body.get("shop_area") or ""))
+
+    q = delivery_pricing.quote(
+        memory.db, items, kind=kind,
+        provider=connections.courier_ready(memory.db),
+        is_cod=bool(body.get("cod", True)))
+
+    return JSONResponse({
+        "known": q.known,
+        "zone": q.zone_name or kind.replace("_", " "),
+        "weight_g": q.weight_g,
+        "billable_kg": q.billable_kg,
+        "delivery": round(q.delivery_charge, 2),
+        "cod_fee": round(q.cod_fee, 2),
+        "goods": round(q.goods_total, 2),
+        "total": round(q.total_charge, 2),
+        "currency": account.get("currency") or settings.currency,
+        "problems": q.problems,
+        "explain": q.explain(account.get("currency") or settings.currency)
+                   if q.known else "",
+    })
+
+
+async def api_delivery_book(request):
+    """Hand the parcel to the courier the shop connected."""
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, 401)
+    body = await request.json()
+
+    provider = connections.courier_ready(memory.db)
+    if not provider:
+        return JSONResponse({"error": (
+            "No courier connected. Add Steadfast or Pathao on the Connect "
+            "screen and the booking goes through your own account.")}, 400)
+
+    result = await asyncio.to_thread(
+        courier.book,
+        provider=provider,
+        recipient=str(body.get("customer") or ""),
+        phone=str(body.get("phone") or ""),
+        address=str(body.get("address") or ""),
+        product_name=str(body.get("product") or ""),
+        cod_amount=float(body.get("cod_amount") or 0),
+        note=str(body.get("note") or ""))
+
+    memory.db.execute(
+        "INSERT INTO deliveries (provider, consignment_id, recipient, address, "
+        "product_name, amount, status, simulated, created_at) "
+        "VALUES (?,?,?,?,?,?,?,?,datetime('now'))",
+        (result.provider, result.consignment_id or "", str(body.get("customer") or ""),
+         str(body.get("address") or ""), str(body.get("product") or ""),
+         float(body.get("cod_amount") or 0),
+         "booked" if result.ok else "failed", 1 if result.simulated else 0))
+
+    return JSONResponse({
+        "ok": result.ok,
+        "simulated": result.simulated,
+        "consignment": result.consignment_id or "",
+        "error": result.error or "",
+        "provider": result.provider,
+    })
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -1327,6 +1443,11 @@ app = Starlette(
               methods=["POST"]),
         Route("/connect/{platform}/callback", connect_callback),
         Route("/connect/{platform}/disconnect", connect_forget,
+              methods=["POST"]),
+        Route("/delivery", delivery_page),
+        Route("/api/delivery/quote", api_delivery_quote,
+              methods=["POST"]),
+        Route("/api/delivery/book", api_delivery_book,
               methods=["POST"]),
         Route("/board", board),
         Route("/media/{name}", media),

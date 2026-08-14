@@ -204,12 +204,18 @@ you pick a price not in the sweep."""
     def _persist(self, product_name: str, result: PricingResult) -> None:
         from ..memory import memory
 
+        # A price for something the shop does not sell is advice, not stock.
+        # create=False keeps a recommendation out of the catalogue until the
+        # owner actually records the product.
         product_id = memory.db.upsert_product(
             name=product_name,
             unit_cost=result.unit_cost,
             sell_price=result.recommended_price,
             source_agent=self.name,
+            create=False,
         )
+        if product_id is None:
+            return
         memory.db.record_pricing(
             product_id=product_id,
             unit_cost=result.unit_cost,

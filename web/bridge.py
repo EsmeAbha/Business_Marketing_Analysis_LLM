@@ -18,6 +18,8 @@ still renders exactly as drawn.
 from __future__ import annotations
 
 import re
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from lucida.agents.base import ledger_for
@@ -252,6 +254,47 @@ _CAMPAIGN_TONE = {
     "drafted": (AMBER, AMBER_TINT),
     "failed": (RED, RED_TINT),
 }
+
+
+def creatives() -> list[dict]:
+    """Ad creative this shop actually has: its own copy, its own artwork.
+
+    The bundle shipped three finished posts for a samosa business. These come
+    from the campaigns table, with the picture — if one was drawn or uploaded
+    for that product — served from the shop's own media. No artwork means an
+    empty frame with a prompt, not somebody else's photograph.
+    """
+    rows = memory.db.query(
+        "SELECT c.id, c.platform, c.headline, c.body, c.call_to_action, "
+        "       c.product_name, c.status, m.path AS media_path "
+        "FROM campaigns c LEFT JOIN media_assets m ON m.id = c.media_id "
+        "ORDER BY c.id DESC LIMIT 6")
+    out = []
+    for r in rows:
+        platform = (r.get("platform") or "").title() or "Draft"
+        pic = ""
+        if r.get("media_path"):
+            pic = "/media/" + Path(str(r["media_path"])).name
+        live = str(r.get("status") or "").lower() in ("live", "published", "running")
+        out.append({
+            "id": f"c{r['id']}",
+            "channel": platform,
+            "chanFg": ACCENT if platform.lower() != "facebook" else "#52525B",
+            "spec": r.get("product_name") or "",
+            "copy": " ".join(x for x in (r.get("headline"), r.get("body"),
+                                         r.get("call_to_action")) if x),
+            "image": pic,
+            "hasImage": bool(pic),
+            # Handed over as a finished CSS value: the parser sees an
+            # unparseable url() before binding and skips it, where an
+            # <img src> would have been fetched literally.
+            "imageCss": f"url('{pic}')" if pic else "none",
+            "noImage": not pic,
+            "ph": "No picture yet — make one in the Ad studio",
+            "pending": not live,
+            "border": BORDER if live else AMBER_TINT,
+        })
+    return out
 
 
 def campaigns() -> list[dict]:
@@ -542,6 +585,19 @@ def _step(ev: dict) -> dict:
     return step
 
 
+def _owner_prefix(session_id: str) -> str:
+    """The part of a run id that names the owner: "sess-<tag>-".
+
+    Returns something unmatchable rather than "" when the id has no owner
+    tag, because an empty prefix would match every shop on the machine —
+    the exact failure this exists to prevent.
+    """
+    parts = str(session_id or "").split("-")
+    if len(parts) >= 3 and parts[0] == "sess":
+        return f"{parts[0]}-{parts[1]}-"
+    return "\x00no-owner"
+
+
 def runs(current_session: str) -> list[dict]:
     """Real runs for the design's Runs player, newest first.
 
@@ -550,12 +606,12 @@ def runs(current_session: str) -> list[dict]:
     """
     out = []
     for s in bus.sessions(30):
-        # Only *this owner's* sessions. The trace database is one file for the
-        # whole machine, so without this filter every shop reads every other
-        # shop's activity — their products, their customers, their name.
-        # The session id is derived from the account id, so comparing it is
-        # the same test as comparing owners.
-        if str(s["session_id"]) != str(current_session):
+        # Only *this owner's* sessions. The trace database is one file for
+        # the whole machine, so without this filter every shop reads every
+        # other shop's activity — their products, their customers, their
+        # name. Matching the owner prefix rather than the exact run keeps
+        # yesterday's runs visible after a restart.
+        if not str(s["session_id"]).startswith(_owner_prefix(current_session)):
             continue
         events = bus.load(s["session_id"], 400)
         if not events:
@@ -670,7 +726,7 @@ def history(current_session: str = "") -> list[dict]:
     """
     rows = []
     for s in bus.sessions(30):
-        if str(s["session_id"]) != str(current_session):
+        if not str(s["session_id"]).startswith(_owner_prefix(current_session)):
             continue
         for e in reversed(bus.load(s["session_id"], 300)):
             if e["kind"] not in ("agent_end", "approval", "error"):
@@ -723,6 +779,318 @@ def decisions(pending: dict[str, Any] | None) -> list[dict]:
         "doneText": "Approved — the workforce is carrying on.",
         "denyText": "Held back. Nothing was sent.",
     }]
+
+
+
+# ---------------------------------------------------------------------------
+# The values the design used to hard-code
+# ---------------------------------------------------------------------------
+
+
+def today_label() -> str:
+    """Today, as the dashboard's date line.
+
+    The bundle shipped with "Tuesday, 12 August" typed into the markup, which
+    is wrong every day but one.
+    """
+    now = datetime.now()
+    return f"{now:%A}, {now.day} {now:%B}"
+
+
+def _best_seller() -> dict | None:
+    """The product the shop actually sells most of, by money taken."""
+    rows = memory.db.query(
+        "SELECT product_name, SUM(amount) AS taken, SUM(quantity) AS units, "
+        "       AVG(unit_price) AS price, AVG(unit_cost) AS cost "
+        "FROM orders WHERE product_name IS NOT NULL AND product_name != '' "
+        "GROUP BY product_name ORDER BY taken DESC LIMIT 1")
+    return rows[0] if rows else None
+
+
+def margin() -> dict[str, str]:
+    """What the shop keeps per sale, from its own orders.
+
+    The design carried "33.1% · down from 37% — oil got dearer" as a literal.
+    Every figure here is computed, and when there is nothing to compute from
+    it says so instead of inventing a percentage.
+    """
+    empty = {
+        "now": DASH, "note": "no sales recorded yet",
+        "noteColor": MUTED, "keepPerPiece": DASH, "packPrice": DASH,
+        "product": "", "title": "Nothing costed yet",
+        "subtitle": "Log a sale, or tell your team what a piece costs you, "
+                    "and the real breakdown appears here.",
+    }
+    row = _best_seller()
+    if not row or not row.get("price"):
+        return empty
+
+    price = float(row.get("price") or 0)
+    cost = float(row.get("cost") or 0)
+    if price <= 0:
+        return empty
+    if cost <= 0:
+        return {**empty,
+                "packPrice": _cur(price),
+                "product": row.get("product_name") or "",
+                "title": f"{row.get('product_name') or 'Your best seller'}, "
+                         f"selling at {_cur(price)}",
+                "subtitle": "What it costs you to make is not recorded yet, "
+                            "so the margin cannot be worked out. Tell your "
+                            "team the unit cost and this fills in."}
+
+    pct = (price - cost) / price * 100
+    # Compare with the margin before the most recent price change, if there
+    # is one on record — that is what makes a note about direction honest.
+    hist = memory.db.query(
+        "SELECT margin_pct FROM pricing_history "
+        "WHERE margin_pct IS NOT NULL ORDER BY id DESC LIMIT 2")
+    note, colour = "on the sales you have logged", MUTED
+    if len(hist) >= 2 and hist[1].get("margin_pct"):
+        was = float(hist[1]["margin_pct"])
+        if abs(pct - was) >= 0.5:
+            direction = "up from" if pct > was else "down from"
+            note = f"{direction} {was:.0f}% at your last price"
+            colour = ACCENT if pct > was else AMBER
+    return {
+        "now": f"{pct:.1f}%",
+        "note": note,
+        "noteColor": colour,
+        "keepPerPiece": _cur(price - cost),
+        "packPrice": _cur(price),
+        "product": row.get("product_name") or "",
+        "title": f"One {row.get('product_name') or 'unit'}, honestly costed",
+        "subtitle": f"From {int(row.get('units') or 0)} sold at "
+                    f"{_cur(price)} each.",
+    }
+
+
+def cost_rows() -> list[dict]:
+    """Where the money in one sale goes.
+
+    The bundle listed beef, dough, oil and packaging — a recipe this backend
+    never records. It splits what it does know instead: what the piece costs
+    to make, and what is left. No invented ingredients.
+    """
+    row = _best_seller()
+    if not row or not row.get("price"):
+        return []
+    price = float(row.get("price") or 0)
+    cost = float(row.get("cost") or 0)
+    if price <= 0 or cost <= 0:
+        return []
+    keep = max(0.0, price - cost)
+    top = max(cost, keep) or 1
+    return [
+        {"k": "What it costs you to make", "v": _cur(cost),
+         "pct": round(cost / top * 100), "color": ACCENT},
+        {"k": "What you keep", "v": _cur(keep),
+         "pct": round(keep / top * 100),
+         "color": ACCENT if keep >= cost else AMBER},
+    ]
+
+
+def team(session_id: str) -> dict[str, str]:
+    """How many specialists are working right now, and when we last heard.
+
+    Replaces "8 assistants · 3 working now, 5 waiting for their turn. Last
+    check 4 minutes ago." — which said the same thing on an idle machine at
+    three in the morning.
+    """
+    people = roster(session_id)
+    busy = sum(1 for a in people if a.get("busy"))
+    waiting = sum(1 for a in people if a.get("wait"))
+    events = bus.load(session_id, 5)
+    last = ""
+    if events:
+        stamp = str(events[-1].get("ts") or "")
+        try:
+            then = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            mins = int((datetime.now(then.tzinfo) - then).total_seconds() // 60)
+            last = ("just now" if mins < 1 else
+                    f"{mins} minutes ago" if mins < 90 else
+                    f"{mins // 60} hours ago")
+        except ValueError:
+            last = ""
+    n = len(people)
+    if not busy and not waiting:
+        body = f"{n} assistants, none working right now."
+    else:
+        body = (f"{n} assistants · {busy} working now, "
+                f"{waiting} waiting for their turn.")
+    return {"summary": body + (f" Last check {last}." if last else
+                               " Nothing has run yet."),
+            "working": str(busy), "waiting": str(waiting)}
+
+
+def day_line(session_id: str, pending: dict | None) -> dict[str, str]:
+    """The morning sentence, and what is waiting — both counted, not claimed."""
+    handled = len(memory.db.query(
+        "SELECT 1 FROM social_messages WHERE COALESCE(replied,0)=1"))
+    waiting_rows = memory.db.query(
+        "SELECT received_at FROM social_messages "
+        "WHERE COALESCE(replied,0)=0 ORDER BY received_at LIMIT 1")
+    open_count = 1 if pending else 0
+
+    if is_first_run():
+        line = ("Your team is ready and has not learned anything about your "
+                "shop yet. Ask a question, or send a photo of what you sell.")
+    elif open_count:
+        line = (f"Your team worked through the inbox and handled {handled} "
+                f"message(s) on its own. One thing needs your decision.")
+    else:
+        line = ("Everything is handled. Your team is watching the inbox, the "
+                "stock and the ads, and will only interrupt you if money or "
+                "a promise is at stake.")
+
+    if not open_count:
+        pend = "nothing waiting"
+    else:
+        oldest = str((waiting_rows or [{}])[0].get("received_at") or "")[11:16]
+        pend = f"1 waiting{f' · oldest at {oldest}' if oldest else ''}"
+    return {"line": line, "pending": pend}
+
+
+def grow() -> dict[str, str]:
+    """The Grow page's headline. Driven by what customers actually asked for."""
+    wants = demands()
+    if not wants:
+        return {"title": "Nothing to chase yet",
+                "body": "When customers start asking for something you do not "
+                        "sell, the request shows up here with a count — and "
+                        "your team works out whether it is worth making."}
+    top = wants[0]
+    name = top.get("name") or "it"
+    n = top.get("n") or 0
+    return {
+        "title": f"{name} — {n} customer(s) have asked",
+        "body": (f"{n} of your own customers asked for {name}. "
+                 f"{top.get('note') or ''} Your team can price it and size a "
+                 f"first batch on your numbers — ask it to."),
+    }
+
+
+
+def facts(session_id: str) -> dict[str, str]:
+    """The small figures scattered through the dashboard.
+
+    Each of these was a literal in the bundle — 38 answered, ৳30,060 total,
+    18.4k reached, $11.20 this month. They are counted here, and anything the
+    shop has no basis for comes back as an em dash with the tile saying why
+    rather than borrowing the sample shop's number.
+    """
+    f: dict[str, str] = {}
+
+    # --- inbox --------------------------------------------------------------
+    msgs = memory.db.query("SELECT sentiment, COALESCE(replied,0) AS replied "
+                           "FROM social_messages")
+    answered = sum(1 for m in msgs if m["replied"])
+    f["inboxAnswered"] = (f"{answered} answered automatically" if answered
+                          else "none answered yet")
+    total = len(msgs) or 1
+    def _pct(kind: str) -> int:
+        return round(sum(1 for m in msgs
+                         if (m.get("sentiment") or "").lower() == kind)
+                     / total * 100)
+    happy, upset = _pct("positive"), _pct("negative")
+    neutral = max(0, 100 - happy - upset)
+    f["happyPct"] = f"{happy}%"
+    f["neutralPct"] = f"{neutral}%"
+    f["upsetPct"] = f"{upset}%"
+    f["happyBar"] = f"{happy}%"
+    f["neutralBar"] = f"{neutral}%"
+    f["upsetBar"] = f"{upset}%"
+    f["moodNote"] = (f"{happy}% happy" if msgs else "no messages yet")
+
+    # --- promises -----------------------------------------------------------
+    pre = memory.preorders()
+    units = sum(int(x.get("quantity") or 0) for x in pre)
+    value = 0.0
+    for x in pre:
+        rows = memory.db.query(
+            "SELECT sell_price FROM products WHERE name=?",
+            (x.get("product_name") or "",))
+        if rows:
+            value += float(rows[0].get("sell_price") or 0) * int(x.get("quantity") or 0)
+    f["ordersFoundUnits"] = f"{units} pcs" if units else DASH
+    f["ordersFoundValue"] = (f"{_cur(value)} · added to preorders" if value
+                             else "no value recorded")
+    f["promisedValue"] = _cur(value) if value else DASH
+
+    # --- the reorder ---------------------------------------------------------
+    low = memory.db.query(
+        "SELECT p.name, p.unit_cost, i.quantity, i.reorder_level "
+        "FROM inventory i JOIN products p ON p.id = i.product_id "
+        "WHERE i.quantity <= i.reorder_level")
+    cost = sum(float(r.get("unit_cost") or 0) * max(0, int(r.get("reorder_level") or 0) * 2
+                                                    - int(r.get("quantity") or 0))
+               for r in low)
+    f["poTotal"] = _cur(cost) if cost else DASH
+    f["poArrives"] = DASH
+    f["poPayback"] = DASH
+
+    # --- advertising ---------------------------------------------------------
+    camp = memory.db.query(
+        "SELECT COALESCE(SUM(spend_total),0) AS spent, "
+        "       COALESCE(SUM(budget_daily),0) AS daily, COUNT(*) AS n "
+        "FROM campaigns")
+    spent = float(camp[0]["spent"]) if camp else 0.0
+    f["adSpentWeek"] = _cur(spent) if spent else _cur(0)
+    f["adSales"] = DASH
+    f["adReturn"] = "no attributed sales yet"
+    f["adCostPerCustomer"] = DASH
+    f["adCostLimit"] = "no limit set"
+    f["adReach"] = DASH
+    f["adArea"] = (memory.profile() or {}).get("location") or "your area"
+
+    # --- price advice --------------------------------------------------------
+    hist = memory.pricing_history()
+    latest = hist[0] if hist else {}
+    f["wholesale"] = DASH
+    f["rivalPrice"] = DASH
+    f["rivalsNote"] = ("Your team has not compared prices nearby yet — "
+                       "ask it to research who else sells this.")
+    if latest.get("sell_price"):
+        keep = _cur(latest["sell_price"])
+        f["raiseTo"] = f"Keep {keep}"
+        f["keepFor"] = "Ask for a new price"
+    else:
+        f["raiseTo"] = "No price set"
+        f["keepFor"] = "Ask your team to price it"
+
+    # --- grow ---------------------------------------------------------------
+    wants = demands()
+    top = wants[0] if wants else {}
+    f["growAskedBy"] = f"{top.get('n', 0)} people" if wants else DASH
+    f["growRivals"] = DASH
+    f["growPrice"] = DASH
+    f["growRisk"] = DASH
+
+    # --- limits --------------------------------------------------------------
+    budget = (memory.profile() or {}).get("monthly_budget")
+    f["limitAds"] = _cur(budget) if budget else "not set"
+    f["limitStock"] = "not set"
+    f["limitDiscount"] = "not set"
+
+    # --- what the workforce costs -------------------------------------------
+    ledger = ledger_for(session_id)
+    spend = sum(c.cost_usd for c in ledger.calls)
+    tokens = sum(c.input_tokens + c.output_tokens for c in ledger.calls)
+    rate = fx.convert(1, settings.currency, "USD") if settings.currency else None
+    f["usageToday"] = f"${spend:.2f}"
+    f["usageTokens"] = f"{tokens:,} tokens · {len(ledger.calls)} call(s)"
+    f["usageMonth"] = f"${spend:.2f}"
+    f["usageMonthNote"] = (f"\u2248 {_cur(spend * rate)}" if rate else
+                           "this session only")
+    f["costPerDecision"] = (f"${spend / max(1, len(ledger.calls)):.3f}"
+                            if ledger.calls else DASH)
+    f["decisionsNote"] = f"{len(ledger.calls)} model call(s)"
+    events = bus.load(session_id, 400)
+    errs = sum(1 for e in events if e.get("level") == "error")
+    f["failuresCaught"] = str(errs)
+    f["failuresNote"] = ("none stopped a workflow" if errs
+                         else "nothing has failed")
+    return f
 
 
 # ---------------------------------------------------------------------------
@@ -862,6 +1230,7 @@ def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
         "threads": threads(),
         "stock": stock(),
         "campaigns": campaigns(),
+        "creatives": creatives(),
         "channels": channels(),
         "pnl": pnl(),
         "demands": demands(),
@@ -871,5 +1240,12 @@ def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
         "memRecords": mem_records(),
         "costBars": cost_bars(session_id),
         "failures": failures(session_id),
+        "todayLabel": today_label(),
+        "facts": facts(session_id),
+        "margin": margin(),
+        "costRows": cost_rows(),
+        "team": team(session_id),
+        "dayLine": day_line(session_id, pending),
+        "grow": grow(),
         "stats": memory.stats(),
     }

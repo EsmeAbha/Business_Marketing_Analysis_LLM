@@ -81,6 +81,8 @@ Record the stock, then report levels and reorder advice."""
                 photo_path=str((state.get("image_paths") or [""])[0]),
                 source_agent=self.name,
             )
+            if product_id is None:      # a placeholder name, refused
+                continue
             memory.db.set_stock(product_id, item.quantity, item.reorder_level)
             memory.db.execute(
                 "INSERT INTO stock_movements (product_id, delta, reason, created_at) "

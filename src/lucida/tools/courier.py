@@ -27,6 +27,20 @@ _TIMEOUT = 20
 SUPPORTED_PROVIDERS = ("steadfast", "pathao", "uber")
 
 
+def _creds(provider: str) -> tuple[str, str]:
+    """This shop's courier keys, falling back to the machine's."""
+    try:
+        from ..memory import memory
+        from . import connections
+        return connections.credentials(memory.db, provider)
+    except Exception:  # noqa: BLE001 — outside a request there is no shop
+        if provider == "steadfast":
+            return settings.steadfast_api_key, settings.steadfast_secret_key
+        if provider == "pathao":
+            return settings.pathao_client_id, settings.pathao_client_secret
+        return "", ""
+
+
 @dataclass
 class DeliveryResult:
     provider: str
@@ -71,24 +85,33 @@ class CourierAdapter:
                 error=f"unknown provider {provider!r}; expected one of {SUPPORTED_PROVIDERS}",
             )
 
-        if provider == "steadfast" and settings.steadfast_api_key:
-            return self._book_steadfast(recipient, phone, address, cod_amount, note)
-        if provider == "pathao" and settings.pathao_client_id:
-            return self._book_pathao(recipient, phone, address, cod_amount, note)
+        # Credentials come from the signed-in shop's own connection, falling
+        # back to the machine's .env. Booking a parcel on another shop's
+        # courier account would be worse than not booking it at all.
+        key, secret = _creds(provider)
+        if provider == "steadfast" and key:
+            return self._book_steadfast(recipient, phone, address, cod_amount,
+                                        note, key, secret)
+        if provider == "pathao" and key:
+            return self._book_pathao(recipient, phone, address, cod_amount,
+                                     note, key, secret)
 
         return self._simulate(provider, recipient, address, product_name, cod_amount)
 
     # --- live providers ---
 
     def _book_steadfast(
-        self, recipient: str, phone: str, address: str, cod: float, note: str
+        self, recipient: str, phone: str, address: str, cod: float, note: str,
+        api_key: str = "", secret_key: str = "",
     ) -> DeliveryResult:
+        api_key = api_key or settings.steadfast_api_key
+        secret_key = secret_key or settings.steadfast_secret_key
         try:
             resp = requests.post(
                 f"{STEADFAST_BASE}/create_order",
                 headers={
-                    "Api-Key": settings.steadfast_api_key,
-                    "Secret-Key": settings.steadfast_secret_key,
+                    "Api-Key": api_key,
+                    "Secret-Key": secret_key,
                     "Content-Type": "application/json",
                 },
                 json={
@@ -126,14 +149,17 @@ class CourierAdapter:
             return DeliveryResult("steadfast", False, False, error=str(exc))
 
     def _book_pathao(
-        self, recipient: str, phone: str, address: str, cod: float, note: str
+        self, recipient: str, phone: str, address: str, cod: float, note: str,
+        client_id: str = "", client_secret: str = "",
     ) -> DeliveryResult:
+        client_id = client_id or settings.pathao_client_id
+        client_secret = client_secret or settings.pathao_client_secret
         try:
             token_resp = requests.post(
                 f"{PATHAO_BASE}/aladdin/api/v1/issue-token",
                 json={
-                    "client_id": settings.pathao_client_id,
-                    "client_secret": settings.pathao_client_secret,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
                     "grant_type": "client_credentials",
                 },
                 timeout=_TIMEOUT,
