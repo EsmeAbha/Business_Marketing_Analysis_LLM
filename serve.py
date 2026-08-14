@@ -44,7 +44,7 @@ from lucida.graph import WorkforceRuntime  # noqa: E402
 from lucida.memory import memory  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
-from web import auth, bridge, screens  # noqa: E402
+from web import auth, bridge, google_oauth, mailer, screens  # noqa: E402
 
 logger = get_logger("serve")
 
@@ -133,13 +133,16 @@ async def login(request):
         return RedirectResponse("/", status_code=303)
     if request.method == "GET":
         return HTMLResponse(screens.login_page(
-            notice=request.query_params.get("notice", "")))
+            notice=request.query_params.get("notice", ""),
+            google=google_oauth.enabled()))
     form = await request.form()
     email = str(form.get("email") or "")
     try:
         account = auth.authenticate(email, str(form.get("password") or ""))
     except auth.AuthError as exc:
-        return HTMLResponse(screens.login_page(str(exc), email), status_code=401)
+        return HTMLResponse(
+            screens.login_page(str(exc), email, google=google_oauth.enabled()),
+            status_code=401)
     request.session["account_id"] = account["id"]
     return RedirectResponse("/", status_code=303)
 
@@ -148,7 +151,7 @@ async def signup(request):
     if current_account(request) is not None:
         return RedirectResponse("/", status_code=303)
     if request.method == "GET":
-        return HTMLResponse(screens.signup_page())
+        return HTMLResponse(screens.signup_page(google=google_oauth.enabled()))
 
     form = await request.form()
     values = {k: str(form.get(k) or "") for k in (
@@ -165,7 +168,9 @@ async def signup(request):
             what_you_sell=values["what_you_sell"],
         )
     except auth.AuthError as exc:
-        return HTMLResponse(screens.signup_page(str(exc), values), status_code=400)
+        return HTMLResponse(
+            screens.signup_page(str(exc), values, google=google_oauth.enabled()),
+            status_code=400)
 
     # Seed the new shop's own memory with what they just told us, so the
     # agents start from the owner's facts instead of estimating them.
@@ -179,6 +184,120 @@ async def signup(request):
         notes=("Owner is starting out and has no business yet."
                if account.get("business_stage") == "starting"
                else "Owner already sells and wants day-to-day management."),
+    )
+    request.session["account_id"] = account["id"]
+    _send_verification(request, account)
+    return RedirectResponse("/verify", status_code=303)
+
+
+def _send_verification(request, account) -> None:
+    """Mint a code and try to email it, remembering what happened.
+
+    With no mail server configured the code is carried in the session so the
+    verify screen can show it — clearly labelled as un-sent, never dressed up
+    as a delivered email.
+    """
+    code = auth.issue_verification_code(account["id"])
+    result = mailer.send_code(account["email"], code,
+                              account.get("owner_name") or "")
+    request.session["verify_problem"] = "" if result.delivered else result.detail
+    request.session["verify_dev_code"] = "" if result.delivered else code
+
+
+async def verify(request):
+    account_id = request.session.get("account_id")
+    if not account_id:
+        return RedirectResponse("/login", status_code=303)
+    account = auth.get_account(account_id)
+    if account is None:
+        request.session.clear()
+        return RedirectResponse("/login", status_code=303)
+    if auth.is_verified(account):
+        return RedirectResponse("/", status_code=303)
+
+    error = ""
+    if request.method == "POST":
+        form = await request.form()
+        try:
+            auth.verify_code(account_id, str(form.get("code") or ""))
+        except auth.AuthError as exc:
+            error = str(exc)
+        else:
+            request.session.pop("verify_dev_code", None)
+            request.session.pop("verify_problem", None)
+            return RedirectResponse("/", status_code=303)
+
+    return HTMLResponse(
+        screens.verify_page(
+            email=account["email"],
+            error=error,
+            notice=request.query_params.get("notice", ""),
+            dev_code=request.session.get("verify_dev_code", ""),
+            delivery_problem=request.session.get("verify_problem", ""),
+            resend_in=auth.seconds_until_resend(account_id),
+        ),
+        status_code=400 if error else 200,
+    )
+
+
+async def verify_resend(request):
+    account_id = request.session.get("account_id")
+    if not account_id:
+        return RedirectResponse("/login", status_code=303)
+    if auth.seconds_until_resend(account_id) > 0:
+        return RedirectResponse("/verify", status_code=303)
+    account = auth.get_account(account_id)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    _send_verification(request, account)
+    return RedirectResponse("/verify?notice=A+new+code+is+on+its+way.",
+                            status_code=303)
+
+
+async def google_start(request):
+    if not google_oauth.enabled():
+        return RedirectResponse(
+            "/login?notice=Google+sign-in+is+not+set+up+on+this+server.",
+            status_code=303)
+    state = google_oauth.new_state()
+    request.session["oauth_state"] = state
+    return RedirectResponse(google_oauth.authorize_url(state), status_code=303)
+
+
+async def google_callback(request):
+    expected = request.session.pop("oauth_state", None)
+    given = request.query_params.get("state")
+    # Without this check, an attacker could hand someone a callback URL and
+    # sign them into an account they do not own.
+    if not expected or given != expected:
+        return HTMLResponse(
+            screens.login_page("That sign-in link expired. Try again.",
+                               google=google_oauth.enabled()),
+            status_code=400)
+    if request.query_params.get("error"):
+        return RedirectResponse("/login?notice=Google+sign-in+was+cancelled.",
+                                status_code=303)
+    code = request.query_params.get("code")
+    if not code:
+        return RedirectResponse("/login", status_code=303)
+
+    try:
+        person = await asyncio.to_thread(google_oauth.exchange, code)
+    except google_oauth.OAuthError as exc:
+        return HTMLResponse(
+            screens.login_page(str(exc), google=google_oauth.enabled()),
+            status_code=400)
+
+    account = auth.upsert_google_account(
+        sub=person.sub, email=person.email, owner_name=person.name,
+        email_verified=person.email_verified,
+    )
+    memory.use_shop(account["id"])
+    memory.set_profile(
+        owner_name=account.get("owner_name"),
+        business_name=account.get("business_name"),
+        location=account.get("location"),
+        currency=account.get("currency"),
     )
     request.session["account_id"] = account["id"]
     return RedirectResponse("/", status_code=303)
@@ -276,6 +395,8 @@ async def index(request):
     account = current_account(request)
     if account is None:
         return RedirectResponse("/login", status_code=303)
+    if not auth.is_verified(account):
+        return RedirectResponse("/verify", status_code=303)
     session_id = _session_for(account["id"])
 
     html = INDEX.read_text(encoding="utf-8")
@@ -509,6 +630,9 @@ async def api_health(request):
         "accounts": auth.count_accounts(),
         "session": session_id,
         "has_llm": bool(settings.has_llm),
+        "email_configured": mailer.configured(),
+        "google_configured": google_oauth.enabled(),
+        "verified": auth.is_verified(account) if account else False,
         "pending_gate": bool(_pending(session_id)) if session_id else False,
     })
 
@@ -538,6 +662,10 @@ app = Starlette(
         Route("/login", login, methods=["GET", "POST"]),
         Route("/signup", signup, methods=["GET", "POST"]),
         Route("/logout", logout, methods=["POST", "GET"]),
+        Route("/verify", verify, methods=["GET", "POST"]),
+        Route("/verify/resend", verify_resend, methods=["POST"]),
+        Route("/auth/google", google_start),
+        Route("/auth/google/callback", google_callback),
         Route("/account", account_page, methods=["GET", "POST"]),
         Route("/account/avatar", account_avatar, methods=["POST"]),
         Route("/account/password", account_password, methods=["POST"]),
@@ -561,6 +689,9 @@ if __name__ == "__main__":
             "Run: python web/patch_design.py"
         )
     print("Lucida — Business Suite  ->  http://127.0.0.1:8000")
+    print(f"  email     : {mailer.status()}")
+    print(f"  google    : {google_oauth.status()}")
+    print(f"  accounts  : {auth.count_accounts()} registered")
     if not settings.has_llm:
         print("  (no API key: the page renders, but the workforce can't run)")
     uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")

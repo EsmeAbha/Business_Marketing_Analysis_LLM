@@ -155,13 +155,51 @@ def _pitch() -> str:
     )
 
 
-def login_page(error: str = "", email: str = "", notice: str = "") -> str:
+GOOGLE_MARK = (
+    "<svg width='17' height='17' viewBox='0 0 48 48' aria-hidden='true'>"
+    "<path fill='#4285F4' d='M45.1 24.5c0-1.6-.1-2.7-.4-3.9H24v7.1h12.1c-.2 1.8-1.6 "
+    "4.4-4.5 6.2l-.1.3 6.6 5 .5.1c4.2-3.9 6.5-9.5 6.5-14.8'/>"
+    "<path fill='#34A853' d='M24 46c6 0 11-2 14.6-5.4l-7-5.4c-1.9 1.3-4.4 2.2-7.6 "
+    "2.2-5.8 0-10.7-3.8-12.5-9l-.3.1-6.8 5.3-.1.3C8 40.3 15.4 46 24 46'/>"
+    "<path fill='#FBBC05' d='M11.5 28.4c-.5-1.4-.8-2.9-.8-4.4s.3-3 .7-4.4v-.3l-6.9-5.4"
+    "-.2.1C2.8 17 2 20.4 2 24s.8 7 2.3 10z'/>"
+    "<path fill='#EA4335' d='M24 9.5c4.1 0 6.9 1.8 8.5 3.3l6.2-6C34.9 3.3 30 1 24 "
+    "1 15.4 1 8 6.7 4.3 15l7.2 5.6C13.3 15.3 18.2 9.5 24 9.5'/></svg>"
+)
+
+GOOGLE_CSS = f"""
+.gbtn {{ display:flex; align-items:center; justify-content:center; gap:9px;
+  width:100%; padding:11px 15px; border-radius:9px; border:1px solid {BORDER};
+  background:{SURFACE}; color:{INK}; font-size:13.5px; font-weight:500;
+  cursor:pointer; font-family:inherit; text-decoration:none; }}
+.gbtn:hover {{ border-color:{BUTTON}; color:{BUTTON}; text-decoration:none; }}
+.or {{ display:flex; align-items:center; gap:11px; margin:16px 0;
+  color:{MUTED}; font-size:12px; }}
+.or::before, .or::after {{ content:''; flex:1; height:1px; background:{BORDER}; }}
+.code-in {{ font-size:26px; letter-spacing:.5em; text-align:center;
+  font-family:{SERIF}; padding:14px 12px; }}
+"""
+
+
+def _google_block(enabled: bool) -> str:
+    if not enabled:
+        return ""
+    return (
+        f"<a class='gbtn' href='/auth/google'>{GOOGLE_MARK}"
+        f"<span>Continue with Google</span></a>"
+        f"<div class='or'>or</div>"
+    )
+
+
+def login_page(error: str = "", email: str = "", notice: str = "",
+               google: bool = False) -> str:
     body = (
         f"<div class='split'>{_pitch()}"
         f"<div class='form-side'><div class='form-wrap'>"
         f"<h1 style='font-size:27px;margin-bottom:6px;'>Welcome back.</h1>"
         f"<p class='note' style='margin:0 0 22px;'>Sign in to your shop.</p>"
         f"{_alert(notice, 'ok')}{_alert(error)}"
+        f"{_google_block(google)}"
         f"<form method='post' action='/login'>"
         f"<div class='field'><label for='email'>Email</label>"
         f"<input id='email' name='email' type='email' required "
@@ -174,7 +212,7 @@ def login_page(error: str = "", email: str = "", notice: str = "") -> str:
         f"New here? <a href='/signup'>Create an account</a></p>"
         f"</div></div></div>"
     )
-    return _page("Sign in", body, SPLIT_CSS)
+    return _page("Sign in", body, SPLIT_CSS + GOOGLE_CSS)
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +235,8 @@ SIGNUP_CSS = SPLIT_CSS + f"""
 """
 
 
-def signup_page(error: str = "", values: dict[str, Any] | None = None) -> str:
+def signup_page(error: str = "", values: dict[str, Any] | None = None,
+                google: bool = False) -> str:
     v = values or {}
     stage = v.get("business_stage") or "starting"
     body = (
@@ -207,6 +246,7 @@ def signup_page(error: str = "", values: dict[str, Any] | None = None) -> str:
         f"<p class='note' style='margin:0 0 20px;'>Two minutes. You can change "
         f"any of this later.</p>"
         f"{_alert(error)}"
+        f"{_google_block(google)}"
         f"<form method='post' action='/signup'>"
 
         f"<label>Where are you today?</label>"
@@ -255,7 +295,73 @@ def signup_page(error: str = "", values: dict[str, Any] | None = None) -> str:
         f"Already have an account? <a href='/login'>Sign in</a></p>"
         f"</div></div></div>"
     )
-    return _page("Create your shop", body, SIGNUP_CSS)
+    return _page("Create your shop", body, SIGNUP_CSS + GOOGLE_CSS)
+
+
+# ---------------------------------------------------------------------------
+# Verify email
+# ---------------------------------------------------------------------------
+
+
+def verify_page(
+    email: str,
+    error: str = "",
+    notice: str = "",
+    dev_code: str = "",
+    delivery_problem: str = "",
+    resend_in: int = 0,
+) -> str:
+    """Enter the six-digit code.
+
+    `dev_code` is only ever populated when no mail server is configured. It is
+    labelled as such on the page — showing a code and implying an email went
+    out would be worse than not sending one.
+    """
+    dev = ""
+    if dev_code:
+        dev = (
+            f"<div class='ok' style='text-align:left;'>"
+            f"<strong>No mail server is set up</strong>, so nothing was "
+            f"emailed. Your code is <strong style='font-size:16px;"
+            f"letter-spacing:.12em;'>{_e(dev_code)}</strong>."
+            f"<div style='margin-top:6px;font-size:12px;'>Set AIW_SMTP_* in "
+            f".env to send these by email instead.</div></div>"
+        )
+    problem = (
+        f"<div class='alert'>{_e(delivery_problem)}</div>"
+        if delivery_problem else ""
+    )
+    wait = (
+        f"<span class='note'>You can ask for another in {resend_in}s.</span>"
+        if resend_in else
+        "<button class='btn btn-quiet' type='submit' form='resend' "
+        "style='width:auto;padding:8px 13px;'>Send a new code</button>"
+    )
+
+    body = (
+        f"<div style='min-height:100vh;display:flex;align-items:center;"
+        f"justify-content:center;padding:28px;'>"
+        f"<div style='width:100%;max-width:420px;'>"
+        f"{_brand('confirm your email')}"
+        f"<div class='card'>"
+        f"<h1 style='font-size:24px;margin-bottom:7px;'>Check your email.</h1>"
+        f"<p class='note' style='margin:0 0 18px;'>We sent a six-digit code to "
+        f"<strong style='color:{INK};'>{_e(email)}</strong>. It expires in 15 "
+        f"minutes.</p>"
+        f"{dev}{problem}{_alert(notice, 'ok')}{_alert(error)}"
+        f"<form method='post' action='/verify'>"
+        f"<div class='field'><label for='code'>Your code</label>"
+        f"<input class='code-in' id='code' name='code' inputmode='numeric' "
+        f"pattern='[0-9]*' maxlength='6' autocomplete='one-time-code' "
+        f"required autofocus></div>"
+        f"<button class='btn' type='submit'>Confirm my email</button></form>"
+        f"<form id='resend' method='post' action='/verify/resend'></form>"
+        f"<div style='display:flex;align-items:center;justify-content:space-between;"
+        f"gap:10px;margin-top:14px;'>{wait}"
+        f"<a class='note' href='/logout'>Use a different account</a></div>"
+        f"</div></div></div>"
+    )
+    return _page("Confirm your email", body, GOOGLE_CSS)
 
 
 # ---------------------------------------------------------------------------
