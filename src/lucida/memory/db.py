@@ -167,7 +167,170 @@ CREATE TABLE IF NOT EXISTS agent_messages (
     payload       TEXT,
     created_at    TEXT
 );
+
+-- ===========================================================================
+-- Delivery pricing
+--
+-- A courier quote in Bangladesh is a function of three things: how heavy the
+-- parcel is, how far it is going, and which courier. Rather than hard-coding
+-- one price list, zones and their rates are rows -- so an owner whose courier
+-- charges differently can change the numbers without a code change, and a
+-- second courier is more rows rather than another branch.
+--
+-- Weight is grams throughout. Storing a float of kilograms invites rounding
+-- arguments at exactly the boundary where the price steps up.
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS delivery_zones (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,        -- Inside Dhaka, Outside Dhaka, Sub-city
+    kind          TEXT NOT NULL,        -- inside_city | outside_city | same_area
+    provider      TEXT,                 -- blank = applies to every courier
+    base_weight_g INTEGER NOT NULL DEFAULT 1000,   -- what base_charge covers
+    base_charge   REAL NOT NULL,                   -- for anything up to base
+    per_kg_extra  REAL NOT NULL DEFAULT 0,         -- each additional kg, or part
+    cod_percent   REAL NOT NULL DEFAULT 1.0,       -- cash-on-delivery fee, %
+    min_cod_fee   REAL NOT NULL DEFAULT 0,
+    active        INTEGER NOT NULL DEFAULT 1,
+    created_at    TEXT,
+    UNIQUE(name, provider)
+);
+
+-- Where a customer is, resolved to a zone. Kept separate from the order so
+-- one customer's address can be reused and corrected in one place.
+CREATE TABLE IF NOT EXISTS addresses (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer      TEXT,
+    phone         TEXT,
+    line1         TEXT,
+    area          TEXT,                 -- Mirpur 11, Uttara Sector 7
+    city          TEXT,
+    zone_id       INTEGER REFERENCES delivery_zones(id),
+    is_inside_city INTEGER NOT NULL DEFAULT 1,
+    notes         TEXT,
+    created_at    TEXT
+);
+
+-- ===========================================================================
+-- Social channels
+--
+-- One row per connected page/account, so an owner can run two Facebook pages
+-- or a personal and a shop Instagram without the credentials colliding. The
+-- token lives here rather than in .env because it is per-shop, and .env is
+-- per-server.
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS social_accounts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform      TEXT NOT NULL,        -- facebook | instagram | messenger | youtube
+    external_id   TEXT,                 -- page id, ig user id, channel id
+    display_name  TEXT,
+    access_token  TEXT,
+    token_expires TEXT,
+    connected     INTEGER NOT NULL DEFAULT 0,
+    last_synced   TEXT,
+    created_at    TEXT,
+    UNIQUE(platform, external_id)
+);
+
+-- Everything that arrives from a customer, whatever the channel: a Messenger
+-- DM, an Instagram DM, a comment under an ad. `external_id` is what makes
+-- syncing idempotent -- polling the same inbox twice must not duplicate.
+CREATE TABLE IF NOT EXISTS social_messages (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform      TEXT NOT NULL,
+    kind          TEXT NOT NULL,        -- dm | comment | mention
+    external_id   TEXT,
+    thread_id     TEXT,                 -- conversation / post this belongs to
+    post_id       TEXT,                 -- the ad or post, when it is a comment
+    sender_id     TEXT,
+    sender_name   TEXT,
+    message       TEXT,
+    sentiment     TEXT,
+    intent        TEXT,
+    requested_item TEXT,
+    replied       INTEGER NOT NULL DEFAULT 0,
+    reply_text    TEXT,
+    reply_at      TEXT,
+    received_at   TEXT,
+    created_at    TEXT,
+    UNIQUE(platform, external_id)
+);
+
+-- What was published, and where it landed. Separate from `campaigns`: a
+-- campaign is the idea and the copy, a post is one concrete thing live on one
+-- platform with its own id to fetch comments against.
+CREATE TABLE IF NOT EXISTS social_posts (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id   INTEGER REFERENCES campaigns(id),
+    platform      TEXT NOT NULL,
+    external_id   TEXT,                 -- post id / media id / video id
+    permalink     TEXT,
+    kind          TEXT,                 -- post | reel | story | video
+    caption       TEXT,
+    media_id      INTEGER REFERENCES media_assets(id),
+    status        TEXT,                 -- published | failed | simulated
+    simulated     INTEGER NOT NULL DEFAULT 1,
+    comment_count INTEGER NOT NULL DEFAULT 0,
+    last_synced   TEXT,
+    created_at    TEXT,
+    UNIQUE(platform, external_id)
+);
+
+-- ===========================================================================
+-- Media
+--
+-- Product photos the owner uploaded and artwork the model generated, in one
+-- table: an ad needs to reference either without caring which it is. `source`
+-- is what keeps that honest -- a generated image should never be mistaken for
+-- a photograph of real stock.
+-- ===========================================================================
+
+CREATE TABLE IF NOT EXISTS media_assets (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id    INTEGER REFERENCES products(id),
+    kind          TEXT NOT NULL,        -- product_photo | ad_creative | logo
+    source        TEXT NOT NULL,        -- uploaded | generated | edited
+    path          TEXT,                 -- on disk, under data/media/
+    url           TEXT,                 -- remote, when hosted
+    prompt        TEXT,                 -- what produced it, when generated
+    model         TEXT,
+    width         INTEGER,
+    height        INTEGER,
+    bytes         INTEGER,
+    created_at    TEXT
+);
 """
+
+# Columns added after the first release. Applied with ALTER TABLE against a
+# PRAGMA check so existing shop databases upgrade in place instead of needing
+# to be rebuilt -- an owner's trading history is not disposable.
+MIGRATIONS: dict[str, dict[str, str]] = {
+    "products": {
+        # Weight drives the delivery quote, so it belongs on the product
+        # rather than being typed in per order.
+        "weight_g": "INTEGER NOT NULL DEFAULT 0",
+        "length_cm": "REAL",
+        "width_cm": "REAL",
+        "height_cm": "REAL",
+        "sku": "TEXT",
+        "is_fragile": "INTEGER NOT NULL DEFAULT 0",
+    },
+    "orders": {
+        "address_id": "INTEGER REFERENCES addresses(id)",
+        "zone_id": "INTEGER REFERENCES delivery_zones(id)",
+        "weight_g": "INTEGER NOT NULL DEFAULT 0",
+        "delivery_charge": "REAL NOT NULL DEFAULT 0",
+        "cod_fee": "REAL NOT NULL DEFAULT 0",
+        "total_charge": "REAL NOT NULL DEFAULT 0",
+        "is_cod": "INTEGER NOT NULL DEFAULT 1",
+    },
+    "campaigns": {
+        "media_id": "INTEGER REFERENCES media_assets(id)",
+        "budget_daily": "REAL",
+        "spend_total": "REAL NOT NULL DEFAULT 0",
+    },
+}
 
 
 def _now() -> str:
@@ -182,6 +345,41 @@ class Database:
         self._lock = threading.RLock()
         with self.connect() as conn:
             conn.executescript(SCHEMA)
+            self._migrate(conn)
+        self._seed_zones()
+
+    @staticmethod
+    def _migrate(conn) -> None:
+        for table, columns in MIGRATIONS.items():
+            have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+            for column, spec in columns.items():
+                if column not in have:
+                    conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {spec}"
+                    )
+
+    def _seed_zones(self) -> None:
+        """Default courier rates, once, and only if the owner has none.
+
+        These are the published Bangladeshi flat rates most couriers quote —
+        a starting point the owner can edit, not a claim about their contract.
+        Anything they change is never overwritten, because this only runs when
+        the table is empty.
+        """
+        if self.query("SELECT 1 FROM delivery_zones LIMIT 1"):
+            return
+        for name, kind, base_g, base, per_kg in (
+            ("Same area", "same_area", 1000, 60.0, 20.0),
+            ("Inside city", "inside_city", 1000, 80.0, 20.0),
+            ("Outside city", "outside_city", 1000, 130.0, 25.0),
+        ):
+            self.execute(
+                """INSERT INTO delivery_zones
+                   (name, kind, provider, base_weight_g, base_charge,
+                    per_kg_extra, cod_percent, min_cod_fee, active, created_at)
+                   VALUES (?,?,'',?,?,?,1.0,0,1,?)""",
+                (name, kind, base_g, base, per_kg, _now()),
+            )
 
     @contextmanager
     def connect(self) -> Iterator[Any]:
