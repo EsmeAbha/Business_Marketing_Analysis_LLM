@@ -407,8 +407,24 @@ async def avatar(request):
     return FileResponse(stored)
 
 
-# The conversation, per account, so the chat survives a page reload.
-_CHATS: dict[str, list[dict]] = {}
+def _thread_for(request, account: dict, make: bool = False) -> int | None:
+    """Which conversation this request belongs to.
+
+    Held in the session rather than the URL so a reload lands back where the
+    owner was, and so one browser tab does not silently write into the
+    conversation another tab is showing.
+    """
+    tid = request.session.get("thread_id")
+    if tid:
+        if memory.db.query("SELECT 1 FROM chat_threads WHERE id=?", (tid,)):
+            return int(tid)
+        request.session.pop("thread_id", None)
+    tid = memory.db.latest_thread()
+    if tid is None and make:
+        tid = memory.db.new_thread()
+    if tid is not None:
+        request.session["thread_id"] = int(tid)
+    return tid
 
 STARTERS = [
     "What should I sell to make money this month?",
@@ -437,8 +453,42 @@ async def chat(request):
         return RedirectResponse("/login", status_code=303)
     if not auth.is_verified(account):
         return RedirectResponse("/verify", status_code=303)
+    tid = _thread_for(request, account)
+    history = [
+        {"role": m["role"], "text": m["text"]}
+        for m in (memory.db.chat_turns(tid) if tid else [])
+    ]
     return page(app_ui.chat_page(
-        _who(account), _CHATS.get(account["id"], []), STARTERS))
+        _who(account), history, STARTERS,
+        threads=memory.db.chat_list(), current=tid))
+
+
+async def chat_new(request):
+    if current_account(request) is None:
+        return RedirectResponse("/login", status_code=303)
+    request.session["thread_id"] = memory.db.new_thread()
+    return RedirectResponse("/", status_code=303)
+
+
+async def chat_open(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    tid = int(request.path_params["thread_id"])
+    if memory.db.query("SELECT 1 FROM chat_threads WHERE id=?", (tid,)):
+        request.session["thread_id"] = tid
+    return RedirectResponse("/", status_code=303)
+
+
+async def chat_delete(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    tid = int(request.path_params["thread_id"])
+    memory.db.delete_thread(tid)
+    if request.session.get("thread_id") == tid:
+        request.session.pop("thread_id", None)
+    return RedirectResponse("/", status_code=303)
 
 
 async def studio(request):
@@ -699,6 +749,13 @@ async def api_research(request):
         return JSONResponse({"error": "pick at least one place to look"},
                             status_code=400)
 
+    tid = _thread_for(request, account, make=True)
+    memory.db.add_message(tid, "user", query)
+
+    def answered(text: str):
+        memory.db.add_message(tid, "assistant", text)
+        return JSONResponse({"answer": text})
+
     found = await asyncio.to_thread(research.run, memory.db, query, chosen)
 
     lines = []
@@ -711,8 +768,7 @@ async def api_research(request):
     if not found.findings:
         problems = ("\n\n" + "\n".join(f"- {x}" for x in found.errors)
                     if found.errors else "")
-        return JSONResponse({"answer": header + "Nothing came back."
-                             + problems})
+        return answered(header + "Nothing came back." + problems)
 
     if not settings.has_llm:
         body_text = "\n\n".join(
@@ -730,7 +786,7 @@ async def api_research(request):
 
     problems = ("\n\n_Some places did not answer: "
                 + "; ".join(found.errors) + "_") if found.errors else ""
-    return JSONResponse({"answer": header + summary + problems})
+    return answered(header + summary + problems)
 
 
 def _read_research(query: str, context: str) -> str:
@@ -780,8 +836,12 @@ async def api_ask(request):
             ],
         })
 
+    tid = _thread_for(request, account, make=True)
+    memory.db.add_message(tid, "user", text)
+
     quick = _small_talk_reply(text, account)
     if quick is not None:
+        memory.db.add_message(tid, "assistant", quick)
         snap = _snapshot(session_id, account)
         snap["answer"] = quick
         return JSONResponse(snap)
@@ -802,6 +862,7 @@ async def api_ask(request):
                 return JSONResponse({"error": str(exc)}, status_code=429)
             return JSONResponse({"error": str(exc)}, status_code=500)
 
+    memory.db.add_message(tid, "assistant", answer)
     snap = _snapshot(session_id, account)
     snap["answer"] = answer
     return JSONResponse(snap)
@@ -915,6 +976,7 @@ async def api_upload(request):
     dest = UPLOAD_DIR / f"{session_id}-{safe}"
     dest.write_bytes(await upload.read())
 
+    tid = _thread_for(request, account, make=True)
     quantity = str(form.get("quantity") or "").strip()
     text = ("Here's a photo of what I make — take a look and tell me whether "
             "it's worth selling.")
@@ -925,6 +987,8 @@ async def api_upload(request):
         context["stock_items"] = [
             {"product_name": "", "quantity": int(quantity), "unit_cost": 0}
         ]
+
+    memory.db.add_message(tid, "user", f"[photo: {safe}] {text}")
 
     async with _run_lock:
         try:
@@ -1109,6 +1173,10 @@ app = Starlette(
     ],
     routes=[
         Route("/", chat),
+        Route("/chat/new", chat_new),
+        Route("/chat/{thread_id:int}", chat_open),
+        Route("/chat/{thread_id:int}/delete", chat_delete,
+              methods=["POST", "GET"]),
         Route("/studio", studio),
         Route("/connect", connect),
         Route("/board", board),
