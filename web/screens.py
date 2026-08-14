@@ -15,65 +15,86 @@ import html
 from typing import Any
 
 # Tokens, matching web/design and ui/theme.py.
-GROUND = "#F4EADA"
-RAIL = "#FAF3E7"
-SURFACE = "#FDFAF4"
-SUNKEN = "#EFE2CE"
-BORDER = "#DDCDB4"
-INK = "#17120F"
-BODY = "#4A3728"
-MUTED = "#8A7563"
+GROUND = "#FFFFFF"
+RAIL = "#FAFAFA"
+SURFACE = "#FFFFFF"
+SUNKEN = "#F4F4F5"
+BORDER = "#E4E4E7"
+INK = "#000000"
+BODY = "#3F3F46"
+MUTED = "#71717A"
 ACCENT = "#7B1E22"
-ACCENT_TINT = "#F3E2E1"
+ACCENT_TINT = "#FBEBEB"
 BUTTON = "#7B1E22"
 BUTTON_DARK = "#5E1519"
-BUTTON_TINT = "#F6E9EA"
-DANGER = "#A63A2E"
-DANGER_TINT = "#F8E9E6"
-SERIF = "'Instrument Serif', Georgia, serif"
-SANS = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif"
+BUTTON_TINT = "#FBEBEB"
+DANGER = "#B91C1C"
+DANGER_TINT = "#FEE2E2"
+RING = "rgba(0,0,0,.10)"
+SERIF = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+SANS = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
 
 FONTS = (
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
     '<link href="https://fonts.googleapis.com/css2?'
-    'family=Plus+Jakarta+Sans:wght@200..800&'
-    'family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">'
+    'family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
 )
 
+# Built on shadcn/ui's conventions: its zinc neutrals, its radius scale, its
+# ring-on-focus, and its habit of one solid primary against otherwise white
+# surfaces. Written as plain CSS rather than pulled in as the library —
+# shadcn ships React components compiled by Tailwind, and adding that build
+# step to reach four form screens would cost more than it returns.
+#
+# The reference's DNA is in the specifics: a generous 16px card radius, a
+# full-width pill action, and a headline set tight and heavy rather than
+# large — that is what reads as "established" instead of "template".
 BASE_CSS = f"""
 *,*::before,*::after {{ box-sizing: border-box; }}
 html,body {{ margin:0; padding:0; background:{GROUND}; color:{INK};
-  font-family:{SANS}; font-size:14px; -webkit-font-smoothing:antialiased; }}
-a {{ color:{BUTTON}; text-decoration:none; }}
-a:hover {{ color:{BUTTON_DARK}; text-decoration:underline; }}
-h1 {{ font-family:{SERIF}; font-weight:400; letter-spacing:-0.01em; margin:0; }}
-label {{ display:block; font-size:12.5px; color:{MUTED}; margin:0 0 5px;
-  font-weight:500; }}
+  font-family:{SANS}; font-size:14px; -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility; }}
+a {{ color:{INK}; text-decoration:none; font-weight:500; }}
+a:hover {{ text-decoration:underline; text-underline-offset:3px; }}
+h1 {{ font-weight:800; letter-spacing:-0.033em; line-height:1.12; margin:0; }}
+label {{ display:block; font-size:13px; color:{INK}; margin:0 0 6px;
+  font-weight:500; letter-spacing:-0.006em; }}
 input, select, textarea {{
-  width:100%; padding:10px 12px; border-radius:10px; border:1px solid {BORDER};
-  background:{RAIL}; color:{INK}; font-size:13.5px; font-family:inherit; }}
+  width:100%; padding:11px 13px; border-radius:10px;
+  border:1px solid {BORDER}; background:{SURFACE}; color:{INK};
+  font-size:14px; font-family:inherit; transition:border-color .15s,
+  box-shadow .15s; }}
+input::placeholder {{ color:{MUTED}; }}
 input:focus, select:focus, textarea:focus {{
-  outline:none; border-color:{BUTTON}; box-shadow:0 0 0 3px {BUTTON_TINT}; }}
-.field {{ margin-bottom:14px; }}
+  outline:none; border-color:{INK}; box-shadow:0 0 0 3px {RING}; }}
+.field {{ margin-bottom:16px; }}
 .row {{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }}
-.btn {{ width:100%; padding:11px 15px; border-radius:9px; border:none;
-  background:{BUTTON}; color:{GROUND}; font-size:13.5px; font-weight:600;
-  cursor:pointer; font-family:inherit; }}
+
+/* The reference's action: full width, deeply rounded, solid, confident. */
+.btn {{ width:100%; padding:13px 18px; border-radius:12px; border:none;
+  background:{BUTTON}; color:#FFFFFF; font-size:15px; font-weight:600;
+  letter-spacing:-0.011em; cursor:pointer; font-family:inherit;
+  transition:background .15s, transform .06s; }}
 .btn:hover {{ background:{BUTTON_DARK}; }}
-.btn-quiet {{ background:{SURFACE}; color:{BODY}; border:1px solid {BORDER};
+.btn:active {{ transform:scale(.99); }}
+.btn:focus-visible {{ outline:none; box-shadow:0 0 0 3px {RING}; }}
+.btn-quiet {{ background:{SURFACE}; color:{INK}; border:1px solid {BORDER};
   font-weight:500; }}
-.btn-quiet:hover {{ background:{SURFACE}; border-color:{BUTTON}; color:{BUTTON}; }}
-.card {{ background:{SURFACE}; border:1px solid {BORDER}; border-radius:14px;
-  padding:22px 24px; }}
-.note {{ font-size:12.5px; color:{MUTED}; line-height:1.55; }}
+.btn-quiet:hover {{ background:{SUNKEN}; }}
+
+.card {{ background:{SURFACE}; border:1px solid {BORDER}; border-radius:16px;
+  padding:26px 28px; box-shadow:0 1px 2px rgba(0,0,0,.04); }}
+.note {{ font-size:14px; color:{MUTED}; line-height:1.6; }}
 .alert {{ background:{DANGER_TINT}; border:1px solid {DANGER}; color:{DANGER};
-  border-radius:10px; padding:10px 13px; font-size:13px; margin-bottom:16px; }}
+  border-radius:10px; padding:11px 14px; font-size:13.5px; margin-bottom:16px;
+  font-weight:500; }}
 .ok {{ background:{ACCENT_TINT}; border:1px solid {ACCENT}; color:{ACCENT};
-  border-radius:10px; padding:10px 13px; font-size:13px; margin-bottom:16px; }}
-.mark {{ width:38px; height:38px; border-radius:12px; background:{ACCENT};
-  color:#F4EFE2; display:grid; place-items:center; font-family:{SERIF};
-  font-size:21px; }}
+  border-radius:10px; padding:11px 14px; font-size:13.5px; margin-bottom:16px;
+  font-weight:500; }}
+.mark {{ width:40px; height:40px; border-radius:12px; background:{ACCENT};
+  color:#FFFFFF; display:grid; place-items:center; font-weight:700;
+  font-size:18px; letter-spacing:-0.02em; }}
 """
 
 
@@ -146,7 +167,7 @@ def _pitch() -> str:
     return (
         f"<div class='pitch'><div style='max-width:420px;'>"
         f"{_brand('a supervisor and eight specialists')}"
-        f"<h1 style='font-size:34px;margin-bottom:10px;'>"
+        f"<h1 style='font-size:40px;margin-bottom:12px;'>"
         f"A whole team for your shop.</h1>"
         f"<p class='note' style='font-size:14px;margin:0 0 26px;'>"
         f"One supervisor routes work to eight specialists — research, pricing, "
@@ -196,7 +217,7 @@ def login_page(error: str = "", email: str = "", notice: str = "",
     body = (
         f"<div class='split'>{_pitch()}"
         f"<div class='form-side'><div class='form-wrap'>"
-        f"<h1 style='font-size:27px;margin-bottom:6px;'>Welcome back.</h1>"
+        f"<h1 style='font-size:30px;margin-bottom:8px;'>Welcome back.</h1>"
         f"<p class='note' style='margin:0 0 22px;'>Sign in to your shop.</p>"
         f"{_alert(notice, 'ok')}{_alert(error)}"
         f"{_google_block(google)}"
@@ -242,7 +263,7 @@ def signup_page(error: str = "", values: dict[str, Any] | None = None,
     body = (
         f"<div class='split'>{_pitch()}"
         f"<div class='form-side'><div class='form-wrap'>"
-        f"<h1 style='font-size:27px;margin-bottom:6px;'>Set up your shop.</h1>"
+        f"<h1 style='font-size:30px;margin-bottom:8px;'>Set up your shop.</h1>"
         f"<p class='note' style='margin:0 0 20px;'>Two minutes. You can change "
         f"any of this later.</p>"
         f"{_alert(error)}"
@@ -349,7 +370,7 @@ def verify_page(
         f"<div style='width:100%;max-width:420px;'>"
         f"{_brand('confirm your email')}"
         f"<div class='card'>"
-        f"<h1 style='font-size:24px;margin-bottom:7px;'>Check your email.</h1>"
+        f"<h1 style='font-size:27px;margin-bottom:8px;'>Check your email.</h1>"
         f"<p class='note' style='margin:0 0 18px;'>We sent a six-digit code to "
         f"<strong style='color:{INK};'>{_e(email)}</strong>. It expires in 15 "
         f"minutes.</p>"
@@ -412,7 +433,7 @@ def account_page(
         f"<div class='wrap'>"
         f"<p class='back'><a href='/'>&larr; Back to your shop</a></p>"
         f"<div class='top'>{face}<div>"
-        f"<h1 style='font-size:27px;'>{_e(account.get('owner_name') or 'Your account')}</h1>"
+        f"<h1 style='font-size:30px;'>{_e(account.get('owner_name') or 'Your account')}</h1>"
         f"<div class='note' style='margin-top:4px;'>{_e(account.get('email'))} · "
         f"<span class='pill'>{'Already selling' if stage == 'running' else 'Starting out'}"
         f"</span></div></div></div>"

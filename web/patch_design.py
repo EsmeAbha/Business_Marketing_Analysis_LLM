@@ -82,66 +82,86 @@ window.LUCIDA = window.LUCIDA || {};
 </style>
 """
 
-# The palette. The design was drawn in deep green on warm paper; this recasts
-# it as coffee and cream with maroon red as the one accent, black for type and
-# white used sparingly.
+# The palette: white surfaces, pure black type, maroon as the single accent.
 #
-# Applied to the whole bundle — markup and view model alike — as a literal
-# colour-for-colour substitution. Replacing at source rather than overriding in
-# CSS means there is no cascade to lose against inline styles, and no colour
-# can survive in a code path that happens not to be exercised yet.
+# Built on shadcn/ui's neutral scale (zinc) rather than invented greys — that
+# is what gives the "modern, established" feel of the reference: near-black
+# text on white, one hairline grey, and a single saturated accent used
+# sparingly.
 #
-#   cream   dominant surface and ground
-#   coffee  body copy, muted labels, borders, dividers
-#   black   headings
-#   maroon  the accent — brand, actions, active state
-#   white   used only where a card must lift off the cream
+# Applied as a literal colour-for-colour substitution over the whole bundle.
+# Replacing at source rather than overriding in CSS means there is no cascade
+# to lose against inline styles, and no colour can survive in a code path that
+# happens not to be exercised yet.
 #
-# Green is gone entirely: every one of its shades maps onto maroon.
+#   white   every surface — ground, cards, rail
+#   black   headings and body type
+#   zinc    hairlines, muted labels, wells
+#   maroon  the accent: brand, actions, active state
 PALETTE = {
-    # --- brand green -> maroon red -------------------------------------
+    # --- brand green -> maroon --------------------------------------------
     "#14603F": "#7B1E22",   # accent
     "#0E4A30": "#5E1519",   # accent, pressed
-    "#EAF1EC": "#F3E2E1",   # accent wash
-    "#CFE0D5": "#E4C9C8",   # accent edge
-    "#9EB3A4": "#B79E86",   # muted accent -> coffee
-    "#F4F8F5": "#FAF3E7",   # palest accent -> cream
+    "#EAF1EC": "#FBEBEB",   # accent wash
+    "#CFE0D5": "#F0D6D6",   # accent edge
+    "#9EB3A4": "#A1A1AA",
+    "#F4F8F5": "#FAFAFA",
 
-    # --- greys with a green cast -> coffee ------------------------------
-    "#7C877F": "#8A7563",   # muted labels
-    "#4A554E": "#4A3728",   # body copy
-    "#18211D": "#17120F",   # headings -> black
-    "#A19B8E": "#A89680",   # faint
+    # --- surfaces -> white -------------------------------------------------
+    "#F7F5F0": "#FFFFFF",   # ground
+    "#FBFAF7": "#FAFAFA",   # rail, table headers
+    "#FFFFFF": "#FFFFFF",   # cards stay white
+    "#F1EEE6": "#F4F4F5",   # sunken wells
+    "#F5F2EA": "#FAFAFA",
 
-    # --- paper -> cream --------------------------------------------------
-    "#F7F5F0": "#F4EADA",   # ground
-    "#FBFAF7": "#FAF3E7",   # rail, table headers
-    "#F1EEE6": "#EFE2CE",   # sunken wells
-    "#F5F2EA": "#F2E6D4",
-    "#FFFFFF": "#FDFAF4",   # card surface — near-white, so white stays rare
+    # --- type -> pure black and zinc ---------------------------------------
+    "#18211D": "#000000",   # headings
+    "#4A554E": "#3F3F46",   # body copy
+    "#7C877F": "#71717A",   # muted labels
+    "#A19B8E": "#A1A1AA",   # faint
 
-    # --- hairlines -> coffee ---------------------------------------------
-    "#E5E0D6": "#DDCDB4",
-    "#EFEBE1": "#E7DAC4",
-    "#DCD3BE": "#D6C4A8",
-    "#DDD8CC": "#D2BFA4",
-    "#C9C3B4": "#CBB99E",
-    "#E1DCD1": "#DCCBB2",
-    "#DFDACE": "#DACAB0",
-    "#CFC8B8": "#C7B499",
+    # --- hairlines -> zinc --------------------------------------------------
+    "#E5E0D6": "#E4E4E7",
+    "#EFEBE1": "#F4F4F5",
+    "#DCD3BE": "#E4E4E7",
+    "#DDD8CC": "#D4D4D8",
+    "#C9C3B4": "#D4D4D8",
+    "#E1DCD1": "#E4E4E7",
+    "#DFDACE": "#E4E4E7",
+    "#CFC8B8": "#D4D4D8",
+    "#EBDCC2": "#F4F4F5",
+    "#F4EFE2": "#FFFFFF",
 
-    # --- accents borrowed from other brands -> palette --------------------
-    "#5B4B9B": "#6B4F3A",   # store label (purple)
-    "#EDEAF6": "#EFE2CE",
-    "#1F6470": "#4A3728",   # store label (teal)
-    "#E8F1F2": "#EFE2CE",
-    "#A6377C": "#7B1E22",   # Instagram magenta
-    "#2B5C9B": "#6B4F3A",   # Facebook blue
+    # --- attention and failure ----------------------------------------------
+    "#B4741B": "#A16207",
+    "#FBF1E1": "#FEF9C3",
+    "#F0DFC2": "#FDE68A",
+    "#A63A2E": "#B91C1C",   # danger, clearly apart from the maroon accent
+    "#F8E9E6": "#FEE2E2",
+    "#F0DAD6": "#FECACA",
 
-    # Amber and the danger reds already sit in the coffee family, so they
-    # stay: #B4741B, #FBF1E1, #F0DFC2, #A63A2E, #F8E9E6, #F0DAD6, #EBDCC2,
-    # #F4EFE2.
+    # --- borrowed brand colours ---------------------------------------------
+    "#5B4B9B": "#52525B",
+    "#EDEAF6": "#F4F4F5",
+    "#1F6470": "#3F3F46",
+    "#E8F1F2": "#F4F4F5",
+    "#A6377C": "#7B1E22",
+    "#2B5C9B": "#52525B",
 }
+
+# X (Twitter) sets its type in Chirp, which is proprietary and not
+# distributable. Inter is the closest freely-licensed match — same grotesque
+# skeleton, same tight default tracking — so it is what the bundle asks for.
+FONTS = [
+    ("'Plus Jakarta Sans', system-ui, sans-serif",
+     "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"),
+    ("'Instrument Serif', serif",
+     "'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif"),
+    ("family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1",
+     "family=Inter:wght@400;500;600;700;800"),
+    ("family=Plus+Jakarta+Sans:wght@200..800&family=Instrument+Serif:ital@0;1",
+     "family=Inter:wght@400;500;600;700;800"),
+]
 
 # Handler rebinds: give the design's own controls real effects. Each entry is
 # (exact source fragment, replacement). The markup is never touched — only what
@@ -427,6 +447,13 @@ def patch(src: str) -> tuple[str, list[str], list[str]]:
     src = re.sub(r"#[0-9A-Fa-f]{6}", _swap, src)
     if recoloured:
         done.append(f"palette:{recoloured}")
+
+    fonts = 0
+    for old, new in FONTS:
+        fonts += src.count(old)
+        src = src.replace(old, new)
+    if fonts:
+        done.append(f"fonts:{fonts}")
 
     if "window.__resources" not in src:
         src = src.replace(

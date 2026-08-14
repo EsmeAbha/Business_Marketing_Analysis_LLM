@@ -220,15 +220,15 @@ def render_graph(runtime) -> None:
     # <script>, so neither can draw this diagram.
     render_html(
         f"""
-        <div style="background:#FDFAF4;border:1px solid #DDCDB4;border-radius:14px;
+        <div style="background:#FFFFFF;border:1px solid #E4E4E7;border-radius:14px;
                     padding:14px;overflow:auto">
           <pre class="mermaid">{mermaid}</pre>
         </div>
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
         <script>
           mermaid.initialize({{ startOnLoad: true, theme: 'base',
-            themeVariables: {{ primaryColor: '#F3E2E1', primaryTextColor: '#17120F',
-              primaryBorderColor: '#7B1E22', lineColor: '#8A7563',
+            themeVariables: {{ primaryColor: '#FBEBEB', primaryTextColor: '#000000',
+              primaryBorderColor: '#7B1E22', lineColor: '#71717A',
               fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }} }});
         </script>
         """,

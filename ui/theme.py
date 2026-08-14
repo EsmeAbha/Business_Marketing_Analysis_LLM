@@ -1,9 +1,8 @@
 """Lucida's visual design system.
 
-Ported from the `Business Suite` design, recast in coffee and cream with a
-maroon-red accent:
-Instrument Serif for headlines and figures, Plus Jakarta Sans for everything
-else, on a 244px rail + content grid.
+Ported from the `Business Suite` design, recast on white with pure-black type
+and maroon as the single accent, set in Inter throughout, on a 244px rail +
+content grid.
 
 The design leads here, not Streamlit. The stylesheet below removes Streamlit's
 own chrome (toolbar, header, footer, decoration bar, element gaps) and rebuilds
@@ -29,39 +28,39 @@ import streamlit as st
 # Tokens — sampled from the design by frequency, not by eye.
 # ---------------------------------------------------------------------------
 
-GROUND = "#F4EADA"     # page background — warm paper
-RAIL = "#FAF3E7"       # sidebar + table header rows
-SURFACE = "#FDFAF4"    # cards
-SUNKEN = "#EFE2CE"     # inset wells, segmented controls
-BORDER = "#DDCDB4"     # hairlines
-BORDER_SOFT = "#E7DAC4"  # row dividers inside a card
-DIVIDER = "#F2E6D4"
+GROUND = "#FFFFFF"     # page background — warm paper
+RAIL = "#FAFAFA"       # sidebar + table header rows
+SURFACE = "#FFFFFF"    # cards
+SUNKEN = "#F4F4F5"     # inset wells, segmented controls
+BORDER = "#E4E4E7"     # hairlines
+BORDER_SOFT = "#F4F4F5"  # row dividers inside a card
+DIVIDER = "#FAFAFA"
 
-INK = "#17120F"        # headings
-BODY = "#4A3728"       # body copy
-MUTED = "#8A7563"      # labels, captions, metadata
-FAINT = "#A89680"
+INK = "#000000"        # headings
+BODY = "#3F3F46"       # body copy
+MUTED = "#71717A"      # labels, captions, metadata
+FAINT = "#A1A1AA"
 
 ACCENT = "#7B1E22"     # maroon red — the brand
 ACCENT_DARK = "#5E1519"
-ACCENT_TINT = "#F3E2E1"
-ACCENT_EDGE = "#E4C9C8"
+ACCENT_TINT = "#FBEBEB"
+ACCENT_EDGE = "#F0D6D6"
 
 # Buttons share the brand maroon. Kept as its own token so a future change
 # to one does not silently move the other.
 BUTTON = "#7B1E22"
 BUTTON_DARK = "#5E1519"
-BUTTON_TINT = "#F6E9EA"
+BUTTON_TINT = "#FBEBEB"
 
-WARN = "#B4741B"       # amber — attention, not failure
-WARN_TINT = "#FBF1E1"
-WARN_BORDER = "#F0DFC2"
+WARN = "#A16207"       # amber — attention, not failure
+WARN_TINT = "#FEF9C3"
+WARN_BORDER = "#FDE68A"
 
-DANGER = "#A63A2E"
-DANGER_TINT = "#F8E9E6"
+DANGER = "#B91C1C"
+DANGER_TINT = "#FEE2E2"
 
-SANS = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif"
-SERIF = "'Instrument Serif', Georgia, serif"
+SANS = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+SERIF = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
 MONO = "ui-monospace, 'Cascadia Code', Menlo, monospace"
 
 RADIUS_CARD = "14px"
@@ -91,7 +90,7 @@ STATUS = {
 
 CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200..800&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 /* ---- strip Streamlit's chrome ---------------------------------------- */
 [data-testid="stHeader"],
@@ -308,7 +307,7 @@ hr {{ border-color: {BORDER}; margin: 18px 0; }}
 
 /* ---- scrollbar & motion ---------------------------------------------- */
 ::-webkit-scrollbar {{ width: 10px; height: 10px; }}
-::-webkit-scrollbar-thumb {{ background: #D2BFA4; border-radius: 6px; }}
+::-webkit-scrollbar-thumb {{ background: #D4D4D8; border-radius: 6px; }}
 ::-webkit-scrollbar-track {{ background: transparent; }}
 @keyframes luFadeUp {{
     from {{ opacity: 0; transform: translateY(5px); }} to {{ opacity: 1; transform: none; }}

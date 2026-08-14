@@ -28,17 +28,17 @@ from lucida.observability import bus
 from lucida.tools import fx, inbox
 
 # The design's palette, referenced by the shapes below.
-INK = "#17120F"
-BODY_FG = "#4A3728"
-MUTED = "#8A7563"
-FAINT = "#A89680"
+INK = "#000000"
+BODY_FG = "#3F3F46"
+MUTED = "#71717A"
+FAINT = "#A1A1AA"
 ACCENT = "#7B1E22"
-ACCENT_TINT = "#F3E2E1"
-AMBER = "#B4741B"
-AMBER_TINT = "#FBF1E1"
-RED = "#A63A2E"
-RED_TINT = "#F8E9E6"
-NEUTRAL_TINT = "#EFE2CE"
+ACCENT_TINT = "#FBEBEB"
+AMBER = "#A16207"
+AMBER_TINT = "#FEF9C3"
+RED = "#B91C1C"
+RED_TINT = "#FEE2E2"
+NEUTRAL_TINT = "#F4F4F5"
 
 DASH = "—"
 
