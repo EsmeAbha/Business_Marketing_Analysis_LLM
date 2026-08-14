@@ -74,8 +74,27 @@ def available() -> str:
 
 def status() -> str:
     if settings.google_api_key:
-        return "Google Imagen (free tier, using your GOOGLE_API_KEY)"
-    return "Pollinations (free, no account needed)"
+        return "Google Imagen — using your GOOGLE_API_KEY"
+    return "Pollinations (free, no account) — rough drafts only"
+
+
+def quality_note() -> str:
+    """What the owner should expect, and how to do better.
+
+    Said plainly because the free model genuinely cannot draw a specific
+    product reliably — it gets the colour and the setting and invents the
+    object. Letting someone discover that by publishing a wrong picture is
+    worse than telling them now.
+    """
+    if settings.google_api_key:
+        return ""
+    return (
+        "The free drawing model gets the colours and the setting right but "
+        "often invents the object itself. For pictures you would actually "
+        "publish, upload your own photo — or add a free GOOGLE_API_KEY from "
+        "aistudio.google.com/apikey and the studio switches to Google Imagen, "
+        "which is far more accurate (and switches photo reading on too)."
+    )
 
 
 def _slug(text: str) -> str:
@@ -143,7 +162,10 @@ def _pollinations(prompt: str, size: tuple[int, int],
                   seed: int | None = None) -> Artwork:
     w, h = size
     url = POLLINATIONS.format(prompt=urllib.parse.quote(prompt))
-    params = {"width": w, "height": h, "nologo": "true", "model": "flux"}
+    # No `model` parameter: /models lists only "sana", and passing anything
+    # else returns byte-identical output — it is ignored, so sending it just
+    # implies a choice that is not being made.
+    params = {"width": w, "height": h, "nologo": "true"}
     # A seed is what makes "regenerate" give a different picture of the same
     # thing rather than the identical one back — the endpoint is otherwise
     # deterministic for a given prompt.

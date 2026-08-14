@@ -814,7 +814,8 @@ document.getElementById('dl').onclick = () => {
 """
 
 
-def studio_page(account: dict, provider: str, channels: dict) -> str:
+def studio_page(account: dict, provider: str, channels: dict,
+                note: str = "") -> str:
     head = (
         "<div class='head'><h1>Ad studio</h1>"
         "<p>Draw a picture or upload your own, then crop it, colour it and "
@@ -882,7 +883,10 @@ def studio_page(account: dict, provider: str, channels: dict) -> str:
         f"<input id='up' type='file' accept='image/*' hidden></label></div>"
         f"<p class='muted' id='note' style='margin:12px 0 0;font-size:12.5px'>"
         f"Drawn by {e(provider)}.</p>"
-        f"<div class='field' style='margin-top:14px'>"
+        + (f"<div style='margin-top:10px;padding:11px 12px;border-radius:11px;"
+           f"background:{AMBER_TINT};color:{AMBER};font-size:12.5px;"
+           f"line-height:1.55'>{e(note)}</div>" if note else "")
+        + f"<div class='field' style='margin-top:14px'>"
         f"<label for='offer'>Offer <span class='muted'>(for the words)</span>"
         f"</label><input id='offer' placeholder='2 for 1 this week'></div>"
         f"<div class='field' style='margin-bottom:0'><label for='audience'>"
@@ -925,7 +929,7 @@ def studio_page(account: dict, provider: str, channels: dict) -> str:
         + slider("contrast", "Contrast", 40, 200, 100)
         + slider("saturate", "Colour", 0, 250, 100)
         + slider("sepia", "Warmth", 0, 100, 0)
-        + slider("grayscale", "Black &amp; white", 0, 100, 0)
+        + slider("grayscale", "Black and white", 0, 100, 0)
         + slider("blur", "Blur", 0, 12, 0, "px")
         +
         f"<h3 style='margin-top:16px'>Add</h3><div class='tools'>"
