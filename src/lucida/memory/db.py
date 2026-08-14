@@ -286,6 +286,24 @@ CREATE TABLE IF NOT EXISTS social_posts (
 -- a photograph of real stock.
 -- ===========================================================================
 
+-- The owner's conversations with their team. Kept per shop like everything
+-- else, so one owner's questions are never visible to another.
+CREATE TABLE IF NOT EXISTS chat_threads (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    title         TEXT,
+    created_at    TEXT,
+    updated_at    TEXT
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    thread_id     INTEGER NOT NULL REFERENCES chat_threads(id),
+    role          TEXT NOT NULL,        -- user | assistant
+    text          TEXT NOT NULL,
+    created_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_chat_thread ON chat_messages(thread_id, id);
+
 CREATE TABLE IF NOT EXISTS media_assets (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     product_id    INTEGER REFERENCES products(id),
@@ -552,6 +570,56 @@ class Database:
 
     def low_stock(self) -> list[dict[str, Any]]:
         return [r for r in self.inventory_view() if r["low_stock"]]
+
+    # --- conversations ---
+
+    def new_thread(self, title: str = "") -> int:
+        return self.execute(
+            "INSERT INTO chat_threads (title, created_at, updated_at) "
+            "VALUES (?,?,?)", (title[:80], _now(), _now()))
+
+    def add_message(self, thread_id: int, role: str, text: str) -> int:
+        """Store one turn, and title the thread from the owner's first line.
+
+        The title comes from what they asked rather than a model call: it
+        costs nothing, cannot be rate limited, and their own words are what
+        they will recognise in a list a week later.
+        """
+        mid = self.execute(
+            "INSERT INTO chat_messages (thread_id, role, text, created_at) "
+            "VALUES (?,?,?,?)", (thread_id, role, text, _now()))
+        self.execute("UPDATE chat_threads SET updated_at=? WHERE id=?",
+                     (_now(), thread_id))
+        if role == "user":
+            row = self.query(
+                "SELECT title FROM chat_threads WHERE id=?", (thread_id,))
+            if row and not (row[0].get("title") or "").strip():
+                title = " ".join(text.split())[:60]
+                self.execute("UPDATE chat_threads SET title=? WHERE id=?",
+                             (title, thread_id))
+        return mid
+
+    def chat_list(self, limit: int = 40) -> list[dict[str, Any]]:
+        return self.query(
+            """SELECT t.*, (SELECT COUNT(*) FROM chat_messages m
+                             WHERE m.thread_id = t.id) AS turns
+               FROM chat_threads t
+               WHERE EXISTS (SELECT 1 FROM chat_messages m WHERE m.thread_id = t.id)
+               ORDER BY t.updated_at DESC LIMIT ?""", (limit,))
+
+    def chat_turns(self, thread_id: int, limit: int = 200) -> list[dict[str, Any]]:
+        return self.query(
+            "SELECT * FROM chat_messages WHERE thread_id=? ORDER BY id LIMIT ?",
+            (thread_id, limit))
+
+    def latest_thread(self) -> int | None:
+        rows = self.query(
+            "SELECT id FROM chat_threads ORDER BY updated_at DESC LIMIT 1")
+        return int(rows[0]["id"]) if rows else None
+
+    def delete_thread(self, thread_id: int) -> None:
+        self.execute("DELETE FROM chat_messages WHERE thread_id=?", (thread_id,))
+        self.execute("DELETE FROM chat_threads WHERE id=?", (thread_id,))
 
     # --- orders and the figures derived from them ---
 

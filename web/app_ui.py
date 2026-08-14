@@ -65,7 +65,7 @@ button, input, textarea, select {{ font-family:inherit; }}
   min-height:100vh; }}
 .rail {{ background:{RAIL}; border-right:1px solid {BORDER};
   padding:18px 14px; display:flex; flex-direction:column; gap:4px;
-  position:sticky; top:0; height:100vh; }}
+  position:sticky; top:0; height:100vh; overflow:hidden; }}
 .brand {{ display:flex; align-items:center; gap:10px; padding:4px 8px 18px; }}
 .logo {{ width:34px; height:34px; border-radius:10px; background:{ACCENT};
   color:#fff; display:grid; place-items:center; font-weight:700;
@@ -127,7 +127,7 @@ input:focus,select:focus,textarea:focus {{ outline:none; border-color:{INK};
 
 
 def shell(title: str, account: dict, active: str, head: str, body: str,
-          extra_css: str = "", extra_js: str = "") -> str:
+          extra_css: str = "", extra_js: str = "", aside: str = "") -> str:
     initials = (account or {}).get("initials") or "?"
     avatar = (account or {}).get("avatar") or ""
     face = (f"<img class='avatar' src='{e(avatar)}' alt=''>" if avatar
@@ -146,7 +146,7 @@ def shell(title: str, account: dict, active: str, head: str, body: str,
         f"<div class='brand'><div class='logo'>L</div><div>"
         f"<b>{e((account or {}).get('business') or 'Lucida')}</b>"
         f"<span>{e((account or {}).get('location') or '')}</span></div></div>"
-        f"{nav}"
+        f"{nav}{aside}"
         f"<div class='railfoot'><a class='who' href='/account'>{face}"
         f"<div style='min-width:0'><div style='font-size:13px;font-weight:500'>"
         f"{e((account or {}).get('name') or 'Your account')}</div>"
@@ -403,7 +403,47 @@ grow();
 """
 
 
-def chat_page(account: dict, history: list[dict], starters: list[str]) -> str:
+HISTORY_CSS = f"""
+.hist {{ margin-top:14px; border-top:1px solid {BORDER}; padding-top:12px;
+  overflow-y:auto; min-height:0; }}
+.hist h5 {{ margin:0 0 7px; font-size:11px; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase; color:{FAINT};
+  padding:0 11px; display:flex; align-items:center; }}
+.hist h5 a {{ margin-left:auto; font-size:11px; color:{ACCENT};
+  font-weight:600; text-transform:none; letter-spacing:0; }}
+.thr {{ display:flex; align-items:center; gap:6px; padding:7px 11px;
+  border-radius:8px; font-size:13px; color:{BODY}; }}
+.thr:hover {{ background:{SUNKEN}; color:{INK}; }}
+.thr.on {{ background:{ACCENT_TINT}; color:{ACCENT}; font-weight:600; }}
+.thr span {{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  flex:1; min-width:0; }}
+.thr b {{ font-size:11px; font-weight:500; color:{FAINT}; }}
+.thr.on b {{ color:{ACCENT}; }}
+.hist .none {{ font-size:12px; color:{FAINT}; padding:2px 11px; }}
+"""
+
+
+def history_rail(threads: list[dict], current: int | None) -> str:
+    """Past conversations, newest first — the owner's own words as the label."""
+    if not threads:
+        rows = "<div class='none'>Nothing yet. Ask something.</div>"
+    else:
+        rows = "".join(
+            f"<a class='thr{' on' if t['id'] == current else ''}' "
+            f"href='/chat/{t['id']}'>"
+            f"<span>{e(t.get('title') or 'Untitled')}</span>"
+            f"<b>{t.get('turns', 0)}</b></a>"
+            for t in threads
+        )
+    return (
+        f"<div class='hist'><h5>Conversations"
+        f"<a href='/chat/new'>+ New</a></h5>{rows}</div>"
+    )
+
+
+def chat_page(account: dict, history: list[dict], starters: list[str],
+              threads: list[dict] | None = None,
+              current: int | None = None) -> str:
     initials = (account or {}).get("initials") or "Y"
     if history:
         msgs = "".join(
