@@ -45,7 +45,10 @@ from lucida.memory import memory  # noqa: E402
 from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
-from web import auth, bridge, google_oauth, mailer, screens  # noqa: E402
+from lucida.tools import channels, imagegen  # noqa: E402
+from web import (  # noqa: E402
+    app_ui, auth, bridge, google_oauth, mailer, screens,
+)
 
 logger = get_logger("serve")
 
@@ -391,7 +394,136 @@ async def avatar(request):
     return FileResponse(stored)
 
 
-async def index(request):
+# The conversation, per account, so the chat survives a page reload.
+_CHATS: dict[str, list[dict]] = {}
+
+STARTERS = [
+    "What should I sell to make money this month?",
+    "Write me an Instagram ad for what I sell",
+    "What are customers asking for that I don't have?",
+    "Am I charging enough?",
+]
+
+
+def _who(account: dict) -> dict:
+    return {
+        "name": account.get("owner_name") or "Your account",
+        "email": account.get("email") or "",
+        "business": account.get("business_name") or account.get("owner_name")
+                    or "Lucida",
+        "location": account.get("location") or "",
+        "initials": auth.initials(account),
+        "avatar": f"/avatar/{account['id']}" if account.get("avatar_path") else "",
+    }
+
+
+async def chat(request):
+    """The main screen: a conversation, with the composer where it belongs."""
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    if not auth.is_verified(account):
+        return RedirectResponse("/verify", status_code=303)
+    return HTMLResponse(app_ui.chat_page(
+        _who(account), _CHATS.get(account["id"], []), STARTERS))
+
+
+async def studio(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    return HTMLResponse(app_ui.studio_page(
+        _who(account), imagegen.status(), channels.status()))
+
+
+async def connect(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    backend = ("Turso (hosted)" if settings.uses_remote_db
+               else "A private SQLite file on this machine")
+    return HTMLResponse(app_ui.connect_page(
+        _who(account), channels.status(), imagegen.status(), backend,
+        bool(settings.has_llm)))
+
+
+async def api_studio_generate(request):
+    """Draw the poster and write the words, in one go."""
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+
+    body = await request.json()
+    product = str(body.get("product") or "").strip()
+    if not product:
+        return JSONResponse({"error": "what are you advertising?"},
+                            status_code=400)
+    offer = str(body.get("offer") or "").strip()
+    audience = str(body.get("audience") or "").strip()
+    style = str(body.get("style") or "").strip()
+    preset = str(body.get("preset") or "square")
+
+    art = await asyncio.to_thread(
+        imagegen.generate_for_product, product, preset, style, offer, audience)
+
+    copy_html = ""
+    if settings.has_llm:
+        try:
+            copy_html = await asyncio.to_thread(
+                _write_ad_copy, product, offer, audience)
+        except Exception as exc:  # noqa: BLE001 — the poster still stands alone
+            logger.warning("ad copy failed: %s", exc)
+            copy_html = ("<em>Could not write the words this time — the "
+                         "poster above is still yours.</em>")
+    else:
+        copy_html = "<em>Add an API key and your team will write the words too.</em>"
+
+    if art.ok:
+        memory.db.execute(
+            """INSERT INTO media_assets (kind, source, path, prompt, model,
+                                         width, height, bytes, created_at)
+               VALUES ('ad_creative','generated',?,?,?,?,?,?,datetime('now'))""",
+            (art.path, art.prompt, art.provider, art.width, art.height,
+             art.bytes),
+        )
+
+    return JSONResponse({
+        "image": f"/media/{Path(art.path).name}" if art.ok else "",
+        "image_error": art.error,
+        "provider": art.provider,
+        "copy_html": copy_html,
+    })
+
+
+def _write_ad_copy(product: str, offer: str, audience: str) -> str:
+    """One model call for platform-specific copy — no agent graph needed."""
+    from lucida.llm import get_llm
+
+    ask = (
+        f"Write short ad copy for a small shop selling: {product}."
+        + (f" Offer: {offer}." if offer else "")
+        + (f" Audience: {audience}." if audience else "")
+        + " Give three versions, each 2-3 lines, labelled Facebook, Instagram"
+          " and YouTube. Plain text, no markdown headers, no emoji spam."
+          " Write the way a shop owner speaks, not a marketer."
+    )
+    reply = get_llm(settings.model or "", 500).invoke(ask)
+    text = str(getattr(reply, "content", reply))
+    return app_ui.e(text).replace("\n", "<br>")
+
+
+async def media(request):
+    """Serve generated artwork back to the page that asked for it."""
+    if current_account(request) is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+    name = Path(request.path_params["name"]).name      # no traversal
+    path = imagegen.MEDIA_DIR / name
+    if not path.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return FileResponse(path)
+
+
+async def board(request):
     """The design, with a snapshot of real data injected ahead of the runtime."""
     account = current_account(request)
     if account is None:
@@ -756,7 +888,13 @@ app = Starlette(
         )
     ],
     routes=[
-        Route("/", index),
+        Route("/", chat),
+        Route("/studio", studio),
+        Route("/connect", connect),
+        Route("/board", board),
+        Route("/media/{name}", media),
+        Route("/api/studio/generate", api_studio_generate,
+              methods=["POST"]),
         Route("/login", login, methods=["GET", "POST"]),
         Route("/signup", signup, methods=["GET", "POST"]),
         Route("/logout", logout, methods=["POST", "GET"]),
