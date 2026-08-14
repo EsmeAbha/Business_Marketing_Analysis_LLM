@@ -231,6 +231,37 @@ Passwords are bcrypt hashes. Sessions are signed cookies carrying only the
 account id. For anything beyond local use, set a stable `AIW_SECRET_KEY` (or
 everyone is signed out on restart) and `AIW_HTTPS=1` behind TLS.
 
+#### Email verification
+
+Sign-up issues a six-digit code, stored as a bcrypt hash and valid for 15
+minutes. The workspace stays closed until it's entered.
+
+With `AIW_SMTP_*` set the code is emailed. **Without it, the code is shown on
+the verify screen** under a notice saying no mail server is configured —
+usable in development without pretending an email went out.
+
+For Gmail you need an **App Password**, not your account password:
+
+1. Turn on 2-Step Verification at [myaccount.google.com/security](https://myaccount.google.com/security)
+2. Create one at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
+3. Put it in `AIW_SMTP_PASSWORD`, with your address in `AIW_SMTP_USER`
+
+#### Sign in with Google
+
+Set `AIW_GOOGLE_CLIENT_ID` and `AIW_GOOGLE_CLIENT_SECRET` and a **Continue
+with Google** button appears on both screens. Leave them blank and the button
+is hidden rather than shown and broken.
+
+1. [console.cloud.google.com](https://console.cloud.google.com/) → create or pick a project
+2. APIs & Services → OAuth consent screen → External → fill in the basics
+3. Credentials → Create credentials → OAuth client ID → Web application
+4. Add the redirect URI **exactly**: `http://127.0.0.1:8000/auth/google/callback`
+
+Google has already proven the address, so those accounts skip the code step.
+Signing in with Google on an address that already has a password account links
+the two rather than creating a duplicate. The callback checks a `state` value
+held in the session, so a forged callback URL cannot sign anyone in.
+
 ### Where the data lives
 
 By default the shop's memory is a **local SQLite file** in `data/` — no
