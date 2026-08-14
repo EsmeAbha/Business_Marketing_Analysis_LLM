@@ -45,7 +45,7 @@ from lucida.memory import memory  # noqa: E402
 from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
-from lucida.tools import channels, imagegen, research  # noqa: E402
+from lucida.tools import channels, connections, imagegen, research  # noqa: E402
 from web import (  # noqa: E402
     app_ui, auth, bridge, google_oauth, mailer, screens,
 )
@@ -506,9 +506,152 @@ async def connect(request):
         return RedirectResponse("/login", status_code=303)
     backend = ("Turso (hosted)" if settings.uses_remote_db
                else "A private SQLite file on this machine")
+    note = request.session.pop("connect_note", "")
     return page(app_ui.connect_page(
-        _who(account), channels.status(), imagegen.status(), backend,
-        bool(settings.has_llm)))
+        _who(account), connections.status(memory.db), imagegen.status(),
+        backend, bool(settings.has_llm),
+        oauth={p: connections.can_oauth(p) for p in connections.PLATFORMS},
+        note=note))
+
+
+def _redirect_uri(request, platform: str) -> str:
+    """Where the platform sends the browser back.
+
+    Built from the request rather than configured, because the address the
+    owner reached the app on is the one that has to be registered with Meta
+    or Google. Guessing localhost when they came in over the network would
+    fail the redirect_uri match with an error they cannot read.
+    """
+    base = os.environ.get("AIW_PUBLIC_URL", "").strip().rstrip("/")
+    if not base:
+        base = str(request.base_url).rstrip("/")
+    return f"{base}/connect/{platform}/callback"
+
+
+async def connect_start(request):
+    """The Connect button: either sign in with the platform, or paste a token."""
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    platform = request.path_params["platform"]
+    if platform not in connections.PLATFORMS:
+        return RedirectResponse("/connect", status_code=303)
+
+    if connections.can_oauth(platform) and request.query_params.get("manual") != "1":
+        state = secrets.token_urlsafe(24)
+        request.session["connect_state"] = state
+        uri = _redirect_uri(request, platform)
+        url = (connections.google_authorize_url(uri, state)
+               if platform == "youtube"
+               else connections.meta_authorize_url(uri, state))
+        return RedirectResponse(url, status_code=303)
+
+    return page(app_ui.connect_form(
+        _who(account), platform, connections.can_oauth(platform),
+        _redirect_uri(request, platform),
+        request.session.pop("connect_error", "")))
+
+
+async def connect_save(request):
+    """A pasted credential. Verified against the live API before it is kept."""
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    platform = request.path_params["platform"]
+    form = await request.form()
+    token = str(form.get("token") or "").strip()
+    ident = str(form.get("ident") or "").strip()
+
+    result = await asyncio.to_thread(
+        connections.connect, memory.db, platform, token, ident)
+    if not result.ok:
+        request.session["connect_error"] = result.error
+        return RedirectResponse(f"/connect/{platform}?manual=1", status_code=303)
+    request.session["connect_note"] = (
+        f"{platform.title()} connected as {result.display_name}.")
+    return RedirectResponse("/connect", status_code=303)
+
+
+async def connect_callback(request):
+    """Back from the platform with a one-time code."""
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    platform = request.path_params["platform"]
+
+    state = request.query_params.get("state", "")
+    expected = request.session.pop("connect_state", "")
+    if not expected or state != expected:
+        request.session["connect_note"] = (
+            "That sign-in did not come back the way it left. Nothing was "
+            "saved, so start again from Connect.")
+        return RedirectResponse("/connect", status_code=303)
+
+    if request.query_params.get("error"):
+        request.session["connect_note"] = (
+            "You cancelled, or the platform refused: "
+            + request.query_params.get("error_description",
+                                       request.query_params["error"]))
+        return RedirectResponse("/connect", status_code=303)
+
+    code = request.query_params.get("code", "")
+    uri = _redirect_uri(request, platform)
+
+    if platform == "youtube":
+        token, err = await asyncio.to_thread(
+            connections.google_finish, code, uri)
+        if err:
+            request.session["connect_note"] = err
+            return RedirectResponse("/connect", status_code=303)
+        result = await asyncio.to_thread(
+            connections.connect, memory.db, "youtube", token)
+        request.session["connect_note"] = (
+            f"YouTube connected as {result.display_name}." if result.ok
+            else result.error)
+        return RedirectResponse("/connect", status_code=303)
+
+    pages, err = await asyncio.to_thread(connections.meta_finish, code, uri)
+    if err:
+        request.session["connect_note"] = err
+        return RedirectResponse("/connect", status_code=303)
+    if not pages:
+        request.session["connect_note"] = (
+            "That account administers no Facebook Page, so there is nothing "
+            "to connect yet.")
+        return RedirectResponse("/connect", status_code=303)
+
+    # A Page token from /me/accounts is what the publishing and messaging
+    # endpoints want; the user token they arrived with cannot post as the Page.
+    top = pages[0]
+    page_token = top.get("access_token") or ""
+    name = top.get("name") or "your Page"
+    connections.save(memory.db, "facebook", str(top.get("id")), name, page_token)
+    connections.save(memory.db, "messenger", str(top.get("id")), name, page_token)
+    told = [name]
+
+    ig = top.get("instagram_business_account") or {}
+    if ig.get("id"):
+        handle = f"@{ig.get('username') or ig['id']}"
+        connections.save(memory.db, "instagram", str(ig["id"]), handle, page_token)
+        told.append(handle)
+
+    request.session["connect_note"] = "Connected " + " and ".join(told) + "."
+    return RedirectResponse("/connect", status_code=303)
+
+
+async def connect_forget(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    platform = request.path_params["platform"]
+    connections.forget(memory.db, platform)
+    # Meta treats the Page as one thing, so dropping one and keeping the other
+    # would leave a connection the owner believes they removed.
+    if platform in ("messenger", "facebook"):
+        connections.forget(
+            memory.db, "facebook" if platform == "messenger" else "messenger")
+    request.session["connect_note"] = f"{platform.title()} disconnected."
+    return RedirectResponse("/connect", status_code=303)
 
 
 async def api_studio_generate(request):
@@ -1179,6 +1322,12 @@ app = Starlette(
               methods=["POST", "GET"]),
         Route("/studio", studio),
         Route("/connect", connect),
+        Route("/connect/{platform}", connect_start),
+        Route("/connect/{platform}/save", connect_save,
+              methods=["POST"]),
+        Route("/connect/{platform}/callback", connect_callback),
+        Route("/connect/{platform}/disconnect", connect_forget,
+              methods=["POST"]),
         Route("/board", board),
         Route("/media/{name}", media),
         Route("/api/studio/generate", api_studio_generate,

@@ -16,6 +16,8 @@ import re
 from functools import lru_cache
 from typing import Any
 
+from pydantic import SecretStr
+
 from .config import TEXT_DEFAULTS, settings
 from .observability import get_logger
 
@@ -43,13 +45,22 @@ _CLAUDE_EFFORT = _CLAUDE_NO_SAMPLING + (
 )
 
 
+def _secret(api_key: str) -> SecretStr:
+    """Keys are declared as SecretStr so they cannot be printed by accident.
+
+    The value is the same either way at runtime; wrapping it is what stops a
+    stray log line or traceback from carrying the owner's key with it.
+    """
+    return SecretStr(api_key)
+
+
 def _build_groq(model: str, max_tokens: int, api_key: str):
     from langchain_groq import ChatGroq
 
     return ChatGroq(
         model=model,
         max_tokens=max_tokens,
-        api_key=api_key,
+        api_key=_secret(api_key),
         temperature=settings.temperature,
         timeout=settings.llm_timeout_seconds,
         max_retries=settings.max_retries,
@@ -62,7 +73,7 @@ def _build_anthropic(model: str, max_tokens: int, api_key: str):
     kwargs: dict[str, Any] = {
         "model": model,
         "max_tokens": max_tokens,
-        "api_key": api_key,
+        "api_key": _secret(api_key),
         "timeout": settings.llm_timeout_seconds,
         "max_retries": settings.max_retries,
     }
@@ -88,7 +99,7 @@ def _build_google(model: str, max_tokens: int, api_key: str):
     return ChatGoogleGenerativeAI(
         model=model,
         max_output_tokens=max(max_tokens, GOOGLE_THINKING_FLOOR),
-        google_api_key=api_key,
+        google_api_key=_secret(api_key),
         temperature=settings.temperature,
         timeout=settings.llm_timeout_seconds,
         max_retries=settings.max_retries,

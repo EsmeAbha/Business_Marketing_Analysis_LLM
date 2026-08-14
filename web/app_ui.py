@@ -1011,11 +1011,95 @@ CONNECT_CSS = f"""
   line-height:1.65; }}
 .steps code {{ background:{SUNKEN}; padding:1px 5px; border-radius:4px;
   font-size:11.5px; }}
+/* The button column. Fixed width so the four cards line up down the page
+   however long the platform's name is. */
+.act {{ flex:none; width:172px; display:flex; justify-content:flex-end; }}
+.act .btn {{ width:100%; text-align:center; display:inline-block;
+  font-size:13.5px; padding:10px 12px; }}
+.act form {{ width:100%; margin:0; }}
+.note {{ max-width:820px; margin:0 0 16px; padding:12px 16px;
+  border-radius:12px; background:{ACCENT_TINT}; color:{ACCENT};
+  font-size:13.5px; font-weight:500; border:1px solid #F3D4D6; }}
+.note.bad {{ background:{DANGER_TINT}; color:{DANGER}; border-color:#FBC5C5; }}
+@media (max-width: 720px) {{
+  .row {{ flex-wrap:wrap; }}
+  .act {{ width:100%; justify-content:flex-start; }}
+}}
 """
 
 
+# What each platform is called, and what the owner has to have in hand. The
+# id is asked for separately from the token because Meta's tokens do not say
+# which Page they are for, and a token without one cannot be checked.
+NEEDS = {
+    "messenger": ("Page access token", "Facebook Page id",
+                  "Both come from the same Meta app. A Page token is what "
+                  "reads the messages; a user token cannot."),
+    "facebook": ("Page access token", "Facebook Page id",
+                 "The same token and Page as Messenger — Meta treats them "
+                 "as one thing, so connecting either connects both."),
+    "instagram": ("Page access token", "Instagram Business account id",
+                  "The token is the Facebook Page's. The id is the Instagram "
+                  "Business account linked to that Page, not the handle."),
+    "youtube": ("OAuth refresh token", "",
+                "An API key cannot upload — the upload happens as you, not "
+                "as the app, so it has to be a refresh token."),
+}
+
+
+def connect_form(account: dict, platform: str, has_oauth: bool,
+                 redirect_uri: str, error: str = "") -> str:
+    """Paste a credential. Checked against the live API before it is saved."""
+    token_label, ident_label, why = NEEDS.get(platform, ("Token", "Id", ""))
+    warn = (f"<div class='note bad'>{e(error)}</div>" if error else "")
+    ident_field = (
+        f"<div class='field'><label for='ident'>{e(ident_label)}</label>"
+        f"<input id='ident' name='ident' required "
+        f"placeholder='numbers only'></div>"
+    ) if ident_label else ""
+    alt = (
+        f"<p class='muted' style='margin-top:14px'>Or "
+        f"<a href='/connect/{e(platform)}' style='color:{ACCENT};"
+        f"font-weight:600'>sign in with {e(platform.title())}</a> instead and "
+        f"never handle a token.</p>"
+    ) if has_oauth else (
+        f"<p class='muted' style='margin-top:14px'>One-click sign-in is off "
+        f"because this machine has no app registered with the platform. To "
+        f"turn it on, register one and set its id and secret, with "
+        f"<code>{e(redirect_uri)}</code> as the redirect.</p>"
+    )
+
+    body = (
+        f"<div class='body'><div class='card' style='max-width:560px'>"
+        f"{warn}"
+        f"<p class='muted' style='margin-top:0'>{e(why)}</p>"
+        f"<form method='post' action='/connect/{e(platform)}/save'>"
+        f"<div class='field'><label for='token'>{e(token_label)}</label>"
+        f"<textarea id='token' name='token' rows='3' required "
+        f"placeholder='paste it here'></textarea></div>"
+        f"{ident_field}"
+        f"<button class='btn' type='submit'>Check and connect</button>"
+        f"<a class='btn btn-quiet' href='/connect' "
+        f"style='margin-left:8px;display:inline-block'>Cancel</a>"
+        f"</form>{alt}"
+        f"<p class='muted' style='margin-top:14px'>Nothing is saved unless "
+        f"the platform confirms the credential works. It is stored in your "
+        f"shop's own database, not in a file shared with anyone else.</p>"
+        f"</div></div>"
+    )
+    head = (
+        f"<div class='head'><h1>Connect {e(platform.title())}</h1>"
+        f"<p>Give it a credential and it will be checked straight away.</p>"
+        f"</div>"
+    )
+    return shell(f"Connect {platform}", account, "/connect", head, body,
+                 CONNECT_CSS)
+
+
 def connect_page(account: dict, channels: dict, image_provider: str,
-                 db_backend: str, has_llm: bool) -> str:
+                 db_backend: str, has_llm: bool,
+                 oauth: dict | None = None, note: str = "") -> str:
+    oauth = oauth or {}
     head = (
         "<div class='head'><h1>Connect your accounts</h1>"
         "<p>Everything works without these — your team just cannot read or "
@@ -1029,40 +1113,57 @@ def connect_page(account: dict, channels: dict, image_provider: str,
         "youtube": ("#FF0000", "▶", "Publish videos you supply."),
     }
     setup = {
-        "messenger": ["Create a Meta app and connect your Page",
-                      "Ask for <code>pages_messaging</code> in App Review",
-                      "Put the token in <code>META_ACCESS_TOKEN</code> and the "
-                      "page id in <code>META_PAGE_ID</code>"],
+        "messenger": ["Create a Meta app and add your Facebook Page to it",
+                      "Ask for <code>pages_messaging</code> in App Review — "
+                      "reading customer DMs is Meta's most reviewed permission",
+                      "Then press Connect and paste the Page token"],
         "instagram": ["Convert the account to a Business or Creator account",
                       "Link it to your Facebook Page",
                       "Ask for <code>instagram_manage_messages</code> and "
                       "<code>instagram_manage_comments</code> in App Review",
-                      "Put the id in <code>META_IG_USER_ID</code>"],
+                      "Then press Connect — the token is the Page's, the id "
+                      "is the linked Instagram Business account"],
         "facebook": ["Same Meta app and Page as Messenger",
-                     "<code>pages_manage_posts</code> covers publishing"],
+                     "<code>pages_manage_posts</code> covers publishing",
+                     "Connecting either one connects both"],
         "youtube": ["Enable YouTube Data API v3 in Google Cloud",
-                    "Create an OAuth client (Desktop app)",
-                    "Authorise <code>youtube.upload</code> and exchange the "
-                    "code for a refresh token",
-                    "An API key alone cannot upload — it only reads"],
+                    "Create an OAuth client and authorise "
+                    "<code>youtube.upload</code>",
+                    "An API key alone cannot upload — it only reads, so "
+                    "Connect asks for a refresh token"],
     }
 
+    banner = f"<div class='note'>{e(note)}</div>" if note else ""
+
     rows = ""
-    for key, note in channels.items():
+    for key, state in channels.items():
         colour, mark, what = brand.get(key, (ACCENT, "?", ""))
-        connected = "needs" not in note
+        connected = state.startswith("connected")
         steps = "" if connected else (
             "<ul class='steps'>"
             + "".join(f"<li>{s}</li>" for s in setup.get(key, []))
             + "</ul>"
         )
+        # The button is the point of the screen, so it sits where the badge
+        # used to and the badge shrinks to a line of status under it.
+        if connected:
+            action = (
+                f"<form method='post' action='/connect/{key}/disconnect'>"
+                f"<button class='btn btn-quiet' type='submit'>Disconnect"
+                f"</button></form>"
+            )
+        else:
+            label = ("Sign in with " + key.title() if oauth.get(key)
+                     else "Connect")
+            action = (f"<a class='btn' href='/connect/{key}'>{e(label)}</a>")
         rows += (
             f"<div class='row'>"
             f"<div class='icon' style='background:{colour}'>{mark}</div>"
             f"<div style='flex:1;min-width:0'><h3>{e(key.title())}</h3>"
-            f"<p>{e(what)}</p>{steps}</div>"
-            f"<span class='pill {'ok' if connected else 'warn'}'>"
-            f"{'Connected' if connected else 'Not connected'}</span></div>"
+            f"<p>{e(what)}</p>{steps}"
+            f"<span class='pill {'ok' if connected else 'warn'}' "
+            f"style='margin-top:8px'>{e(state)}</span></div>"
+            f"<div class='act'>{action}</div></div>"
         )
 
     extras = (
@@ -1080,7 +1181,7 @@ def connect_page(account: dict, channels: dict, image_provider: str,
         f"{'Working' if has_llm else 'Missing'}</span></div>"
     )
 
-    body = (f"<div class='body'><div class='rows'>{rows}{extras}</div>"
+    body = (f"<div class='body'>{banner}<div class='rows'>{rows}{extras}</div>"
             f"<p class='muted' style='margin-top:18px;max-width:820px'>"
             f"Until a platform is connected, your team works against a "
             f"stand-in inbox so you can see the flow — every result is "
