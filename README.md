@@ -202,6 +202,35 @@ so it is always unambiguous which parts are calling real APIs.
 > bundle. `truststore` (in `requirements.txt`) is injected in
 > [`config.py`](src/lucida/config.py) to make Python use the OS store instead.
 
+### Accounts
+
+The workspace requires an account. The first visit lands on **`/signup`**,
+which asks the one question that changes what the workforce does first:
+
+| You said | Where the team starts |
+|---|---|
+| **I'm starting out** — no business yet | Research and validation: what to sell, at what price, and whether it's worth doing at all |
+| **I already sell** — I have a business | Day-to-day management, using the product, place and price you gave at sign-up instead of re-deriving them |
+
+That answer is stored on the account and seeded into the shop's own profile,
+so the agents start from the owner's facts. It can be changed later from the
+account page — the team adjusts.
+
+Clicking the **identity block at the top of the rail** — your photo, or your
+initials until you upload one — opens `/account`, where you can edit your
+name, shop, location, currency, what you sell, your journey, your photo and
+your password.
+
+**Each account gets its own database.** `data/shops/<account-id>/shop.db` and
+its own vector store, bound to the shared `memory` singleton at the start of
+every request. Isolation is by file rather than by an `owner_id` column, so no
+query in any of the twelve tables has to remember to filter — and a forgotten
+filter cannot leak one shop's business into another's.
+
+Passwords are bcrypt hashes. Sessions are signed cookies carrying only the
+account id. For anything beyond local use, set a stable `AIW_SECRET_KEY` (or
+everyone is signed out on restart) and `AIW_HTTPS=1` behind TLS.
+
 ### Where the data lives
 
 By default the shop's memory is a **local SQLite file** in `data/` — no

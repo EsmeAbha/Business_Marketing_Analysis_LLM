@@ -15,6 +15,14 @@ data/vectors/
 data/uploads/
 !data/.gitkeep
 
+# Owner accounts and their private shop data. Never commit these: accounts.db
+# holds email addresses and password hashes, and each shop database is one
+# business's real trading history.
+data/accounts.db
+data/accounts.db-*
+data/shops/
+data/avatars/
+
 # Design bundle archive — the extracted files under web/design/ are what ship
 Form selections needed.zip
 

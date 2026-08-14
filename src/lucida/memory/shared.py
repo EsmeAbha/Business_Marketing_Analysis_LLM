@@ -12,9 +12,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..config import SHOPS_DIR
 from ..observability import get_logger
-from .db import db
-from .vector import Document, vectors
+from .db import Database, db
+from .vector import Document, VectorStore, vectors
 
 logger = get_logger("memory")
 
@@ -23,6 +24,35 @@ class SharedMemory:
     def __init__(self) -> None:
         self.db = db
         self.vectors = vectors
+        self.shop_id: str | None = None
+
+    def use_shop(self, shop_id: str | None) -> None:
+        """Point this memory at one owner's private store.
+
+        Every agent imports this same singleton, so swapping the backing
+        database and vector store here redirects all of them at once. That is
+        why isolation is done by file rather than by adding an owner column to
+        twelve tables: no query has to remember to filter, and a missed filter
+        cannot leak one shop's business into another's.
+
+        The web layer calls this once per request, before any agent runs.
+        """
+        if shop_id == self.shop_id:
+            return
+        if shop_id is None:
+            self.db, self.vectors, self.shop_id = db, vectors, None
+            return
+
+        safe = "".join(c for c in str(shop_id) if c.isalnum() or c in "-_")
+        if not safe:
+            raise ValueError(f"unusable shop id: {shop_id!r}")
+
+        shop_dir = SHOPS_DIR / safe
+        shop_dir.mkdir(parents=True, exist_ok=True)
+        self.db = Database(shop_dir / "shop.db")
+        self.vectors = VectorStore(shop_dir / "knowledge.jsonl")
+        self.shop_id = safe
+        logger.info("memory bound to shop %s", safe)
 
     # --- semantic (RAG) side ---
 

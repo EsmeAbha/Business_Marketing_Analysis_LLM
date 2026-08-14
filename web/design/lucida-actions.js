@@ -209,10 +209,56 @@
     });
   }
 
+  /* ---- profile ----------------------------------------------------------
+   * The rail's identity block is the shop's monogram and name. It becomes
+   * the way into the account: the tile shows the owner's photo when they
+   * have one, and clicking anywhere on the block opens /account.
+   */
+  function wireProfile() {
+    var acct = window.LUCIDA && window.LUCIDA.account;
+    if (!acct) return;
+    var aside = document.querySelector('aside');
+    if (!aside) return;
+    var block = aside.firstElementChild;
+    if (!block || block.__lucidaProfile) return;
+    block.__lucidaProfile = true;
+
+    var tile = block.firstElementChild;
+    if (tile) {
+      if (acct.avatar) {
+        tile.style.backgroundImage = 'url("' + acct.avatar + '")';
+        tile.style.backgroundSize = 'cover';
+        tile.style.backgroundPosition = 'center';
+        tile.textContent = '';
+      } else if (acct.initials) {
+        tile.textContent = acct.initials;
+      }
+    }
+
+    block.style.cursor = 'pointer';
+    block.style.borderRadius = '12px';
+    block.style.transition = 'background .15s';
+    block.title = 'Your account — ' + (acct.email || '');
+    block.setAttribute('role', 'link');
+    block.setAttribute('tabindex', '0');
+    block.addEventListener('mouseenter', function () {
+      block.style.background = '#F1EEE6';
+    });
+    block.addEventListener('mouseleave', function () {
+      block.style.background = 'transparent';
+    });
+    var open = function () { window.location.href = '/account'; };
+    block.addEventListener('click', open);
+    block.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+  }
+
   // The design re-renders on every navigation, so re-attach when the Stock
   // page mounts rather than only once at boot.
-  document.addEventListener('DOMContentLoaded', wirePhoto);
-  setInterval(wirePhoto, 900);
+  function wireAll() { wirePhoto(); wireProfile(); }
+  document.addEventListener('DOMContentLoaded', wireAll);
+  setInterval(wireAll, 900);
 
   window.LucidaActions = {
     wirePhoto: wirePhoto,
