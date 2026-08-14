@@ -12,7 +12,7 @@ import json
 import sqlite3
 import threading
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
 from ..config import DB_PATH, settings
@@ -116,6 +116,25 @@ CREATE TABLE IF NOT EXISTS deliveries (
     simulated     INTEGER DEFAULT 1,
     created_at    TEXT
 );
+
+-- Sales the owner has actually made. Everything the dashboard says about
+-- money earned, order counts, how fast stock is moving and how many days of
+-- cover is left is derived from this table -- so an empty table means those
+-- figures are honestly unknown rather than estimated.
+CREATE TABLE IF NOT EXISTS orders (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    product_id    INTEGER REFERENCES products(id),
+    product_name  TEXT,
+    quantity      INTEGER NOT NULL DEFAULT 1,
+    unit_price    REAL,
+    amount        REAL,          -- quantity * unit_price, stored for speed
+    unit_cost     REAL,          -- cost at time of sale, for real margin
+    channel       TEXT,          -- messenger | instagram | walk-in | phone
+    customer      TEXT,
+    status        TEXT DEFAULT 'fulfilled',   -- fulfilled | pending | cancelled
+    created_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 
 CREATE TABLE IF NOT EXISTS reports (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -329,6 +348,79 @@ class Database:
 
     def low_stock(self) -> list[dict[str, Any]]:
         return [r for r in self.inventory_view() if r["low_stock"]]
+
+    # --- orders and the figures derived from them ---
+
+    def record_order(
+        self,
+        product_name: str,
+        quantity: int,
+        unit_price: float | None = None,
+        unit_cost: float | None = None,
+        channel: str = "",
+        customer: str = "",
+        status: str = "fulfilled",
+        product_id: int | None = None,
+    ) -> int:
+        """Log a sale, filling price and cost from the catalogue if omitted."""
+        if unit_price is None or unit_cost is None:
+            match = self.query(
+                "SELECT id, unit_cost, sell_price FROM products WHERE name=?",
+                (product_name,),
+            )
+            if match:
+                product_id = product_id or match[0]["id"]
+                unit_price = unit_price if unit_price is not None else match[0]["sell_price"]
+                unit_cost = unit_cost if unit_cost is not None else match[0]["unit_cost"]
+        amount = (unit_price or 0) * max(0, int(quantity))
+        return self.execute(
+            """INSERT INTO orders (product_id, product_name, quantity, unit_price,
+                                   amount, unit_cost, channel, customer, status,
+                                   created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (product_id, product_name, int(quantity), unit_price, amount,
+             unit_cost, channel, customer, status, _now()),
+        )
+
+    def orders(self, limit: int = 200) -> list[dict[str, Any]]:
+        return self.query(
+            "SELECT * FROM orders ORDER BY created_at DESC LIMIT ?", (limit,)
+        )
+
+    def sales_since(self, days: int) -> dict[str, Any]:
+        """Totals over a window. Zero rows means unknown, not zero sales."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        rows = self.query(
+            """SELECT COUNT(*) AS orders, COALESCE(SUM(quantity),0) AS units,
+                      COALESCE(SUM(amount),0) AS revenue,
+                      COALESCE(SUM(quantity * COALESCE(unit_cost,0)),0) AS cost
+               FROM orders
+               WHERE status <> 'cancelled' AND created_at >= ?""",
+            (cutoff,),
+        )
+        row = rows[0] if rows else {"orders": 0, "units": 0, "revenue": 0, "cost": 0}
+        row["profit"] = (row["revenue"] or 0) - (row["cost"] or 0)
+        row["known"] = bool(row["orders"])
+        return row
+
+    def run_rate(self, product_name: str, days: int = 14) -> float | None:
+        """Units sold per day. None when there is nothing to measure."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        rows = self.query(
+            """SELECT COALESCE(SUM(quantity),0) AS units, COUNT(*) AS n
+               FROM orders
+               WHERE product_name=? AND status <> 'cancelled' AND created_at >= ?""",
+            (product_name, cutoff),
+        )
+        if not rows or not rows[0]["n"]:
+            return None
+        return (rows[0]["units"] or 0) / float(days)
+
+    def days_of_cover(self, product_name: str, quantity: int) -> float | None:
+        rate = self.run_rate(product_name)
+        if not rate:
+            return None
+        return quantity / rate
 
     # --- pricing ---
 

@@ -595,6 +595,49 @@ async def api_upload(request):
     return JSONResponse(snap)
 
 
+async def api_sale(request):
+    """Log a sale.
+
+    This is what turns the headline tiles from dashes into figures: sales
+    today, order count, how fast stock moves and days of cover are all
+    derived from these rows. Nothing else in the system can invent them.
+    """
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+
+    body = await request.json()
+    product = str(body.get("product") or "").strip()
+    if not product:
+        return JSONResponse({"error": "which product?"}, status_code=400)
+    try:
+        quantity = int(body.get("quantity") or 0)
+    except (TypeError, ValueError):
+        quantity = 0
+    if quantity <= 0:
+        return JSONResponse({"error": "how many?"}, status_code=400)
+
+    def _price(key):
+        try:
+            return float(body[key]) if body.get(key) not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    order_id = memory.record_order(
+        product_name=product,
+        quantity=quantity,
+        unit_price=_price("unit_price"),
+        unit_cost=_price("unit_cost"),
+        channel=str(body.get("channel") or "").strip(),
+        customer=str(body.get("customer") or "").strip(),
+    )
+    logger.info("order logged: %s x%d", product, quantity)
+
+    snap = _snapshot(_session_for(account["id"]), account)
+    snap["order_id"] = order_id
+    return JSONResponse(snap)
+
+
 async def api_decide(request):
     """Answer the human-in-the-loop gate the graph is suspended on."""
     account = current_account(request)
@@ -673,6 +716,7 @@ app = Starlette(
         Route("/api/state", api_state),
         Route("/api/ask", api_ask, methods=["POST"]),
         Route("/api/upload", api_upload, methods=["POST"]),
+        Route("/api/sale", api_sale, methods=["POST"]),
         Route("/api/decide", api_decide, methods=["POST"]),
         Route("/api/health", api_health),
         # Serves support.js, image-slot.js and vendor/ alongside the page, so
