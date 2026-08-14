@@ -194,6 +194,17 @@ CHAT_CSS = f"""
 .bubble .text li {{ margin:4px 0; }}
 .bubble .text p:first-child {{ margin-top:0; }}
 .bubble .text p:last-child {{ margin-bottom:0; }}
+.picker {{ border:1px solid {BORDER}; border-radius:14px; padding:14px 16px;
+  background:{SURFACE}; }}
+.picker h4 {{ margin:0 0 3px; font-size:14.5px; font-weight:600; }}
+.picker .sub {{ font-size:13px; color:{MUTED}; margin-bottom:11px; }}
+.src {{ display:flex; gap:10px; padding:9px 10px; border-radius:10px;
+  cursor:pointer; align-items:flex-start; }}
+.src:hover {{ background:{SUNKEN}; }}
+.src.off {{ opacity:.55; cursor:not-allowed; }}
+.src input {{ width:auto; margin:3px 0 0; accent-color:{ACCENT}; flex:none; }}
+.src b {{ font-size:13.5px; font-weight:600; display:block; }}
+.src span {{ font-size:12.5px; color:{MUTED}; }}
 .empty {{ text-align:center; padding:60px 20px; }}
 .empty h2 {{ font-size:30px; font-weight:800; letter-spacing:-.032em;
   margin:0 0 8px; }}
@@ -286,6 +297,52 @@ document.querySelectorAll('.chip').forEach(c => {
     grow(); box.focus(); };
 });
 
+// A research question comes back as a question: which places to look. The
+// sources answer different things and cost different amounts, so the choice
+// is the owner's rather than a default nobody sees.
+function askSources(query, list) {
+  const rows = list.map(s => `
+    <label class="src ${s.available ? '' : 'off'}">
+      <input type="checkbox" value="${s.key}"
+        ${s.default && s.available ? 'checked' : ''}
+        ${s.available ? '' : 'disabled'}>
+      <span><b>${esc(s.name)}</b>
+      <span>${esc(s.available ? s.what : s.reason)}</span></span>
+    </label>`).join('');
+  const el = bubble('them', 'Your team', '', `
+    <div class="picker">
+      <h4>Where should I look?</h4>
+      <div class="sub">Each one answers something different.</div>
+      ${rows}
+      <button class="btn" style="margin-top:11px;width:100%">Search these</button>
+    </div>`);
+  const btn = el.querySelector('button');
+  btn.onclick = async () => {
+    const chosen = [...el.querySelectorAll('input:checked')].map(i => i.value);
+    if (!chosen.length) { btn.textContent = 'Pick at least one'; return; }
+    const names = [...el.querySelectorAll('input:checked')]
+      .map(i => i.closest('.src').querySelector('b').textContent);
+    el.querySelector('.picker').outerHTML =
+      '<div class="muted">Looking in: ' + esc(names.join(', ')) + '</div>';
+    const wait = bubble('them', 'Your team', '',
+      '<span class="typing"><span></span><span></span><span></span></span>');
+    try {
+      const r = await fetch('/api/research', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ query, sources: chosen })
+      });
+      const d = await r.json();
+      wait.querySelector('.text').innerHTML = r.ok
+        ? md(d.answer || 'Nothing came back.')
+        : '<span style="color:#B91C1C">' + esc(d.error || 'Search failed') + '</span>';
+    } catch (err) {
+      wait.querySelector('.text').innerHTML =
+        '<span style="color:#B91C1C">' + esc(String(err)) + '</span>';
+    }
+    busy = false;
+  };
+}
+
 async function ask() {
   const text = box.value.trim();
   if (!text || busy) return;
@@ -302,6 +359,11 @@ async function ask() {
     });
     const d = await r.json();
     const out = wait.querySelector('.text');
+    if (d.ask_sources) {
+      wait.remove();
+      askSources(d.query, d.sources || []);
+      return;                       // busy is cleared when they choose
+    }
     if (!r.ok) {
       out.innerHTML = '<span style="color:#B91C1C">'
         + esc(d.error || 'That did not work.') + '</span>';

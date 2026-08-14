@@ -45,7 +45,7 @@ from lucida.memory import memory  # noqa: E402
 from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
-from lucida.tools import channels, imagegen  # noqa: E402
+from lucida.tools import channels, imagegen, research  # noqa: E402
 from web import (  # noqa: E402
     app_ui, auth, bridge, google_oauth, mailer, screens,
 )
@@ -652,6 +652,101 @@ def _small_talk_reply(text: str, account: dict) -> str | None:
     )
 
 
+# Questions that mean "go and look something up" rather than "answer from
+# what you know". Matched on the verb because that is what distinguishes
+# them: "what should I price this at" uses the shop's own numbers, while
+# "what do rivals charge" has to go outside.
+RESEARCH_WORDS = (
+    "research", "find out", "look up", "search", "competitor", "competitors",
+    "rival", "rivals", "market", "trend", "trending", "demand for",
+    "who else sells", "what do people", "how much do others",
+)
+
+
+def _wants_research(text: str) -> bool:
+    low = text.lower()
+    return any(w in low for w in RESEARCH_WORDS)
+
+
+async def api_research_sources(request):
+    """Where the team could look, and where it actually can."""
+    if current_account(request) is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+    return JSONResponse({
+        "sources": [
+            {"key": s.key, "name": s.name, "what": s.what,
+             "available": s.available, "reason": s.reason,
+             "default": s.default}
+            for s in research.sources()
+        ]
+    })
+
+
+async def api_research(request):
+    """Search the chosen places, then have the team read what came back."""
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+    session_id = _session_for(account["id"])
+
+    body = await request.json()
+    query = str(body.get("query") or "").strip()
+    chosen = [str(k) for k in (body.get("sources") or [])]
+    if not query:
+        return JSONResponse({"error": "research what?"}, status_code=400)
+    if not chosen:
+        return JSONResponse({"error": "pick at least one place to look"},
+                            status_code=400)
+
+    found = await asyncio.to_thread(research.run, memory.db, query, chosen)
+
+    lines = []
+    for key, n in found.per_source.items():
+        name = next((s.name for s in research.sources() if s.key == key), key)
+        lines.append(f"- **{name}** — {n} result(s)")
+    header = (f"I looked in {len(found.per_source)} place(s) for "
+              f"“{app_ui.e(query)}”:\n\n" + "\n".join(lines) + "\n\n")
+
+    if not found.findings:
+        problems = ("\n\n" + "\n".join(f"- {x}" for x in found.errors)
+                    if found.errors else "")
+        return JSONResponse({"answer": header + "Nothing came back."
+                             + problems})
+
+    if not settings.has_llm:
+        body_text = "\n\n".join(
+            f"**{f.title}**\n{f.snippet}" for f in found.findings[:10])
+        return JSONResponse({"answer": header + body_text})
+
+    try:
+        summary = await asyncio.to_thread(
+            _read_research, query, found.as_prompt_context())
+    except Exception as exc:  # noqa: BLE001
+        from lucida.llm import AllModelsBusy, is_rate_limited
+        if isinstance(exc, AllModelsBusy) or is_rate_limited(exc):
+            return JSONResponse({"error": str(exc)}, status_code=429)
+        summary = "Could not read the results this time."
+
+    problems = ("\n\n_Some places did not answer: "
+                + "; ".join(found.errors) + "_") if found.errors else ""
+    return JSONResponse({"answer": header + summary + problems})
+
+
+def _read_research(query: str, context: str) -> str:
+    from lucida.llm import get_llm
+
+    ask = (
+        f"A shop owner asked: {query}\n\n"
+        f"Here is what the search returned:\n{context}\n\n"
+        "Answer their question from this and nothing else. Say plainly what "
+        "the results support and what they do not. If the evidence is thin, "
+        "say so rather than filling the gap. Short paragraphs, no preamble, "
+        "the way you would tell a shopkeeper across a counter."
+    )
+    reply = get_llm(settings.model or "", 900).invoke(ask)
+    return str(getattr(reply, "content", reply))
+
+
 async def api_ask(request):
     """Run one turn of the workforce and return the refreshed snapshot."""
     if not settings.has_llm:
@@ -668,6 +763,21 @@ async def api_ask(request):
     text = (body.get("text") or "").strip()
     if not text:
         return JSONResponse({"error": "empty message"}, status_code=400)
+
+    # A research question gets a question back: which places to look. The
+    # sources answer different things and cost different amounts, so it is
+    # the owner's call, not a default.
+    if _wants_research(text) and not body.get("sources"):
+        return JSONResponse({
+            "ask_sources": True,
+            "query": text,
+            "sources": [
+                {"key": s2.key, "name": s2.name, "what": s2.what,
+                 "available": s2.available, "reason": s2.reason,
+                 "default": s2.default}
+                for s2 in research.sources()
+            ],
+        })
 
     quick = _small_talk_reply(text, account)
     if quick is not None:
@@ -1021,6 +1131,8 @@ app = Starlette(
         Route("/api/ask", api_ask, methods=["POST"]),
         Route("/api/upload", api_upload, methods=["POST"]),
         Route("/api/sale", api_sale, methods=["POST"]),
+        Route("/api/research/sources", api_research_sources),
+        Route("/api/research", api_research, methods=["POST"]),
         Route("/api/inbox/sync", api_inbox_sync, methods=["POST"]),
         Route("/api/reply", api_reply, methods=["POST"]),
         Route("/api/decide", api_decide, methods=["POST"]),
