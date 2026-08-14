@@ -84,25 +84,35 @@ def build_prompt(
     style: str = "",
     offer: str = "",
     audience: str = "",
+    detail: str = "",
 ) -> str:
     """Turn what the owner knows into a prompt worth sending.
 
-    Kept explicit about it being product photography rather than a person,
-    because the failure mode of a vague prompt is a stock-photo model holding
-    an unrelated object.
+    The product is stated first and then restated at the end. These models
+    weight the opening and closing of a prompt most heavily, and the failure
+    mode otherwise is exactly what it did on the first attempt: it latched
+    onto "studio lighting, appetising" and drew a generic object that was not
+    the thing being sold.
+
+    `offer` and `audience` are deliberately *not* fed to the image. They are
+    selling context, and a model handed "2 for 1 this week" tries to draw the
+    words — which is why "no text" is stated three ways. They shape the copy
+    instead, where they belong.
     """
     bits = [
-        f"professional product photograph of {product}",
-        "clean studio lighting, shallow depth of field, appetising",
-        "centred composition with empty space at the top for a headline",
+        f"{product}, product photograph",
+        f"the {product} fills the frame and is the only subject",
     ]
-    if style:
-        bits.append(style)
-    if audience:
-        bits.append(f"styled for {audience}")
-    if offer:
-        bits.append(f"suggesting {offer}")
-    bits.append("no text, no watermark, no logos")
+    if detail:
+        bits.append(detail)
+    bits.append(style or "clean studio lighting, soft shadow, plain background")
+    bits.extend([
+        "sharp focus on the product, realistic materials and texture",
+        "space above for a headline",
+        f"a photograph of {product}",
+        "no text, no words, no lettering, no watermark, no logo, no hands, "
+        "no people",
+    ])
     return ", ".join(bits)
 
 
@@ -112,17 +122,23 @@ def _save(content: bytes, prompt: str, ext: str = "jpg") -> Path:
     return dest
 
 
-def _pollinations(prompt: str, size: tuple[int, int]) -> Artwork:
+def _pollinations(prompt: str, size: tuple[int, int],
+                  seed: int | None = None) -> Artwork:
     w, h = size
     url = POLLINATIONS.format(prompt=urllib.parse.quote(prompt))
+    params = {"width": w, "height": h, "nologo": "true", "model": "flux"}
+    # A seed is what makes "regenerate" give a different picture of the same
+    # thing rather than the identical one back — the endpoint is otherwise
+    # deterministic for a given prompt.
+    if seed is not None:
+        params["seed"] = seed
     try:
         with httpx.Client(timeout=90, follow_redirects=True) as c:
-            r = c.get(url, params={"width": w, "height": h,
-                                   "nologo": "true", "model": "flux"})
+            r = c.get(url, params=params)
         if r.status_code != 200 or not r.content:
             return Artwork(False, provider="pollinations",
                            error=f"provider returned {r.status_code}")
-        path = _save(r.content, prompt)
+        path = _save(r.content, f"{prompt}|{seed or 0}")
         logger.info("generated artwork via pollinations (%d bytes)", len(r.content))
         return Artwork(True, str(path), w, h, len(r.content),
                        "pollinations", prompt)
@@ -161,7 +177,8 @@ def _imagen(prompt: str, size: tuple[int, int]) -> Artwork:
         return Artwork(False, provider="imagen", error=str(exc))
 
 
-def generate(prompt: str, preset: str = "square") -> Artwork:
+def generate(prompt: str, preset: str = "square",
+             seed: int | None = None) -> Artwork:
     """Make one image. Falls back to the keyless provider if the paid one fails."""
     size = PRESETS.get(preset, PRESETS["square"])
     if settings.google_api_key:
@@ -169,7 +186,7 @@ def generate(prompt: str, preset: str = "square") -> Artwork:
         if art.ok:
             return art
         logger.info("imagen unavailable, falling back to pollinations")
-    return _pollinations(prompt, size)
+    return _pollinations(prompt, size, seed)
 
 
 def generate_for_product(
@@ -178,5 +195,8 @@ def generate_for_product(
     style: str = "",
     offer: str = "",
     audience: str = "",
+    detail: str = "",
+    seed: int | None = None,
 ) -> Artwork:
-    return generate(build_prompt(product, style, offer, audience), preset)
+    return generate(
+        build_prompt(product, style, offer, audience, detail), preset, seed)

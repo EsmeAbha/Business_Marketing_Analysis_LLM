@@ -369,69 +369,323 @@ def chat_page(account: dict, history: list[dict], starters: list[str]) -> str:
 # ---------------------------------------------------------------------------
 
 STUDIO_CSS = f"""
-.grid {{ display:grid; grid-template-columns:360px minmax(0,1fr); gap:22px;
-  align-items:start; }}
-.preview {{ border:1px solid {BORDER}; border-radius:16px; overflow:hidden;
-  background:{SUNKEN}; aspect-ratio:1/1; display:grid; place-items:center; }}
-.preview img {{ width:100%; height:100%; object-fit:cover; display:block; }}
-.ph {{ text-align:center; color:{MUTED}; font-size:13.5px; padding:24px; }}
-.sizes {{ display:flex; gap:8px; margin-bottom:14px; }}
-.size {{ flex:1; padding:9px; border-radius:10px; border:1px solid {BORDER};
-  background:{SURFACE}; font-size:13px; cursor:pointer; text-align:center; }}
+.studio {{ display:grid; grid-template-columns:300px minmax(0,1fr) 250px;
+  gap:18px; align-items:start; }}
+.panel {{ background:{SURFACE}; border:1px solid {BORDER}; border-radius:16px;
+  padding:16px 17px; }}
+.panel h3 {{ margin:0 0 12px; font-size:13px; font-weight:600;
+  letter-spacing:.02em; text-transform:uppercase; color:{MUTED}; }}
+.stage {{ background:{SUNKEN}; border:1px solid {BORDER}; border-radius:16px;
+  padding:16px; display:grid; place-items:center; min-height:460px; }}
+#canvas {{ max-width:100%; max-height:70vh; border-radius:10px;
+  box-shadow:0 2px 14px rgba(0,0,0,.10); background:#fff; cursor:default; }}
+.ph {{ text-align:center; color:{MUTED}; font-size:13.5px; padding:40px 20px; }}
+.tools {{ display:flex; flex-wrap:wrap; gap:7px; margin-bottom:14px; }}
+.tool {{ padding:8px 11px; border-radius:9px; border:1px solid {BORDER};
+  background:{SURFACE}; font-size:12.5px; cursor:pointer; color:{BODY};
+  display:inline-flex; align-items:center; gap:5px; }}
+.tool:hover {{ border-color:{INK}; color:{INK}; }}
+.tool.on {{ border-color:{ACCENT}; background:{ACCENT_TINT}; color:{ACCENT};
+  font-weight:600; }}
+.slider {{ margin-bottom:11px; }}
+.slider label {{ display:flex; justify-content:space-between; font-size:12.5px;
+  margin-bottom:5px; color:{BODY}; }}
+.slider label b {{ font-weight:600; color:{INK}; font-variant-numeric:tabular-nums; }}
+input[type=range] {{ width:100%; padding:0; accent-color:{ACCENT};
+  height:4px; }}
+.sizes {{ display:flex; gap:7px; margin-bottom:12px; }}
+.size {{ flex:1; padding:8px 4px; border-radius:9px; border:1px solid {BORDER};
+  background:{SURFACE}; font-size:12px; cursor:pointer; text-align:center; }}
 .size.on {{ border-color:{ACCENT}; background:{ACCENT_TINT}; color:{ACCENT};
   font-weight:600; }}
-.copy {{ white-space:pre-wrap; font-size:14px; line-height:1.65; }}
+.swatches {{ display:flex; flex-wrap:wrap; gap:6px; }}
+.sw {{ width:24px; height:24px; border-radius:7px; cursor:pointer;
+  border:2px solid transparent; }}
+.sw.on {{ border-color:{INK}; }}
+.copy {{ white-space:pre-wrap; font-size:13.5px; line-height:1.65; }}
 .tag {{ font-size:11px; font-weight:600; letter-spacing:.05em;
   text-transform:uppercase; padding:3px 8px; border-radius:6px;
   background:{ACCENT_TINT}; color:{ACCENT}; }}
-@media (max-width:900px) {{ .grid {{ grid-template-columns:1fr; }} }}
+.layer {{ display:flex; align-items:center; gap:8px; padding:7px 9px;
+  border-radius:8px; font-size:12.5px; cursor:pointer; }}
+.layer:hover {{ background:{SUNKEN}; }}
+.layer.on {{ background:{ACCENT_TINT}; color:{ACCENT}; }}
+.layer button {{ margin-left:auto; border:none; background:none; cursor:pointer;
+  color:{MUTED}; font-size:14px; }}
+.row2 {{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }}
+@media (max-width:1200px) {{ .studio {{ grid-template-columns:1fr; }} }}
 """
 
 STUDIO_JS = r"""
-let preset = 'square';
-document.querySelectorAll('.size').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.size').forEach(x => x.classList.remove('on'));
-  b.classList.add('on'); preset = b.dataset.preset;
-});
+// ---- state ---------------------------------------------------------------
+// One object describing the whole picture. Every tool mutates it and calls
+// draw(); nothing is baked into the pixels until the owner downloads, so any
+// edit can be undone by changing the number back.
+const S = {
+  img: null, preset: 'square', seed: null, prompt: '',
+  rotate: 0, flipH: false, flipV: false,
+  crop: 1,                       // 1 = full frame, 0.5 = centre half
+  filters: { brightness:100, contrast:100, saturate:100, sepia:0, grayscale:0, blur:0 },
+  shapes: [], sel: -1, tool: 'select', colour: '#7B1E22'
+};
+const cv = document.getElementById('canvas');
+const ctx = cv.getContext('2d');
+const stage = document.getElementById('stage');
 
-const go = document.getElementById('go');
-const out = document.getElementById('art');
-const copyBox = document.getElementById('copy');
+function filterString() {
+  const f = S.filters;
+  return `brightness(${f.brightness}%) contrast(${f.contrast}%) ` +
+         `saturate(${f.saturate}%) sepia(${f.sepia}%) ` +
+         `grayscale(${f.grayscale}%) blur(${f.blur}px)`;
+}
 
-go.onclick = async () => {
+function draw() {
+  if (!S.img) return;
+  const iw = S.img.naturalWidth, ih = S.img.naturalHeight;
+  // Crop is a centred box; rotation of 90/270 swaps which side is which.
+  const cw = iw * S.crop, ch = ih * S.crop;
+  const sx = (iw - cw) / 2, sy = (ih - ch) / 2;
+  const turned = S.rotate === 90 || S.rotate === 270;
+  cv.width = turned ? ch : cw;
+  cv.height = turned ? cw : ch;
+
+  ctx.save();
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.translate(cv.width / 2, cv.height / 2);
+  ctx.rotate(S.rotate * Math.PI / 180);
+  ctx.scale(S.flipH ? -1 : 1, S.flipV ? -1 : 1);
+  ctx.filter = filterString();
+  ctx.drawImage(S.img, sx, sy, cw, ch, -cw / 2, -ch / 2, cw, ch);
+  ctx.restore();
+
+  // Shapes sit above the photo, so they are never filtered with it.
+  ctx.save();
+  ctx.filter = 'none';
+  S.shapes.forEach((s, i) => {
+    ctx.globalAlpha = s.alpha === undefined ? 1 : s.alpha;
+    ctx.fillStyle = s.colour;
+    ctx.strokeStyle = s.colour;
+    if (s.type === 'rect') {
+      ctx.fillRect(s.x * cv.width, s.y * cv.height,
+                   s.w * cv.width, s.h * cv.height);
+    } else if (s.type === 'circle') {
+      ctx.beginPath();
+      ctx.ellipse(s.x * cv.width, s.y * cv.height,
+                  s.w * cv.width / 2, s.h * cv.height / 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (s.type === 'bar') {
+      ctx.fillRect(0, s.y * cv.height, cv.width, s.h * cv.height);
+    } else if (s.type === 'text') {
+      const px = Math.round((s.size || 0.07) * cv.height);
+      ctx.font = `800 ${px}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(s.text || '', s.x * cv.width, s.y * cv.height);
+    }
+    if (i === S.sel) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = '#000';
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2;
+      const w = (s.type === 'bar' ? 1 : s.w) * cv.width;
+      const x = (s.type === 'bar' ? 0.5 : s.x) * cv.width;
+      ctx.strokeRect(x - w / 2, s.y * cv.height - (s.h * cv.height) / 2,
+                     w, s.h * cv.height);
+      ctx.setLineDash([]);
+    }
+  });
+  ctx.restore();
+  renderLayers();
+}
+
+// ---- loading a picture ---------------------------------------------------
+function load(src) {
+  const im = new Image();
+  im.crossOrigin = 'anonymous';
+  im.onload = () => {
+    S.img = im;
+    document.getElementById('ph').style.display = 'none';
+    cv.style.display = 'block';
+    document.getElementById('exportRow').style.display = 'flex';
+    draw();
+  };
+  im.onerror = () => msg('That image could not be loaded.', true);
+  im.src = src;
+}
+
+function msg(t, bad) {
+  const el = document.getElementById('note');
+  el.textContent = t;
+  el.style.color = bad ? '#B91C1C' : '#71717A';
+}
+
+// ---- generate / regenerate ----------------------------------------------
+async function generate(newSeed) {
   const product = document.getElementById('product').value.trim();
   if (!product) { document.getElementById('product').focus(); return; }
-  go.disabled = true; go.textContent = 'Making it…';
-  out.innerHTML = '<div class="ph">Drawing your poster…</div>';
-  copyBox.innerHTML = '<div class="ph">Writing the words…</div>';
+  const btn = document.getElementById('go');
+  const again = document.getElementById('again');
+  btn.disabled = true; again.disabled = true;
+  btn.textContent = 'Drawing…';
+  msg('Drawing your picture — a few seconds.');
+  if (newSeed) S.seed = Math.floor(Math.random() * 1e9);
+
   try {
     const r = await fetch('/api/studio/generate', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         product,
+        detail: document.getElementById('detail').value.trim(),
         offer: document.getElementById('offer').value.trim(),
         audience: document.getElementById('audience').value.trim(),
         style: document.getElementById('style').value,
-        preset
+        preset: S.preset, seed: S.seed
       })
     });
     const d = await r.json();
-    if (!r.ok) {
-      out.innerHTML = '<div class="ph" style="color:#B91C1C">'
-        + (d.error || 'Could not make it') + '</div>';
-      copyBox.innerHTML = '';
+    if (!r.ok || !d.image) {
+      msg(d.error || d.image_error || 'Could not draw it.', true);
     } else {
-      out.innerHTML = d.image
-        ? '<img src="' + d.image + '" alt="Generated poster">'
-        : '<div class="ph">' + (d.image_error || 'No image') + '</div>';
-      copyBox.innerHTML = '<div class="copy">' + (d.copy_html || '') + '</div>';
-      document.getElementById('saved').style.display = d.image ? 'flex' : 'none';
-      document.getElementById('dl').href = d.image || '#';
+      load(d.image);
+      again.style.display = 'inline-block';
+      msg('Drawn by ' + (d.provider || 'AI') + '. Edit it on the right.');
+      if (d.copy_html) {
+        document.getElementById('copy').innerHTML =
+          '<div class="copy">' + d.copy_html + '</div>';
+      }
     }
-  } catch (err) {
-    out.innerHTML = '<div class="ph" style="color:#B91C1C">' + err + '</div>';
+  } catch (err) { msg(String(err), true); }
+  btn.disabled = false; again.disabled = false; btn.textContent = 'Draw it';
+}
+document.getElementById('go').onclick = () => generate(true);
+document.getElementById('again').onclick = () => generate(true);
+
+// ---- uploading your own photo -------------------------------------------
+document.getElementById('up').onchange = async (ev) => {
+  const f = ev.target.files && ev.target.files[0];
+  if (!f) return;
+  msg('Loading your photo…');
+  const form = new FormData();
+  form.append('photo', f);
+  try {
+    const r = await fetch('/api/studio/upload', { method: 'POST', body: form });
+    const d = await r.json();
+    if (!r.ok) { msg(d.error || 'Upload failed', true); return; }
+    load(d.image);
+    document.getElementById('again').style.display = 'none';
+    msg('Your own photo — edit it on the right.');
+  } catch (err) { msg(String(err), true); }
+  ev.target.value = '';
+};
+
+// ---- tools ---------------------------------------------------------------
+document.querySelectorAll('[data-rot]').forEach(b => b.onclick = () => {
+  S.rotate = (S.rotate + Number(b.dataset.rot) + 360) % 360; draw();
+});
+document.getElementById('flipH').onclick = () => { S.flipH = !S.flipH; draw(); };
+document.getElementById('flipV').onclick = () => { S.flipV = !S.flipV; draw(); };
+
+document.querySelectorAll('[data-filter]').forEach(inp => {
+  inp.oninput = () => {
+    S.filters[inp.dataset.filter] = Number(inp.value);
+    inp.parentElement.querySelector('b').textContent =
+      inp.value + (inp.dataset.filter === 'blur' ? 'px' : '%');
+    draw();
+  };
+});
+document.getElementById('crop').oninput = (e) => {
+  S.crop = Number(e.target.value) / 100;
+  e.target.parentElement.querySelector('b').textContent = e.target.value + '%';
+  draw();
+};
+
+document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-preset]').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); S.preset = b.dataset.preset;
+});
+document.querySelectorAll('.sw').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.sw').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); S.colour = b.dataset.c;
+  if (S.sel >= 0) { S.shapes[S.sel].colour = S.colour; draw(); }
+});
+
+// ---- shapes and text -----------------------------------------------------
+document.querySelectorAll('[data-shape]').forEach(b => b.onclick = () => {
+  if (!S.img) { msg('Make or upload a picture first.', true); return; }
+  const kind = b.dataset.shape;
+  if (kind === 'text') {
+    const t = prompt('What should it say?', 'Fresh today');
+    if (!t) return;
+    S.shapes.push({ type:'text', text:t, x:.5, y:.15, w:.8, h:.12,
+                    size:.075, colour:S.colour, alpha:1 });
+  } else if (kind === 'bar') {
+    S.shapes.push({ type:'bar', x:.5, y:.88, w:1, h:.14,
+                    colour:S.colour, alpha:.88 });
+  } else {
+    S.shapes.push({ type:kind, x:.5, y:.5, w:.3, h:.3,
+                    colour:S.colour, alpha:.85 });
   }
-  go.disabled = false; go.textContent = 'Make the ad';
+  S.sel = S.shapes.length - 1;
+  draw();
+});
+
+function renderLayers() {
+  const box = document.getElementById('layers');
+  if (!S.shapes.length) {
+    box.innerHTML = '<p class="muted" style="font-size:12.5px;margin:0">' +
+      'Nothing added yet.</p>';
+    return;
+  }
+  box.innerHTML = S.shapes.map((s, i) =>
+    '<div class="layer' + (i === S.sel ? ' on' : '') + '" data-i="' + i + '">' +
+    '<span style="width:12px;height:12px;border-radius:4px;background:' +
+    s.colour + '"></span>' +
+    (s.type === 'text' ? ('“' + (s.text || '').slice(0, 14) + '”') : s.type) +
+    '<button data-del="' + i + '" title="Remove">&times;</button></div>').join('');
+  box.querySelectorAll('.layer').forEach(l => l.onclick = (ev) => {
+    if (ev.target.dataset.del !== undefined) {
+      S.shapes.splice(Number(ev.target.dataset.del), 1); S.sel = -1;
+    } else { S.sel = Number(l.dataset.i); }
+    draw();
+  });
+}
+
+// Drag the selected shape around the canvas.
+let drag = false;
+cv.addEventListener('pointerdown', (ev) => {
+  if (S.sel < 0) return;
+  drag = true; cv.setPointerCapture(ev.pointerId);
+});
+cv.addEventListener('pointermove', (ev) => {
+  if (!drag || S.sel < 0) return;
+  const r = cv.getBoundingClientRect();
+  S.shapes[S.sel].x = (ev.clientX - r.left) / r.width;
+  S.shapes[S.sel].y = (ev.clientY - r.top) / r.height;
+  draw();
+});
+cv.addEventListener('pointerup', () => { drag = false; });
+
+document.getElementById('reset').onclick = () => {
+  S.rotate = 0; S.flipH = S.flipV = false; S.crop = 1; S.shapes = []; S.sel = -1;
+  S.filters = { brightness:100, contrast:100, saturate:100, sepia:0,
+                grayscale:0, blur:0 };
+  document.querySelectorAll('[data-filter]').forEach(i => {
+    i.value = i.dataset.filter === 'brightness' || i.dataset.filter === 'contrast'
+      || i.dataset.filter === 'saturate' ? 100 : 0;
+    i.parentElement.querySelector('b').textContent = i.value +
+      (i.dataset.filter === 'blur' ? 'px' : '%');
+  });
+  const c = document.getElementById('crop');
+  c.value = 100; c.parentElement.querySelector('b').textContent = '100%';
+  draw();
+};
+
+document.getElementById('dl').onclick = () => {
+  if (!S.img) return;
+  const a = document.createElement('a');
+  a.download = 'lucida-ad.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
 };
 """
 
@@ -439,68 +693,131 @@ go.onclick = async () => {
 def studio_page(account: dict, provider: str, channels: dict) -> str:
     head = (
         "<div class='head'><h1>Ad studio</h1>"
-        "<p>Describe what you sell. Your team draws the poster and writes the "
-        "words for each place you post.</p></div>"
+        "<p>Draw a picture or upload your own, then crop it, colour it and "
+        "put your words on it.</p></div>"
     )
     where = " · ".join(
         f"{k.title()} {'connected' if 'needs' not in v else 'not connected'}"
         for k, v in channels.items()
     )
+
+    def slider(key, label, lo, hi, val, unit="%"):
+        return (
+            f"<div class='slider'><label>{e(label)}<b>{val}{unit}</b></label>"
+            f"<input type='range' data-filter='{key}' min='{lo}' max='{hi}' "
+            f"value='{val}'></div>"
+        )
+
+    swatches = "".join(
+        f"<div class='sw{' on' if c == '#7B1E22' else ''}' data-c='{c}' "
+        f"style='background:{c}'></div>"
+        for c in ("#7B1E22", "#000000", "#FFFFFF", "#A16207", "#B91C1C",
+                  "#1D4ED8", "#15803D", "#71717A")
+    )
+
     body = (
-        f"<div class='body'><div class='grid'>"
+        f"<div class='body'><div class='studio'>"
 
-        f"<div class='card'>"
-        f"<div class='field'><label for='product'>What are you advertising?</label>"
-        f"<input id='product' placeholder='handmade resin coasters, set of 4'>"
-        f"</div>"
-        f"<div class='field'><label for='offer'>Any offer? "
-        f"<span class='muted'>(optional)</span></label>"
-        f"<input id='offer' placeholder='2 for 1 this week'></div>"
-        f"<div class='field'><label for='audience'>Who is it for? "
-        f"<span class='muted'>(optional)</span></label>"
-        f"<input id='audience' placeholder='students in Dhaka'></div>"
-        f"<div class='field'><label for='style'>Look</label>"
-        f"<select id='style'>"
-        f"<option value='clean studio product photography'>Clean studio</option>"
-        f"<option value='warm lifestyle scene, natural light'>Warm lifestyle</option>"
-        f"<option value='bold flat colour, graphic poster'>Bold graphic</option>"
-        f"<option value='rustic wooden surface, cosy'>Rustic</option>"
-        f"</select></div>"
-        f"<label>Size</label>"
-        f"<div class='sizes'>"
+        # ---- left: what to draw -------------------------------------
+        f"<div class='panel'><h3>What to draw</h3>"
+        f"<div class='field'><label for='product'>Product</label>"
+        f"<input id='product' placeholder='handmade resin coasters'></div>"
+        f"<div class='field'><label for='detail'>Describe it "
+        f"<span class='muted'>— colour, material, setting</span></label>"
+        f"<textarea id='detail' rows='3' placeholder='deep teal with gold "
+        f"flecks, square, on a light oak table'></textarea></div>"
+        f"<div class='field'><label for='style'>Look</label><select id='style'>"
+        f"<option value='clean studio lighting, soft shadow, plain background'>"
+        f"Clean studio</option>"
+        f"<option value='warm natural window light, lifestyle scene'>"
+        f"Warm lifestyle</option>"
+        f"<option value='bold flat colour background, graphic poster'>"
+        f"Bold graphic</option>"
+        f"<option value='rustic wooden surface, cosy, warm tones'>Rustic</option>"
+        f"<option value='dark moody background, dramatic side light'>"
+        f"Dark and moody</option></select></div>"
+        f"<label>Size</label><div class='sizes'>"
         f"<div class='size on' data-preset='square'>Post<br>"
-        f"<span class='muted' style='font-size:11px'>1:1</span></div>"
+        f"<span class='muted' style='font-size:10.5px'>1:1</span></div>"
         f"<div class='size' data-preset='story'>Story<br>"
-        f"<span class='muted' style='font-size:11px'>9:16</span></div>"
+        f"<span class='muted' style='font-size:10.5px'>9:16</span></div>"
         f"<div class='size' data-preset='wide'>Wide<br>"
-        f"<span class='muted' style='font-size:11px'>16:9</span></div>"
-        f"</div>"
-        f"<button class='btn' id='go' style='width:100%'>Make the ad</button>"
-        f"<p class='muted' style='margin:12px 0 0'>Drawn by {e(provider)}. "
-        f"Artwork is generated, not a photograph of your stock — say so if a "
-        f"customer asks.</p>"
+        f"<span class='muted' style='font-size:10.5px'>16:9</span></div></div>"
+        f"<div class='row2'>"
+        f"<button class='btn' id='go'>Draw it</button>"
+        f"<button class='btn btn-quiet' id='again' style='display:none'>"
+        f"Try again</button></div>"
+        f"<div style='margin-top:10px'>"
+        f"<label class='btn btn-quiet' for='up' style='display:block;"
+        f"text-align:center;cursor:pointer'>Upload my own photo"
+        f"<input id='up' type='file' accept='image/*' hidden></label></div>"
+        f"<p class='muted' id='note' style='margin:12px 0 0;font-size:12.5px'>"
+        f"Drawn by {e(provider)}.</p>"
+        f"<div class='field' style='margin-top:14px'>"
+        f"<label for='offer'>Offer <span class='muted'>(for the words)</span>"
+        f"</label><input id='offer' placeholder='2 for 1 this week'></div>"
+        f"<div class='field' style='margin-bottom:0'><label for='audience'>"
+        f"Who it's for</label>"
+        f"<input id='audience' placeholder='students in Dhaka'></div>"
         f"</div>"
 
-        f"<div>"
-        f"<div class='preview' id='art'>"
-        f"<div class='ph'>Your poster appears here</div></div>"
-        f"<div id='saved' style='display:none;gap:9px;margin-top:12px'>"
-        f"<a class='btn btn-quiet' id='dl' download>Download the image</a>"
+        # ---- middle: the picture -------------------------------------
+        f"<div><div class='stage' id='stage'>"
+        f"<div class='ph' id='ph'>Your picture appears here.<br>"
+        f"Draw one on the left, or upload your own.</div>"
+        f"<canvas id='canvas' style='display:none'></canvas></div>"
+        f"<div id='exportRow' style='display:none;gap:9px;margin-top:12px'>"
+        f"<button class='btn' id='dl'>Download</button>"
+        f"<button class='btn btn-quiet' id='reset'>Undo all edits</button>"
         f"</div>"
-        f"<div class='card' style='margin-top:16px'>"
-        f"<span class='tag'>Ad copy</span>"
-        f"<div id='copy' style='margin-top:12px'>"
-        f"<div class='ph'>Words for Facebook, Instagram and YouTube appear "
-        f"here.</div></div></div>"
-        f"<p class='muted' style='margin-top:12px'>Publishing goes to: "
-        f"{e(where)}. <a href='/connect' style='text-decoration:underline'>"
-        f"Connect an account</a> to post straight from here.</p>"
+        f"<div class='card' style='margin-top:16px'><span class='tag'>"
+        f"Ad copy</span><div id='copy' style='margin-top:12px'>"
+        f"<p class='muted' style='margin:0'>Words for Facebook, Instagram and "
+        f"YouTube appear here once you draw something.</p></div></div>"
+        f"<p class='muted' style='margin-top:12px;font-size:12.5px'>"
+        f"Posting goes to: {e(where)} · "
+        f"<a href='/connect' style='text-decoration:underline'>connect an "
+        f"account</a>. Generated artwork is not a photograph of your stock — "
+        f"say so if a customer asks.</p></div>"
+
+        # ---- right: the tools ----------------------------------------
+        f"<div class='panel'><h3>Edit</h3>"
+        f"<div class='tools'>"
+        f"<button class='tool' data-rot='-90'>&#8630; Left</button>"
+        f"<button class='tool' data-rot='90'>&#8631; Right</button>"
+        f"<button class='tool' id='flipH'>&#8646; Flip</button>"
+        f"<button class='tool' id='flipV'>&#8645; Flip</button></div>"
+
+        f"<div class='slider'><label>Crop in<b>100%</b></label>"
+        f"<input type='range' id='crop' min='30' max='100' value='100'></div>"
+
+        f"<h3 style='margin-top:16px'>Filters</h3>"
+        + slider("brightness", "Brightness", 40, 180, 100)
+        + slider("contrast", "Contrast", 40, 200, 100)
+        + slider("saturate", "Colour", 0, 250, 100)
+        + slider("sepia", "Warmth", 0, 100, 0)
+        + slider("grayscale", "Black &amp; white", 0, 100, 0)
+        + slider("blur", "Blur", 0, 12, 0, "px")
+        +
+        f"<h3 style='margin-top:16px'>Add</h3><div class='tools'>"
+        f"<button class='tool' data-shape='text'>Text</button>"
+        f"<button class='tool' data-shape='bar'>Banner</button>"
+        f"<button class='tool' data-shape='rect'>Box</button>"
+        f"<button class='tool' data-shape='circle'>Circle</button></div>"
+        f"<label style='margin-top:6px'>Colour</label>"
+        f"<div class='swatches'>{swatches}</div>"
+        f"<h3 style='margin-top:16px'>Layers</h3>"
+        f"<div id='layers'><p class='muted' style='font-size:12.5px;margin:0'>"
+        f"Nothing added yet.</p></div>"
+        f"<p class='muted' style='margin:12px 0 0;font-size:12px'>"
+        f"Pick a layer, then drag on the picture to move it.</p>"
         f"</div>"
 
         f"</div></div>"
     )
     return shell("Ad studio", account, "/studio", head, body,
                  STUDIO_CSS, STUDIO_JS)
+
 
 
 # ---------------------------------------------------------------------------
