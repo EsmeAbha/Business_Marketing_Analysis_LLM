@@ -72,7 +72,7 @@ def _env(name: str, default: str = "") -> str:
 TEXT_DEFAULTS: dict[str, tuple[str, str]] = {
     "groq": ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
     "anthropic": ("claude-opus-5", "claude-haiku-4-5"),
-    "google": ("gemini-2.0-flash", "gemini-2.0-flash-lite"),
+    "google": ("gemini-flash-latest", "gemini-flash-lite-latest"),
 }
 
 # Per-provider output budget and retry policy. `max_tokens` is deliberately
@@ -86,7 +86,7 @@ PROVIDER_LIMITS: dict[str, dict[str, int]] = {
 
 VISION_DEFAULTS: dict[str, str] = {
     "anthropic": "claude-opus-5",
-    "google": "gemini-2.0-flash",
+    "google": "gemini-flash-latest",
     "groq": "",  # no multimodal model currently served
 }
 

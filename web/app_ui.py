@@ -488,7 +488,8 @@ def chat_page(account: dict, history: list[dict], starters: list[str],
     # The owner's own mark, so the two speakers are told apart by initial
     # rather than by both being a "Y".
     js = f"window.__ME = {json.dumps(initials)};\n" + CHAT_JS
-    return shell("Chat", account, "/", "", body, CHAT_CSS, js)
+    return shell("Chat", account, "/", "", body, CHAT_CSS + HISTORY_CSS, js,
+                 aside=history_rail(threads or [], current))
 
 
 # ---------------------------------------------------------------------------

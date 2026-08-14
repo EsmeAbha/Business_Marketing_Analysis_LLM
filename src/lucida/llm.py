@@ -16,7 +16,7 @@ import re
 from functools import lru_cache
 from typing import Any
 
-from .config import settings
+from .config import TEXT_DEFAULTS, settings
 from .observability import get_logger
 
 logger = get_logger("llm")
@@ -76,12 +76,18 @@ def _build_anthropic(model: str, max_tokens: int, api_key: str):
     return ChatAnthropic(**kwargs)
 
 
+# Gemini 3 thinks before it answers and charges the thinking to the same
+# output budget — a 200-token cap was spent entirely on reasoning and came
+# back empty. The budget cannot be switched off, so it has to be paid for.
+GOOGLE_THINKING_FLOOR = 3000
+
+
 def _build_google(model: str, max_tokens: int, api_key: str):
     from langchain_google_genai import ChatGoogleGenerativeAI
 
     return ChatGoogleGenerativeAI(
         model=model,
-        max_output_tokens=max_tokens,
+        max_output_tokens=max(max_tokens, GOOGLE_THINKING_FLOOR),
         google_api_key=api_key,
         temperature=settings.temperature,
         timeout=settings.llm_timeout_seconds,
@@ -163,12 +169,32 @@ class AllModelsBusy(ProviderError):
 
     def __init__(self, wait: str = "") -> None:
         self.wait = wait
+        # Only suggest the key the owner has not already added, or the advice
+        # reads as though the app has not noticed what they did.
+        more = (" Wait it out, or add a paid key to keep going."
+                if settings.google_api_key else
+                " Wait it out, or add a free GOOGLE_API_KEY from"
+                " aistudio.google.com/apikey in .env to keep going.")
         super().__init__(
-            "Your daily free allowance with Groq is used up"
-            + (f" — it resets in about {wait}." if wait else ".")
-            + " Nothing is broken; the model is just rationed. Wait it out, or"
-              " add a paid key or a GOOGLE_API_KEY in .env to keep going."
+            "Every model we can reach is over its cap"
+            + (f" — the next resets in about {wait}." if wait else ".")
+            + " Nothing is broken; the models are just rationed." + more
         )
+
+
+def _chain(chosen: str) -> list[tuple[str, str]]:
+    """Every (provider, model) worth trying, in the order to try them.
+
+    Groq's caps are per-model and per-day, so one being exhausted says nothing
+    about the next. When the whole of Groq is spent, a Google key — if the
+    owner has added one for photo reading — keeps the shop working rather
+    than closing it until tomorrow.
+    """
+    chain = [("groq", chosen)]
+    chain += [("groq", m) for m in GROQ_FALLBACKS if m != chosen]
+    if settings.google_api_key:
+        chain.append(("google", TEXT_DEFAULTS["google"][0]))
+    return chain
 
 
 class _Failover:
@@ -178,23 +204,23 @@ class _Failover:
     type, and the only thing every caller uses is `.invoke`.
     """
 
-    def __init__(self, models: list[str], max_tokens: int) -> None:
+    def __init__(self, models: list[tuple[str, str]], max_tokens: int) -> None:
         self._models = models
         self._max_tokens = max_tokens
 
     def invoke(self, *args, **kwargs):
         last: Exception | None = None
-        for i, model in enumerate(self._models):
+        for i, (provider, model) in enumerate(self._models):
             try:
-                return build_client(settings.provider, model,
+                return build_client(provider, model,
                                     self._max_tokens).invoke(*args, **kwargs)
             except Exception as exc:  # noqa: BLE001
                 if not is_rate_limited(exc):
                     raise
                 last = exc
                 if i + 1 < len(self._models):
-                    logger.warning("%s is over its daily cap; trying %s",
-                                   model, self._models[i + 1])
+                    logger.warning("%s is over its cap; trying %s",
+                                   model, self._models[i + 1][1])
         raise AllModelsBusy(retry_after(last) if last else "")
 
     def with_structured_output(self, *args, **kwargs):
@@ -204,9 +230,9 @@ class _Failover:
         class _Structured:
             def invoke(self, *a, **kw):
                 last: Exception | None = None
-                for i, model in enumerate(outer._models):
+                for i, (provider, model) in enumerate(outer._models):
                     try:
-                        client = build_client(settings.provider, model,
+                        client = build_client(provider, model,
                                               outer._max_tokens)
                         return client.with_structured_output(
                             *args, **kwargs).invoke(*a, **kw)
@@ -215,8 +241,8 @@ class _Failover:
                             raise
                         last = exc
                         if i + 1 < len(outer._models):
-                            logger.warning("%s is over its daily cap; trying %s",
-                                           model, outer._models[i + 1])
+                            logger.warning("%s is over its cap; trying %s",
+                                           model, outer._models[i + 1][1])
                 raise AllModelsBusy(retry_after(last) if last else "")
 
         return _Structured()
@@ -233,8 +259,7 @@ def get_llm(model: str | None = None, max_tokens: int | None = None):
     budget = max_tokens or settings.max_tokens
 
     if settings.provider == "groq":
-        chain = [chosen] + [m for m in GROQ_FALLBACKS if m != chosen]
-        return _Failover(chain, budget)
+        return _Failover(_chain(chosen), budget)
     return build_client(settings.provider, chosen, budget)
 
 
@@ -256,6 +281,22 @@ def get_vision_llm(max_tokens: int | None = None):
         settings.vision_model,
         max_tokens or settings.max_tokens,
     )
+
+
+def text_of(reply) -> str:
+    """The words out of a reply, whatever shape the provider returned.
+
+    Gemini 3 and recent Claude models return a list of content blocks with
+    the thinking in front of the answer; older models return a plain string.
+    Stringifying the list prints Python repr at the owner, so flatten it.
+    """
+    content = getattr(reply, "content", reply)
+    if isinstance(content, list):
+        content = "".join(
+            b.get("text", "") for b in content
+            if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return str(content).strip()
 
 
 def active_model_name(client) -> str:

@@ -567,7 +567,7 @@ async def api_studio_generate(request):
 
 def _write_ad_copy(product: str, offer: str, audience: str) -> str:
     """One model call for platform-specific copy — no agent graph needed."""
-    from lucida.llm import get_llm
+    from lucida.llm import get_llm, text_of
 
     ask = (
         f"Write short ad copy for a small shop selling: {product}."
@@ -578,7 +578,7 @@ def _write_ad_copy(product: str, offer: str, audience: str) -> str:
           " Write the way a shop owner speaks, not a marketer."
     )
     reply = get_llm(settings.model or "", 500).invoke(ask)
-    text = str(getattr(reply, "content", reply))
+    text = text_of(reply)
     return app_ui.e(text).replace("\n", "<br>")
 
 
@@ -790,7 +790,7 @@ async def api_research(request):
 
 
 def _read_research(query: str, context: str) -> str:
-    from lucida.llm import get_llm
+    from lucida.llm import get_llm, text_of
 
     ask = (
         f"A shop owner asked: {query}\n\n"
@@ -801,7 +801,7 @@ def _read_research(query: str, context: str) -> str:
         "the way you would tell a shopkeeper across a counter."
     )
     reply = get_llm(settings.model or "", 900).invoke(ask)
-    return str(getattr(reply, "content", reply))
+    return text_of(reply)
 
 
 async def api_ask(request):
