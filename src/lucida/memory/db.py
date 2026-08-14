@@ -327,6 +327,13 @@ CREATE TABLE IF NOT EXISTS media_assets (
 # PRAGMA check so existing shop databases upgrade in place instead of needing
 # to be rebuilt -- an owner's trading history is not disposable.
 MIGRATIONS: dict[str, dict[str, str]] = {
+    "business_profile": {
+        # Where parcels are handed to the courier. An online shop has no
+        # storefront but still dispatches from a real place, and the delivery
+        # zone is measured from there, not from the word "Online".
+        "dispatch_city": "TEXT",
+        "dispatch_area": "TEXT",
+    },
     "products": {
         # Weight drives the delivery quote, so it belongs on the product
         # rather than being typed in per order.

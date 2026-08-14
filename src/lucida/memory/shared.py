@@ -100,6 +100,21 @@ class SharedMemory:
 
     # --- structured side (delegated, kept explicit for discoverability) ---
 
+    def set_dispatch(self, city: str, area: str = "") -> None:
+        """Remember where this shop sends parcels from."""
+        self.db.execute(
+            "UPDATE business_profile SET dispatch_city=?, dispatch_area=? "
+            "WHERE id=1", (city.strip(), area.strip()))
+
+    def dispatch(self) -> tuple[str, str]:
+        rows = self.db.query(
+            "SELECT dispatch_city, dispatch_area FROM business_profile "
+            "WHERE id=1")
+        if not rows:
+            return "", ""
+        return ((rows[0].get("dispatch_city") or "").strip(),
+                (rows[0].get("dispatch_area") or "").strip())
+
     def profile(self) -> dict[str, Any]:
         return self.db.get_profile()
 

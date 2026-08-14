@@ -175,6 +175,7 @@ async def delivery_page(request):
             "SELECT name, weight_g, sell_price FROM products ORDER BY name"),
         zones=delivery_pricing.zones(memory.db),
         courier=connections.courier_ready(memory.db),
+        dispatch=memory.dispatch(),
         note=request.session.pop("delivery_note", "")))
 
 
@@ -187,13 +188,29 @@ async def api_delivery_quote(request):
 
     items = [{"product_name": str(body.get("product") or ""),
               "quantity": int(body.get("quantity") or 1)}]
-    # The shop's own city decides whether an address is local. Without it
-    # every parcel would price as the most expensive zone.
-    kind = delivery_pricing.classify_address(
-        area=str(body.get("area") or ""),
-        city=str(body.get("city") or ""),
-        shop_city=str((account.get("location") or "").split(",")[0].strip()),
-        shop_area=str(body.get("shop_area") or ""))
+
+    # The zone decides the charge, so the owner's own choice wins. Guessing
+    # from the address is only the default, and only when the shop has a real
+    # town recorded — "Online" is not one, and matching it against "Dhaka"
+    # would quietly price every local parcel as long-distance.
+    # If the owner told us where they send from, remember it — they should
+    # not have to type it for every parcel.
+    from_city = str(body.get("from_city") or "").strip()
+    from_area = str(body.get("from_area") or "").strip()
+    if from_city:
+        memory.set_dispatch(from_city, from_area)
+    else:
+        from_city, from_area = memory.dispatch()
+
+    kind = str(body.get("zone") or "").strip()
+    if kind not in ("same_area", "inside_city", "outside_city"):
+        # Measured from where the parcel is handed over, not from the shop's
+        # description of itself: "Online" is not a place a courier drives to.
+        kind = delivery_pricing.classify_address(
+            area=str(body.get("area") or ""),
+            city=str(body.get("city") or ""),
+            shop_city=from_city,
+            shop_area=from_area)
 
     q = delivery_pricing.quote(
         memory.db, items, kind=kind,
@@ -202,6 +219,7 @@ async def api_delivery_quote(request):
 
     return JSONResponse({
         "known": q.known,
+        "zoneKind": kind,
         "zone": q.zone_name or kind.replace("_", " "),
         "weight_g": q.weight_g,
         "billable_kg": q.billable_kg,

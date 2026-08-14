@@ -1039,6 +1039,8 @@ async function priceIt() {
   const body = {
     product: $('dproduct').value, quantity: +$('dqty').value || 1,
     area: $('darea').value, city: $('dcity').value,
+    from_city: $('fcity').value, from_area: $('farea').value,
+    zone: $('dzone').value,
     cod: $('dcod').checked,
   };
   $('qbox').innerHTML = '<div class="qwait">Working it out…</div>';
@@ -1100,7 +1102,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 def delivery_page(account: dict, products: list[dict], zones: list[dict],
-                  courier: str = "", note: str = "") -> str:
+                  courier: str = "", dispatch: tuple = ("", ""),
+                  note: str = "") -> str:
     """Weigh a parcel, price it honestly, and hand it to a real courier."""
     head = (
         "<div class='head'><h1>Delivery</h1>"
@@ -1146,7 +1149,18 @@ def delivery_page(account: dict, products: list[dict], zones: list[dict],
         f"<div class='dgrid'>"
 
         f"<div class='card'>"
-        f"<h3 style='margin:0 0 14px;font-size:15px'>What is going where</h3>"
+        f"<h3 style='margin:0 0 4px;font-size:15px'>Where you send from</h3>"
+        f"<p class='muted' style='margin:0 0 12px'>The zone is the distance "
+        f"from here to the customer. An online shop still packs the parcel "
+        f"somewhere — put that place in.</p>"
+        f"<div class='two'>"
+        f"<div class='field'><label for='fcity'>City</label>"
+        f"<input id='fcity' value='{e(dispatch[0])}' placeholder='Dhaka'></div>"
+        f"<div class='field'><label for='farea'>Area</label>"
+        f"<input id='farea' value='{e(dispatch[1])}' placeholder='Mirpur'></div>"
+        f"</div>"
+        f"<h3 style='margin:16px 0 14px;font-size:15px'>What is going where"
+        f"</h3>"
         f"<div class='field'><label for='dproduct'>Product</label>"
         f"<select id='dproduct'>{options}</select></div>"
         f"<div class='two'>"
@@ -1157,6 +1171,13 @@ def delivery_page(account: dict, products: list[dict], zones: list[dict],
         f"</div>"
         f"<div class='field'><label for='darea'>Area</label>"
         f"<input id='darea' placeholder='Gulshan'></div>"
+        f"<div class='field'><label for='dzone'>Which rate applies</label>"
+        f"<select id='dzone'>"
+        f"<option value=''>Work it out from the address</option>"
+        f"<option value='same_area'>Same area as you</option>"
+        f"<option value='inside_city'>Inside your city</option>"
+        f"<option value='outside_city'>Outside your city</option>"
+        f"</select></div>"
         f"<label style='display:flex;align-items:center;gap:8px;font-weight:400'>"
         f"<input id='dcod' type='checkbox' checked style='width:auto'>"
         f"Cash on delivery</label>"
