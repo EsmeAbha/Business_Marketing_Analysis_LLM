@@ -52,6 +52,19 @@ from web import (  # noqa: E402
 
 logger = get_logger("serve")
 
+
+def page(markup: str, status: int = 200) -> HTMLResponse:
+    """An HTML response the browser will not serve from cache.
+
+    Every screen here is per-account and changes with the shop's data, so a
+    cached copy is always the wrong one — and during development it means a
+    fix that shipped looks like a fix that did not.
+    """
+    return HTMLResponse(markup, status_code=status, headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+    })
+
 DESIGN_DIR = Path(__file__).parent / "web" / "design"
 INDEX = DESIGN_DIR / "index.html"
 
@@ -136,7 +149,7 @@ async def login(request):
     if current_account(request) is not None:
         return RedirectResponse("/", status_code=303)
     if request.method == "GET":
-        return HTMLResponse(screens.login_page(
+        return page(screens.login_page(
             notice=request.query_params.get("notice", ""),
             google=google_oauth.enabled()))
     form = await request.form()
@@ -146,7 +159,7 @@ async def login(request):
     except auth.AuthError as exc:
         return HTMLResponse(
             screens.login_page(str(exc), email, google=google_oauth.enabled()),
-            status_code=401)
+            401)
     request.session["account_id"] = account["id"]
     return RedirectResponse("/", status_code=303)
 
@@ -155,7 +168,7 @@ async def signup(request):
     if current_account(request) is not None:
         return RedirectResponse("/", status_code=303)
     if request.method == "GET":
-        return HTMLResponse(screens.signup_page(google=google_oauth.enabled()))
+        return page(screens.signup_page(google=google_oauth.enabled()))
 
     form = await request.form()
     values = {k: str(form.get(k) or "") for k in (
@@ -174,7 +187,7 @@ async def signup(request):
     except auth.AuthError as exc:
         return HTMLResponse(
             screens.signup_page(str(exc), values, google=google_oauth.enabled()),
-            status_code=400)
+            400)
 
     # Seed the new shop's own memory with what they just told us, so the
     # agents start from the owner's facts instead of estimating them.
@@ -343,7 +356,7 @@ async def account_page(request):
         "campaigns": stats.get("campaigns", 0),
         "things remembered": stats.get("knowledge_documents", 0),
     }
-    return HTMLResponse(screens.account_page(account, error, notice, friendly))
+    return page(screens.account_page(account, error, notice, friendly))
 
 
 async def account_avatar(request):
@@ -377,7 +390,7 @@ async def account_password(request):
         auth.change_password(account["id"], str(form.get("current") or ""),
                              str(form.get("new") or ""))
     except auth.AuthError as exc:
-        return HTMLResponse(screens.account_page(account, str(exc)),
+        return page(screens.account_page(account, str(exc)),
                             status_code=400)
     return RedirectResponse("/account?notice=Password+changed.", status_code=303)
 
@@ -424,7 +437,7 @@ async def chat(request):
         return RedirectResponse("/login", status_code=303)
     if not auth.is_verified(account):
         return RedirectResponse("/verify", status_code=303)
-    return HTMLResponse(app_ui.chat_page(
+    return page(app_ui.chat_page(
         _who(account), _CHATS.get(account["id"], []), STARTERS))
 
 
@@ -432,7 +445,7 @@ async def studio(request):
     account = current_account(request)
     if account is None:
         return RedirectResponse("/login", status_code=303)
-    return HTMLResponse(app_ui.studio_page(
+    return page(app_ui.studio_page(
         _who(account), imagegen.status(), channels.status()))
 
 
@@ -442,7 +455,7 @@ async def connect(request):
         return RedirectResponse("/login", status_code=303)
     backend = ("Turso (hosted)" if settings.uses_remote_db
                else "A private SQLite file on this machine")
-    return HTMLResponse(app_ui.connect_page(
+    return page(app_ui.connect_page(
         _who(account), channels.status(), imagegen.status(), backend,
         bool(settings.has_llm)))
 
@@ -451,7 +464,7 @@ async def api_studio_generate(request):
     """Draw the poster and write the words, in one go."""
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
 
     body = await request.json()
     product = str(body.get("product") or "").strip()
@@ -527,7 +540,7 @@ async def api_studio_upload(request):
     """
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
 
     form = await request.form()
     upload = form.get("photo")
@@ -561,7 +574,7 @@ async def api_studio_upload(request):
 async def media(request):
     """Serve generated artwork back to the page that asked for it."""
     if current_account(request) is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
     name = Path(request.path_params["name"]).name      # no traversal
     path = imagegen.MEDIA_DIR / name
     if not path.exists():
@@ -596,7 +609,7 @@ async def api_state(request):
     """The same snapshot, for polling after an action."""
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
     return JSONResponse(_snapshot(_session_for(account["id"]), account))
 
 
@@ -648,7 +661,7 @@ async def api_ask(request):
         )
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
     session_id = _session_for(account["id"])
 
     body = await request.json()
@@ -772,7 +785,7 @@ async def api_upload(request):
     """
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
     session_id = _session_for(account["id"])
 
     if not settings.has_llm:
@@ -833,7 +846,7 @@ async def api_sale(request):
     """
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
 
     body = await request.json()
     product = str(body.get("product") or "").strip()
@@ -871,7 +884,7 @@ async def api_inbox_sync(request):
     """Pull new customer messages in from every connected platform."""
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
 
     result = await asyncio.to_thread(inbox.sync, memory.db)
     snap = _snapshot(_session_for(account["id"]), account)
@@ -895,7 +908,7 @@ async def api_reply(request):
     """
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
 
     body = await request.json()
     try:
@@ -925,7 +938,7 @@ async def api_decide(request):
     """Answer the human-in-the-loop gate the graph is suspended on."""
     account = current_account(request)
     if account is None:
-        return JSONResponse({"error": "not signed in"}, status_code=401)
+        return JSONResponse({"error": "not signed in"}, 401)
     session_id = _session_for(account["id"])
 
     body = await request.json()
