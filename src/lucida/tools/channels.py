@@ -86,28 +86,71 @@ class Inbox:
 # ---------------------------------------------------------------------------
 
 
+def _shop_db():
+    """The signed-in shop's database, or None outside a request.
+
+    Imported here rather than at module scope: memory imports tools, so a
+    top-level import would be circular.
+    """
+    try:
+        from ..memory import memory
+        return memory.db
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _creds(platform: str) -> tuple[str, str]:
+    from . import connections
+    return connections.credentials(_shop_db(), platform)
+
+
+def _token() -> str:
+    return _creds("facebook")[0]
+
+
+def _page() -> str:
+    return _creds("facebook")[1]
+
+
+def _ig_token() -> str:
+    return _creds("instagram")[0]
+
+
+def _ig() -> str:
+    return _creds("instagram")[1]
+
+
+def _yt_app() -> tuple[str, str]:
+    from . import connections
+    return connections.google_app()
+
+
+def _yt_refresh() -> str:
+    return _creds("youtube")[0]
+
+
 def meta_ready() -> bool:
-    return bool(settings.meta_access_token and settings.meta_page_id)
+    return bool(_token() and _page())
 
 
 def instagram_ready() -> bool:
-    return bool(settings.meta_access_token and settings.meta_ig_user_id)
+    return bool(_ig_token() and _ig())
 
 
 def youtube_ready() -> bool:
     """Uploading needs OAuth, not the API key — which only reads."""
-    return bool(getattr(settings, "youtube_refresh_token", "")
-                and getattr(settings, "youtube_client_id", ""))
+    from . import connections
+    return bool(_yt_refresh() and connections.google_app()[0])
 
 
 def status() -> dict[str, str]:
     return {
         "messenger": "connected" if meta_ready()
-                     else "needs META_ACCESS_TOKEN + META_PAGE_ID (App Review: pages_messaging)",
+                     else "needs a Page token (App Review: pages_messaging)",
         "facebook": "connected" if meta_ready()
-                    else "needs META_ACCESS_TOKEN + META_PAGE_ID",
+                    else "needs a Page token",
         "instagram": "connected" if instagram_ready()
-                     else "needs META_ACCESS_TOKEN + META_IG_USER_ID (Business account)",
+                     else "needs a Page token + Instagram Business account id",
         "youtube": "connected" if youtube_ready()
                    else "needs OAuth2 refresh token — an API key cannot upload",
     }
@@ -151,11 +194,11 @@ def read_messenger(limit: int = 25) -> Inbox:
     if not meta_ready():
         return Inbox(_sample_dms("messenger", limit), simulated=True)
 
-    data, err = _get(f"{GRAPH}/{settings.meta_page_id}/conversations", {
+    data, err = _get(f"{GRAPH}/{_page()}/conversations", {
         "fields": "participants,updated_time,"
                   "messages.limit(10){message,from,created_time,id}",
         "limit": limit,
-        "access_token": settings.meta_access_token,
+        "access_token": _token(),
     })
     if err:
         logger.warning("messenger read failed: %s", err)
@@ -167,7 +210,7 @@ def read_messenger(limit: int = 25) -> Inbox:
         for m in (convo.get("messages", {}) or {}).get("data", []):
             sender = (m.get("from") or {})
             # Skip the shop's own replies; only the customer's words matter.
-            if str(sender.get("id")) == str(settings.meta_page_id):
+            if str(sender.get("id")) == str(_page()):
                 continue
             out.append({
                 "platform": "messenger", "kind": "dm",
@@ -185,11 +228,11 @@ def read_instagram(limit: int = 25) -> Inbox:
     if not instagram_ready():
         return Inbox(_sample_dms("instagram", limit), simulated=True)
 
-    data, err = _get(f"{GRAPH}/{settings.meta_ig_user_id}/conversations", {
+    data, err = _get(f"{GRAPH}/{_ig()}/conversations", {
         "fields": "participants,messages.limit(10){message,from,created_time,id}",
         "platform": "instagram",
         "limit": limit,
-        "access_token": settings.meta_access_token,
+        "access_token": _token(),
     })
     if err:
         logger.warning("instagram read failed: %s", err)
@@ -199,7 +242,7 @@ def read_instagram(limit: int = 25) -> Inbox:
     for convo in data.get("data", []):
         for m in (convo.get("messages", {}) or {}).get("data", []):
             sender = (m.get("from") or {})
-            if str(sender.get("id")) == str(settings.meta_ig_user_id):
+            if str(sender.get("id")) == str(_ig()):
                 continue
             out.append({
                 "platform": "instagram", "kind": "dm",
@@ -224,7 +267,7 @@ def read_comments(platform: str, post_external_id: str,
     data, err = _get(f"{GRAPH}/{post_external_id}/comments", {
         "fields": "id,text,message,username,from,timestamp,created_time",
         "limit": limit,
-        "access_token": settings.meta_access_token,
+        "access_token": _token(),
     })
     if err:
         logger.warning("%s comments failed: %s", platform, err)
@@ -257,7 +300,7 @@ def post_facebook(message: str, link: str = "",
         return _simulated("facebook", "post", message)
 
     endpoint = "photos" if image_url else "feed"
-    payload = {"access_token": settings.meta_access_token}
+    payload = {"access_token": _token()}
     if image_url:
         payload |= {"url": image_url, "caption": message}
     else:
@@ -265,7 +308,7 @@ def post_facebook(message: str, link: str = "",
         if link:
             payload["link"] = link
 
-    data, err = _post(f"{GRAPH}/{settings.meta_page_id}/{endpoint}", payload)
+    data, err = _post(f"{GRAPH}/{_page()}/{endpoint}", payload)
     if err:
         return ChannelResult(False, "facebook", "post", False, error=err)
     pid = str(data.get("post_id") or data.get("id") or "")
@@ -291,16 +334,16 @@ def post_instagram(caption: str, image_url: str) -> ChannelResult:
             error="Instagram fetches the image itself, so it needs a public "
                   "URL — a local file path cannot be published")
 
-    container, err = _post(f"{GRAPH}/{settings.meta_ig_user_id}/media", {
+    container, err = _post(f"{GRAPH}/{_ig()}/media", {
         "image_url": image_url, "caption": caption,
-        "access_token": settings.meta_access_token,
+        "access_token": _token(),
     })
     if err:
         return ChannelResult(False, "instagram", "post", False, error=err)
 
-    published, err = _post(f"{GRAPH}/{settings.meta_ig_user_id}/media_publish", {
+    published, err = _post(f"{GRAPH}/{_ig()}/media_publish", {
         "creation_id": container.get("id"),
-        "access_token": settings.meta_access_token,
+        "access_token": _token(),
     })
     if err:
         return ChannelResult(False, "instagram", "post", False, error=err)
@@ -317,7 +360,7 @@ def reply_to_comment(platform: str, comment_id: str,
         return _simulated(platform, "reply", message)
 
     data, err = _post(f"{GRAPH}/{comment_id}/replies", {
-        "message": message, "access_token": settings.meta_access_token,
+        "message": message, "access_token": _token(),
     })
     if err:
         return ChannelResult(False, platform, "reply", False, error=err)
@@ -335,11 +378,11 @@ def send_dm(platform: str, recipient_id: str, message: str) -> ChannelResult:
     if not meta_ready():
         return _simulated(platform, "dm", message)
 
-    data, err = _post(f"{GRAPH}/{settings.meta_page_id}/messages", {
+    data, err = _post(f"{GRAPH}/{_page()}/messages", {
         "recipient": f'{{"id":"{recipient_id}"}}',
         "message": f'{{"text":{message!r}}}',
         "messaging_type": "RESPONSE",
-        "access_token": settings.meta_access_token,
+        "access_token": _token(),
     })
     if err:
         return ChannelResult(False, platform, "dm", False, error=err)
@@ -367,9 +410,9 @@ def upload_youtube(video_path: str, title: str, description: str = "",
                              error=f"no video at {video_path}")
 
     token, err = _post("https://oauth2.googleapis.com/token", {
-        "client_id": settings.youtube_client_id,
-        "client_secret": settings.youtube_client_secret,
-        "refresh_token": settings.youtube_refresh_token,
+        "client_id": _yt_app()[0],
+        "client_secret": _yt_app()[1],
+        "refresh_token": _yt_refresh(),
         "grant_type": "refresh_token",
     })
     if err:
