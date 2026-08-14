@@ -15,16 +15,16 @@ import html
 from typing import Any
 
 # Tokens, matching web/design and ui/theme.py.
-GROUND = "#F7F5F0"
-RAIL = "#FBFAF7"
-SURFACE = "#FFFFFF"
-SUNKEN = "#F1EEE6"
-BORDER = "#E5E0D6"
-INK = "#18211D"
-BODY = "#4A554E"
-MUTED = "#7C877F"
-GREEN = "#14603F"
-GREEN_TINT = "#EAF1EC"
+GROUND = "#F4EADA"
+RAIL = "#FAF3E7"
+SURFACE = "#FDFAF4"
+SUNKEN = "#EFE2CE"
+BORDER = "#DDCDB4"
+INK = "#17120F"
+BODY = "#4A3728"
+MUTED = "#8A7563"
+ACCENT = "#7B1E22"
+ACCENT_TINT = "#F3E2E1"
 BUTTON = "#7B1E22"
 BUTTON_DARK = "#5E1519"
 BUTTON_TINT = "#F6E9EA"
@@ -69,9 +69,9 @@ input:focus, select:focus, textarea:focus {{
 .note {{ font-size:12.5px; color:{MUTED}; line-height:1.55; }}
 .alert {{ background:{DANGER_TINT}; border:1px solid {DANGER}; color:{DANGER};
   border-radius:10px; padding:10px 13px; font-size:13px; margin-bottom:16px; }}
-.ok {{ background:{GREEN_TINT}; border:1px solid {GREEN}; color:{GREEN};
+.ok {{ background:{ACCENT_TINT}; border:1px solid {ACCENT}; color:{ACCENT};
   border-radius:10px; padding:10px 13px; font-size:13px; margin-bottom:16px; }}
-.mark {{ width:38px; height:38px; border-radius:12px; background:{GREEN};
+.mark {{ width:38px; height:38px; border-radius:12px; background:{ACCENT};
   color:#F4EFE2; display:grid; place-items:center; font-family:{SERIF};
   font-size:21px; }}
 """
@@ -117,7 +117,7 @@ SPLIT_CSS = f"""
   justify-content:center; }}
 .form-wrap {{ width:100%; max-width:430px; margin:0 auto; }}
 .bullet {{ display:flex; gap:11px; margin-bottom:15px; }}
-.bullet .dot {{ width:7px;height:7px;border-radius:50%;background:{GREEN};
+.bullet .dot {{ width:7px;height:7px;border-radius:50%;background:{ACCENT};
   margin-top:7px;flex:none; }}
 @media (max-width: 900px) {{
   .split {{ grid-template-columns:1fr; }}
@@ -373,12 +373,12 @@ ACCOUNT_CSS = f"""
 .wrap {{ max-width:760px; margin:0 auto; padding:34px 24px 70px; }}
 .top {{ display:flex; align-items:center; gap:14px; margin-bottom:26px; }}
 .avatar {{ width:64px; height:64px; border-radius:20px; object-fit:cover;
-  border:1px solid {BORDER}; background:{GREEN}; color:#F4EFE2;
+  border:1px solid {BORDER}; background:{ACCENT}; color:#F4EFE2;
   display:grid; place-items:center; font-family:{SERIF}; font-size:26px; }}
 .sec {{ font-size:16px; font-weight:600; margin:26px 0 12px; }}
 .pill {{ display:inline-flex; align-items:center; font-size:11.5px;
   font-weight:500; padding:3px 9px; border-radius:999px;
-  background:{GREEN_TINT}; color:{GREEN}; }}
+  background:{ACCENT_TINT}; color:{ACCENT}; }}
 .back {{ font-size:13px; color:{BODY}; }}
 .actions {{ display:flex; gap:10px; margin-top:16px; }}
 .actions .btn {{ width:auto; }}

@@ -27,17 +27,17 @@ from lucida.memory import memory
 from lucida.observability import bus
 
 # The design's palette, referenced by the shapes below.
-INK = "#18211D"
-BODY_FG = "#4A554E"
-MUTED = "#7C877F"
-FAINT = "#A19B8E"
-GREEN = "#14603F"
-GREEN_TINT = "#EAF1EC"
+INK = "#17120F"
+BODY_FG = "#4A3728"
+MUTED = "#8A7563"
+FAINT = "#A89680"
+ACCENT = "#7B1E22"
+ACCENT_TINT = "#F3E2E1"
 AMBER = "#B4741B"
 AMBER_TINT = "#FBF1E1"
 RED = "#A63A2E"
 RED_TINT = "#F8E9E6"
-NEUTRAL_TINT = "#F1EEE6"
+NEUTRAL_TINT = "#EFE2CE"
 
 DASH = "—"
 
@@ -97,8 +97,8 @@ def stock() -> list[dict]:
             sub_bits.append(str(item["category"]))
         rows.append({
             "initial": _initial(str(item.get("name", "?"))),
-            "thumbBg": AMBER_TINT if low else GREEN_TINT,
-            "thumbFg": AMBER if low else GREEN,
+            "thumbBg": AMBER_TINT if low else ACCENT_TINT,
+            "thumbFg": AMBER if low else ACCENT,
             "name": item.get("name") or "Unnamed item",
             "sub": " · ".join(sub_bits) or "No price set yet",
             "qty": f"{qty:,} pcs",
@@ -120,7 +120,7 @@ def stock() -> list[dict]:
 
 
 _SENTIMENT = {
-    "positive": ("Happy", GREEN, GREEN_TINT),
+    "positive": ("Happy", ACCENT, ACCENT_TINT),
     "negative": ("Upset", RED, RED_TINT),
     "neutral": ("Neutral", BODY_FG, NEUTRAL_TINT),
 }
@@ -189,8 +189,8 @@ def demands() -> list[dict]:
 
 
 _CAMPAIGN_TONE = {
-    "published": (GREEN, GREEN_TINT),
-    "approved": (GREEN, GREEN_TINT),
+    "published": (ACCENT, ACCENT_TINT),
+    "approved": (ACCENT, ACCENT_TINT),
     "drafted": (AMBER, AMBER_TINT),
     "failed": (RED, RED_TINT),
 }
@@ -243,7 +243,7 @@ def _pnl_row(k, v, note="", strong=False, good=False):
         "k": k, "v": v, "note": note,
         "weight": "700" if strong else "400",
         "keyColor": INK if strong else BODY_FG,
-        "vColor": GREEN if good else (INK if strong else BODY_FG),
+        "vColor": ACCENT if good else (INK if strong else BODY_FG),
     }
 
 
@@ -322,7 +322,7 @@ def cost_bars(session_id: str) -> list[dict]:
             "tok": f"{int(r['tokens']):,}",
             "cost": f"${r['usd']:.4f}",
             "pct": max(2, round((r["usd"] / top) * 100)),
-            "color": AMBER if r["usd"] >= top else GREEN,
+            "color": AMBER if r["usd"] >= top else ACCENT,
         }
         for name, r in sorted(per.items(), key=lambda kv: -kv[1]["usd"])
     ]
@@ -587,13 +587,13 @@ def mem_records() -> list[dict]:
 # Which agent's work belongs under which heading in the History log.
 _HISTORY_CAT = {
     "inventory": ("Stock", AMBER),
-    "engagement": ("Customers", GREEN),
-    "pricing": ("Money", GREEN),
-    "ad_creative": ("Marketing", GREEN),
-    "delivery": ("Delivery", GREEN),
-    "market_research": ("Research", GREEN),
-    "product_vision": ("Products", GREEN),
-    "reporting": ("Reports", GREEN),
+    "engagement": ("Customers", ACCENT),
+    "pricing": ("Money", ACCENT),
+    "ad_creative": ("Marketing", ACCENT),
+    "delivery": ("Delivery", ACCENT),
+    "market_research": ("Research", ACCENT),
+    "product_vision": ("Products", ACCENT),
+    "reporting": ("Reports", ACCENT),
     "supervisor": ("Planning", MUTED),
 }
 

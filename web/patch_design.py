@@ -79,58 +79,69 @@ window.LUCIDA = window.LUCIDA || {};
   margin-right: auto !important;
 }
 
-/* Buttons in maroon red instead of the design's brand green.
-   Matched on the inline style and marked !important, because that is the
-   one thing that outranks an inline style — and the design both paints
-   buttons inline and applies hover by mutating that same inline style.
-
-   The selectors use rgb() rather than #14603F: React re-serialises inline
-   colours, so the hex never appears in the rendered style attribute even
-   though it is what the design source says. */
-button[style*="background: rgb(20, 96, 63)"] {
-  background: #7B1E22 !important;
-}
-button[style*="background: rgb(20, 96, 63)"]:hover {
-  background: #5E1519 !important;
-}
-/* Green label / border on outline and toggle buttons.
-   `color: rgb(...)` also matches inside `border-color: rgb(...)`, which is
-   deliberate — both should move together. */
-button[style*="color: rgb(20, 96, 63)"] { color: #7B1E22 !important; }
-/* Borders are recoloured per side rather than through the `border-color`
-   shorthand: several buttons set their border with the `border` shorthand
-   (`1px solid rgb(…)`), and shorthand-over-shorthand does not reliably win
-   against an inline declaration. The four longhands always do. */
-button[style*="border-color: rgb(20, 96, 63)"],
-button[style*="solid rgb(20, 96, 63)"] {
-  border-top-color: #7B1E22 !important;
-  border-right-color: #7B1E22 !important;
-  border-bottom-color: #7B1E22 !important;
-  border-left-color: #7B1E22 !important;
-}
-/* The pale green wash behind an active nav row / selected toggle. */
-button[style*="background: rgb(234, 241, 236)"] {
-  background: #F6E9EA !important;
-}
 </style>
 """
 
-# Buttons are maroon red rather than the design's brand green.
+# The palette. The design was drawn in deep green on warm paper; this recasts
+# it as coffee and cream with maroon red as the one accent, black for type and
+# white used sparingly.
 #
-# The injected stylesheet handles buttons whose colour is written straight
-# into the markup. These entries cover the rest: selected-state colours that
-# the view model computes in JS and hands to a button as `bg` / `border` /
-# `fg`. They are matched as whole ternaries — `selected ? green : neutral` —
-# which only ever appear on toggle buttons, so nothing green outside a button
-# (status pills, graph nodes, links) is touched.
-BUTTON_COLOURS = [
-    ("? '#14603F' : '#E5E0D6'", "? '#7B1E22' : '#E5E0D6'"),   # border
-    ("? '#14603F' : '#4A554E'", "? '#7B1E22' : '#4A554E'"),   # label
-    ("? '#14603F' : '#18211D'", "? '#7B1E22' : '#18211D'"),   # label
-    ("? '#EAF1EC' : '#FFFFFF'", "? '#F6E9EA' : '#FFFFFF'"),   # wash
-    ("? '#EAF1EC' : '#FBFAF7'", "? '#F6E9EA' : '#FBFAF7'"),   # wash
-    ("? '#EAF1EC' : 'transparent'", "? '#F6E9EA' : 'transparent'"),
-]
+# Applied to the whole bundle — markup and view model alike — as a literal
+# colour-for-colour substitution. Replacing at source rather than overriding in
+# CSS means there is no cascade to lose against inline styles, and no colour
+# can survive in a code path that happens not to be exercised yet.
+#
+#   cream   dominant surface and ground
+#   coffee  body copy, muted labels, borders, dividers
+#   black   headings
+#   maroon  the accent — brand, actions, active state
+#   white   used only where a card must lift off the cream
+#
+# Green is gone entirely: every one of its shades maps onto maroon.
+PALETTE = {
+    # --- brand green -> maroon red -------------------------------------
+    "#14603F": "#7B1E22",   # accent
+    "#0E4A30": "#5E1519",   # accent, pressed
+    "#EAF1EC": "#F3E2E1",   # accent wash
+    "#CFE0D5": "#E4C9C8",   # accent edge
+    "#9EB3A4": "#B79E86",   # muted accent -> coffee
+    "#F4F8F5": "#FAF3E7",   # palest accent -> cream
+
+    # --- greys with a green cast -> coffee ------------------------------
+    "#7C877F": "#8A7563",   # muted labels
+    "#4A554E": "#4A3728",   # body copy
+    "#18211D": "#17120F",   # headings -> black
+    "#A19B8E": "#A89680",   # faint
+
+    # --- paper -> cream --------------------------------------------------
+    "#F7F5F0": "#F4EADA",   # ground
+    "#FBFAF7": "#FAF3E7",   # rail, table headers
+    "#F1EEE6": "#EFE2CE",   # sunken wells
+    "#F5F2EA": "#F2E6D4",
+    "#FFFFFF": "#FDFAF4",   # card surface — near-white, so white stays rare
+
+    # --- hairlines -> coffee ---------------------------------------------
+    "#E5E0D6": "#DDCDB4",
+    "#EFEBE1": "#E7DAC4",
+    "#DCD3BE": "#D6C4A8",
+    "#DDD8CC": "#D2BFA4",
+    "#C9C3B4": "#CBB99E",
+    "#E1DCD1": "#DCCBB2",
+    "#DFDACE": "#DACAB0",
+    "#CFC8B8": "#C7B499",
+
+    # --- accents borrowed from other brands -> palette --------------------
+    "#5B4B9B": "#6B4F3A",   # store label (purple)
+    "#EDEAF6": "#EFE2CE",
+    "#1F6470": "#4A3728",   # store label (teal)
+    "#E8F1F2": "#EFE2CE",
+    "#A6377C": "#7B1E22",   # Instagram magenta
+    "#2B5C9B": "#6B4F3A",   # Facebook blue
+
+    # Amber and the danger reds already sit in the coffee family, so they
+    # stay: #B4741B, #FBF1E1, #F0DFC2, #A63A2E, #F8E9E6, #F0DAD6, #EBDCC2,
+    # #F4EFE2.
+}
 
 # Handler rebinds: give the design's own controls real effects. Each entry is
 # (exact source fragment, replacement). The markup is never touched — only what
@@ -242,12 +253,18 @@ def patch(src: str) -> tuple[str, list[str], list[str]]:
         src = src.replace(needle, replacement, 1)
         done.append(f"handler:{needle.strip().split('(')[0].split(':')[0][:30]}")
 
+    # Case-insensitively, because the bundle mixes #14603F and #14603f.
     recoloured = 0
-    for needle, replacement in BUTTON_COLOURS:
-        recoloured += src.count(needle)
-        src = src.replace(needle, replacement)
+    def _swap(match):
+        nonlocal recoloured
+        hit = PALETTE.get(match.group(0).upper())
+        if hit is None:
+            return match.group(0)
+        recoloured += 1
+        return hit
+    src = re.sub(r"#[0-9A-Fa-f]{6}", _swap, src)
     if recoloured:
-        done.append(f"button-colours:{recoloured}")
+        done.append(f"palette:{recoloured}")
 
     if "window.__resources" not in src:
         src = src.replace(
