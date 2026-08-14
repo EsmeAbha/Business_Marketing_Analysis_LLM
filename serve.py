@@ -446,7 +446,8 @@ async def studio(request):
     if account is None:
         return RedirectResponse("/login", status_code=303)
     return page(app_ui.studio_page(
-        _who(account), imagegen.status(), channels.status()))
+        _who(account), imagegen.status(), channels.status(),
+        imagegen.quality_note()))
 
 
 async def connect(request):
