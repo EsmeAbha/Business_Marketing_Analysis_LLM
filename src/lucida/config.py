@@ -107,6 +107,21 @@ class Settings:
     # --- Tools ---
     tavily_api_key: str = field(default_factory=lambda: _env("TAVILY_API_KEY"))
 
+    # --- Database ---
+    # Blank = the bundled SQLite file, which needs no account and is the
+    # default. Set these to a free Turso (libSQL) database to keep the shop's
+    # memory off this machine and share it between the two front-ends or
+    # between deployments. libSQL speaks SQLite's dialect, so the schema and
+    # every query are unchanged.
+    database_url: str = field(default_factory=lambda: _env("AIW_DATABASE_URL"))
+    database_auth_token: str = field(
+        default_factory=lambda: _env("AIW_DATABASE_AUTH_TOKEN")
+    )
+
+    @property
+    def uses_remote_db(self) -> bool:
+        return self.database_url.startswith(("libsql://", "wss://", "https://"))
+
     # --- Social publishing ---
     meta_access_token: str = field(default_factory=lambda: _env("META_ACCESS_TOKEN"))
     meta_page_id: str = field(default_factory=lambda: _env("META_PAGE_ID"))

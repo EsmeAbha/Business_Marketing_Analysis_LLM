@@ -17,6 +17,7 @@ still renders exactly as drawn.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from lucida.agents.base import ledger_for
@@ -167,16 +168,18 @@ def demands() -> list[dict]:
         item = (c.get("requested_item") or "unspecified").strip().lower()
         counts[item] = counts.get(item, 0) + 1
     stocked = {str(p.get("name", "")).lower() for p in memory.products()}
+    ranked = sorted(counts.items(), key=lambda kv: -kv[1])[:12]
+    top = ranked[0][1] if ranked else 1
+    # Shape: {name, note, n, pct} — pct is a bar width against the top item.
     return [
         {
             "name": item,
-            "count": f"{n}",
             "note": "already in your catalogue" if item in stocked
-                    else "not stocked yet",
-            "fg": GREEN if item in stocked else AMBER,
-            "bg": GREEN_TINT if item in stocked else AMBER_TINT,
+                    else "nobody asked before this week",
+            "n": n,
+            "pct": round((n / top) * 100),
         }
-        for item, n in sorted(counts.items(), key=lambda kv: -kv[1])[:12]
+        for item, n in ranked
     ]
 
 
@@ -194,33 +197,25 @@ _CAMPAIGN_TONE = {
 
 
 def campaigns() -> list[dict]:
+    """Shape: {name, sub, where, spent, orders, state, stateFg}.
+
+    `spent` and `orders` are dashed: there is no ad-spend or attribution feed,
+    and a fabricated number here would be read as a real result.
+    """
     rows = []
     for c in memory.campaigns():
         status = (c.get("status") or "drafted").lower()
-        fg, bg = _CAMPAIGN_TONE.get(status, (BODY_FG, NEUTRAL_TINT))
+        fg, _ = _CAMPAIGN_TONE.get(status, (BODY_FG, NEUTRAL_TINT))
+        sub_bits = [b for b in (c.get("product_name"),
+                                str(c.get("created_at") or "")[:10]) if b]
         rows.append({
             "name": c.get("headline") or "Untitled ad",
+            "sub": " · ".join(sub_bits) or "no product attached",
             "where": (c.get("platform") or DASH).title(),
-            "spent": DASH,      # no ad-spend feed
-            "orders": DASH,     # no attribution feed
-            "status": "simulated" if c.get("simulated") else status,
-            "statusFg": AMBER if c.get("simulated") else fg,
-            "statusBg": AMBER_TINT if c.get("simulated") else bg,
-        })
-    return rows
-
-
-def creatives() -> list[dict]:
-    rows = []
-    for c in memory.campaigns():
-        if (c.get("status") or "") == "published":
-            continue
-        rows.append({
-            "platform": (c.get("platform") or DASH).title(),
-            "headline": c.get("headline") or "Untitled ad",
-            "body": (c.get("body") or "")[:240],
-            "cta": c.get("call_to_action") or "",
-            "product": c.get("product_name") or DASH,
+            "spent": DASH,
+            "orders": DASH,
+            "state": "Simulated" if c.get("simulated") else status.title(),
+            "stateFg": AMBER if c.get("simulated") else fg,
         })
     return rows
 
@@ -242,66 +237,94 @@ def channels() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def _pnl_row(k, v, note="", strong=False, good=False):
+    """One PNL line in the design's shape: {k, v, note, weight, keyColor, vColor}."""
+    return {
+        "k": k, "v": v, "note": note,
+        "weight": "700" if strong else "400",
+        "keyColor": INK if strong else BODY_FG,
+        "vColor": GREEN if good else (INK if strong else BODY_FG),
+    }
+
+
 def pnl() -> list[dict]:
     """Unit economics — only ever what the Pricing agent actually computed."""
     history = memory.pricing_history()
     if not history:
         return []
     latest = history[0]
+    product = latest.get("product_name") or "your product"
     rows = [
-        {"k": "Costs you", "v": _cur(latest.get("unit_cost")), "fg": INK},
-        {"k": "You sell at", "v": _cur(latest.get("sell_price")), "fg": INK},
+        _pnl_row("You sell at", _cur(latest.get("sell_price")),
+                 f"per unit of {product}", strong=True),
+        _pnl_row("Costs you", "-" + _cur(latest.get("unit_cost")),
+                 "materials and making"),
     ]
     if latest.get("margin_pct") is not None:
         pct = float(latest["margin_pct"])
-        rows.append({
-            "k": "You keep", "v": f"{pct:.1f}%",
-            "fg": GREEN if pct > 0 else RED,
-        })
+        rows.append(_pnl_row(
+            "What you keep", f"{pct:.1f}%",
+            "of every sale", strong=True, good=pct > 0,
+        ))
     if latest.get("breakeven_units"):
-        rows.append({
-            "k": "Break even at",
-            "v": f"{float(latest['breakeven_units']):,.0f} units",
-            "fg": INK,
-        })
+        rows.append(_pnl_row(
+            "Break even at",
+            f"{float(latest['breakeven_units']):,.0f} units",
+            "before you are in profit",
+        ))
     return rows
 
 
-def cost_rows(session_id: str) -> list[dict]:
-    ledger = ledger_for(session_id)
-    per: dict[str, dict[str, float]] = {}
-    for call in ledger.calls:
-        row = per.setdefault(call.agent, {"calls": 0, "tokens": 0, "usd": 0.0})
-        row["calls"] += 1
-        row["tokens"] += call.total_tokens
-        row["usd"] += call.cost_usd
-    return [
-        {
-            "agent": name.replace("_", " ").title(),
-            "calls": f"{int(r['calls'])}",
-            "tokens": f"{int(r['tokens']):,}",
-            "cost": f"${r['usd']:.4f}",
-        }
-        for name, r in sorted(per.items(), key=lambda kv: -kv[1]["usd"])
-    ]
+_USAGE_RE = re.compile(r"(\d[\d,]*)\s*in\s*/\s*(\d[\d,]*)\s*out")
 
 
 def cost_bars(session_id: str) -> list[dict]:
-    ledger = ledger_for(session_id)
-    if not ledger.calls:
+    """Where the tokens went, per agent.
+
+    Shape must match the design's COST_BARS: {name, tok, cost, pct, color}.
+    `pct` is a bar width scaled against the heaviest agent.
+
+    Read from the durable `llm_usage` trace rather than the in-process
+    ledger: `ledger_for()` lives in a module-level dict, so a restart — or
+    simply the other front-end — sees nothing. The trace survives both.
+
+    (The design's separate COST_ROWS is an *ingredient* cost breakdown —
+    filling, dough, oil, packaging. Lucida records no per-ingredient costing,
+    so that constant is deliberately left un-overridden.)
+    """
+    per: dict[str, dict[str, float]] = {}
+
+    for e in bus.load(session_id, 600):
+        if e["kind"] != "llm_usage":
+            continue
+        row = per.setdefault(str(e["actor"]), {"tokens": 0.0, "usd": 0.0})
+        row["usd"] += float((e.get("payload") or {}).get("cost_usd") or 0.0)
+        m = _USAGE_RE.search(e.get("summary") or "")
+        if m:
+            row["tokens"] += int(m.group(1).replace(",", ""))
+            row["tokens"] += int(m.group(2).replace(",", ""))
+
+    # Fall back to the live ledger for the session running in this process,
+    # which has data the trace has not been asked for yet.
+    if not per:
+        for call in ledger_for(session_id).calls:
+            row = per.setdefault(call.agent, {"tokens": 0.0, "usd": 0.0})
+            row["tokens"] += call.total_tokens
+            row["usd"] += call.cost_usd
+
+    if not per:
         return []
-    per: dict[str, float] = {}
-    for call in ledger.calls:
-        per[call.agent] = per.get(call.agent, 0.0) + call.cost_usd
-    top = max(per.values()) or 1.0
+
+    top = max(r["usd"] for r in per.values()) or 1.0
     return [
         {
-            "label": name.replace("_", " ").title(),
-            "value": f"${usd:.4f}",
-            "pct": f"{(usd / top) * 100:.0f}%",
-            "fill": GREEN,
+            "name": name.replace("_", " ").title(),
+            "tok": f"{int(r['tokens']):,}",
+            "cost": f"${r['usd']:.4f}",
+            "pct": max(2, round((r["usd"] / top) * 100)),
+            "color": AMBER if r["usd"] >= top else GREEN,
         }
-        for name, usd in sorted(per.items(), key=lambda kv: -kv[1])
+        for name, r in sorted(per.items(), key=lambda kv: -kv[1]["usd"])
     ]
 
 
@@ -323,8 +346,9 @@ def roster(session_id: str) -> list[dict]:
     for call in ledger.calls:
         calls[call.agent] = calls.get(call.agent, 0) + 1
 
-    events = bus.recent(session_id)
-    seen = {e.actor for e in events}
+    events = bus.load(session_id, 500)
+    seen = {e["actor"] for e in events}
+    degraded = {e["actor"] for e in events if e.get("level") == "error"}
 
     # agent_roster() lists the eight specialists; the supervisor routes them
     # and the design draws it as the hub, so it is added explicitly.
@@ -339,10 +363,12 @@ def roster(session_id: str) -> list[dict]:
         "state": "used this run" if "supervisor" in seen else "idle",
         "busy": False,
         "wait": False,
+        "bad": "supervisor" in degraded,
     }]
 
     for key, meta in agent_roster().items():
         gated = meta.get("requires_approval") == "True"
+        broke = key in degraded
         rows.append({
             "id": NODE_ID.get(key, key),
             "name": meta.get("title") or key.replace("_", " ").title(),
@@ -350,23 +376,30 @@ def roster(session_id: str) -> list[dict]:
             "owns": meta.get("description") or "",
             "tools": meta.get("tools") or "",
             "calls": calls.get(key, 0),
-            "state": "used this run" if key in seen else "idle",
+            "state": ("degraded" if broke
+                      else "used this run" if key in seen else "idle"),
             "busy": False,
             "wait": gated,
+            "bad": broke,
         })
     return rows
 
 
 def overnight(session_id: str) -> list[dict]:
-    """The design's 'done while you slept' list, from the real event bus."""
+    """The design's 'done while you slept' list — what the team did unasked.
+
+    Reads the durable trace, not the in-process buffer: the buffer is empty
+    in a freshly started process, which made this panel silently fall back to
+    the design's fixture on every restart.
+    """
     rows = []
-    for e in reversed(bus.recent(session_id)):
-        if e.kind not in ("agent_end", "tool_call", "handoff"):
+    for e in reversed(bus.load(session_id, 400)):
+        if e["kind"] not in ("agent_end", "tool_call"):
             continue
         rows.append({
-            "text": e.summary,
-            "by": e.actor.replace("_", " ").title(),
-            "t": str(e.ts)[11:19],
+            "text": e.get("summary") or "",
+            "by": str(e["actor"]).replace("_", " ").title(),
+            "t": str(e.get("ts") or "")[11:16],
         })
         if len(rows) >= 8:
             break
@@ -374,17 +407,131 @@ def overnight(session_id: str) -> list[dict]:
 
 
 def failures(session_id: str) -> list[dict]:
-    return [
-        {
-            "what": e.summary,
-            "who": e.actor.replace("_", " ").title(),
-            "then": "retried once, then dropped",
-            "fg": RED,
-            "bg": RED_TINT,
+    """Shape: {level, what, t, tagBg, tagFg, fix}."""
+    rows = []
+    for e in bus.load(session_id, 400):
+        if e.get("level") != "error":
+            continue
+        rows.append({
+            "level": "Failure",
+            "what": e.get("summary") or "unknown error",
+            "t": str(e.get("ts") or "")[11:16],
+            "tagBg": RED_TINT,
+            "tagFg": RED,
+            "fix": f"Raised by {str(e.get('actor', '')).replace('_', ' ')}. "
+                   "The graph retries once, then drops the agent and carries "
+                   "on rather than failing the whole run.",
+        })
+    return rows[:10]
+
+
+# The design's step kinds, mapped from the trace's own event kinds. Anything
+# unrecognised falls back to 'think', which renders as a neutral step.
+_STEP_KIND = {
+    "agent_start": "think",
+    "agent_end": "act",
+    "tool_call": "tool",
+    "handoff": "handoff",
+    "approval": "gate",
+    "error": "error",
+    "llm_usage": "think",
+    "llm_call": "think",
+    "memory": "memory",
+    "plan": "plan",
+    "session_start": "plan",
+}
+
+
+def _step(ev: dict) -> dict:
+    """One trace event in the shape the design's run player expects."""
+    kind = _STEP_KIND.get(ev["kind"], "think")
+    payload = ev.get("payload") or {}
+    actor = str(ev.get("actor") or "").replace("_", " ").title()
+
+    # `detail` is the expandable body; show whatever the event carried.
+    detail_bits = []
+    for key, value in payload.items():
+        if value in (None, "", [], {}):
+            continue
+        text = value if isinstance(value, str) else str(value)
+        detail_bits.append(f"{key}: {text[:400]}")
+    detail = "\n".join(detail_bits)
+
+    step = {
+        "t": str(ev.get("ts") or "")[11:16],
+        "a": actor or "Supervisor",
+        "k": kind,
+        "title": ev.get("summary") or ev["kind"],
+        "meta": "",
+        "detail": detail,
+    }
+    if ev.get("level") == "error":
+        step["k"] = "error"
+        step["level"] = "ERROR"
+    if kind == "gate":
+        step["gate"] = True
+    if kind == "handoff":
+        step["h"] = {
+            "from": actor,
+            "to": str(payload.get("to") or payload.get("next_agent") or "")
+                  .replace("_", " ").title(),
+            "t": step["t"],
+            "payload": detail or str(payload)[:400],
         }
-        for e in bus.recent(session_id)
-        if e.level == "error"
-    ][:10]
+    tokens = payload.get("total_tokens") or payload.get("tokens")
+    if tokens:
+        step["meta"] = f"{tokens} tok"
+    return step
+
+
+def runs(current_session: str) -> list[dict]:
+    """Real runs for the design's Runs player, newest first.
+
+    Replaces the bundle's scripted demo run. Steps come from the durable
+    trace, so a run recorded before this process started still plays back.
+    """
+    out = []
+    for s in bus.sessions(30):
+        # Only real owner sessions. WorkforceRuntime mints "sess-…" ids; the
+        # component test suite writes traces under its own short ids, and
+        # those would otherwise show up as runs the owner never made.
+        if not str(s["session_id"]).startswith("sess-"):
+            continue
+        events = bus.load(s["session_id"], 400)
+        if not events:
+            continue
+        # `llm_usage` is per-call token accounting — real, but it belongs on
+        # the cost page, not as a step in the story of what the team did.
+        steps = [_step(e) for e in events if e["kind"] != "llm_usage"]
+        if not steps:
+            continue
+        gate = next((st for st in steps if st.get("gate")), None)
+        label = next(
+            (e["summary"] for e in events if e["kind"] == "session_start"),
+            f"Run {s['session_id'][-6:]}",
+        )
+        cost = ledger_for(s["session_id"]).total_cost_usd
+        meta_bits = [f"{len(steps)} steps"]
+        if s["errors"]:
+            meta_bits.append(f"{s['errors']} error(s)")
+        if cost:
+            meta_bits.append(f"${cost:.4f}")
+        if s["session_id"] == current_session:
+            meta_bits.append("this session")
+        out.append({
+            "id": s["session_id"],
+            "label": str(label)[:80],
+            "meta": " · ".join(meta_bits),
+            "gate": {
+                "title": gate["title"] if gate else "Waiting on you",
+                "body": (gate.get("detail") if gate else "")
+                        or "Nothing is spent or sent until you approve.",
+            },
+            "steps": steps,
+        })
+        if len(out) >= 12:
+            break
+    return out
 
 
 def mem_records() -> list[dict]:
@@ -437,16 +584,54 @@ def mem_records() -> list[dict]:
     return rows
 
 
+# Which agent's work belongs under which heading in the History log.
+_HISTORY_CAT = {
+    "inventory": ("Stock", AMBER),
+    "engagement": ("Customers", GREEN),
+    "pricing": ("Money", GREEN),
+    "ad_creative": ("Marketing", GREEN),
+    "delivery": ("Delivery", GREEN),
+    "market_research": ("Research", GREEN),
+    "product_vision": ("Products", GREEN),
+    "reporting": ("Reports", GREEN),
+    "supervisor": ("Planning", MUTED),
+}
+
+
 def history() -> list[dict]:
-    return [
-        {
-            "title": r.get("title") or "Report",
-            "when": str(r.get("created_at") or "")[:16],
-            "body": (r.get("body") or "")[:400],
-            "id": str(r.get("id")),
-        }
-        for r in memory.reports(30)
-    ]
+    """What the team has actually done, newest first.
+
+    Shape: {id, cat, text, by, t, dot, why}. Built from the durable trace so
+    it survives a restart, with each agent's own summary as the `why`.
+    """
+    rows = []
+    for s in bus.sessions(10):
+        if not str(s["session_id"]).startswith("sess-"):
+            continue
+        for e in reversed(bus.load(s["session_id"], 300)):
+            if e["kind"] not in ("agent_end", "approval", "error"):
+                continue
+            actor = str(e.get("actor") or "")
+            cat, dot = _HISTORY_CAT.get(actor, ("Activity", MUTED))
+            if e.get("level") == "error":
+                cat, dot = "Problem", RED
+            payload = e.get("payload") or {}
+            why = " · ".join(
+                f"{k}: {v}" for k, v in payload.items()
+                if v not in (None, "", [], {})
+            )[:400]
+            rows.append({
+                "id": e["id"],
+                "cat": cat,
+                "text": e.get("summary") or e["kind"],
+                "by": actor.replace("_", " ").title() or "Supervisor",
+                "t": str(e.get("ts") or "")[11:16],
+                "dot": dot,
+                "why": why or "No extra detail was recorded for this step.",
+            })
+            if len(rows) >= 40:
+                return rows
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -494,14 +679,13 @@ def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
         "threads": threads(),
         "stock": stock(),
         "campaigns": campaigns(),
-        "creatives": creatives(),
         "channels": channels(),
         "pnl": pnl(),
         "demands": demands(),
         "history": history(),
         "roster": roster(session_id),
+        "runs": runs(session_id),
         "memRecords": mem_records(),
-        "costRows": cost_rows(session_id),
         "costBars": cost_bars(session_id),
         "failures": failures(session_id),
         "stats": memory.stats(),

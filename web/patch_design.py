@@ -31,14 +31,20 @@ OVERRIDES = {
     "THREADS": "threads",
     "STOCK": "stock",
     "CAMPAIGNS": "campaigns",
-    "CREATIVES": "creatives",
-    "COST_ROWS": "costRows",
+    # CREATIVES is intentionally absent: each entry drives an <image-slot>
+    # keyed to a design asset id, and Lucida's ad copy carries no imagery.
+    # Overriding it would leave empty picture frames where the design shows
+    # finished creative.
+    # COST_ROWS is intentionally absent: it is the design's per-ingredient
+    # cost breakdown, which this backend does not record. It keeps the
+    # design's own example rather than being filled with unrelated data.
     "COST_BARS": "costBars",
     "PNL": "pnl",
     "DEMANDS": "demands",
     "HISTORY": "history",
     "CHANNELS": "channels",
     "ROSTER": "roster",
+    "RUNS": "runs",
     "MEM_RECORDS": "memRecords",
     "FAILURES": "failures",
 }
@@ -92,6 +98,28 @@ HANDLERS = [
         "  decide(id, choice) {\n",
         "  decide(id, choice) {\n"
         "    if (window.LucidaActions && window.LucidaActions.decide(id, choice)) return;\n",
+    ),
+    # Real runs are keyed by session id, not the design's 'r1'. Three
+    # RUNS.find() calls have no fallback and would throw on a stale id; the
+    # design already guards the fourth this exact way.
+    (
+        "const run = RUNS.find(r => r.id === s.run);",
+        "const run = RUNS.find(r => r.id === s.run) || RUNS[0];",
+    ),
+    (
+        "const run = RUNS.find(r => r.id === this.state.run);",
+        "const run = RUNS.find(r => r.id === this.state.run) || RUNS[0];",
+    ),
+    (
+        "const s = this.state, run = RUNS.find(r => r.id === s.run);",
+        "const s = this.state, run = RUNS.find(r => r.id === s.run) || RUNS[0];",
+    ),
+    # With no runs at all, RUNS[0] is undefined too — bail out rather than
+    # dereference it while the player ticks.
+    (
+        "  schedule() {\n    clearTimeout(this.timer);\n",
+        "  schedule() {\n    clearTimeout(this.timer);\n"
+        "    if (!RUNS.length) return;\n",
     ),
 ]
 
@@ -149,14 +177,19 @@ def patch(src: str) -> tuple[str, list[str], list[str]]:
         src = src[: m.start()] + replacement + src[close_at:]
         done.append(const)
 
+    # Presence of the needle is the only test. Checking for the replacement
+    # instead silently skips a needed edit whenever the design already
+    # contains that exact text somewhere else — which it does: the guarded
+    # `RUNS.find(...) || RUNS[0]` form appears verbatim in renderVals, so a
+    # replacement-based check made the identical fix look already-applied.
+    # Idempotency comes from always patching the pristine backup, not from
+    # this loop.
     for needle, replacement in HANDLERS:
-        if replacement in src:
-            continue
         if needle not in src:
-            missed.append(f"handler:{needle.strip()[:34]}")
+            missed.append(f"handler:{needle.strip()[:40]}")
             continue
         src = src.replace(needle, replacement, 1)
-        done.append(f"handler:{needle.strip().split('(')[0].split(':')[0]}")
+        done.append(f"handler:{needle.strip().split('(')[0].split(':')[0][:30]}")
 
     if "window.__resources" not in src:
         src = src.replace(

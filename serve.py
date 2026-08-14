@@ -30,8 +30,9 @@ from starlette.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from lucida.config import settings  # noqa: E402
+from lucida.config import UPLOAD_DIR, settings  # noqa: E402
 from lucida.graph import WorkforceRuntime  # noqa: E402
+from lucida.memory import memory  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
 from web import bridge  # noqa: E402
@@ -100,7 +101,7 @@ async def api_ask(request):
     async with _run_lock:
         try:
             # The graph is synchronous; keep the event loop free while it runs.
-            answer = await asyncio.to_thread(_drain, text)
+            answer = await asyncio.to_thread(_drain, text, [], _owner_context())
         except Exception as exc:  # noqa: BLE001 — report, never 500 the page
             logger.error("turn failed: %s", exc)
             bus.emit(SESSION, "error", "web", f"turn failed: {exc}", level="error")
@@ -111,7 +112,27 @@ async def api_ask(request):
     return JSONResponse(snap)
 
 
-def _drain(text: str) -> str:
+def _owner_context() -> dict:
+    """Business facts the agents should not have to guess.
+
+    Persisted in the business_profile table rather than held in memory, so a
+    restart doesn't send the agents back to estimating. Anything still unset
+    is simply absent, which is what the agents already handle.
+    """
+    profile = memory.profile() or {}
+    context: dict = {
+        "location": profile.get("location") or settings.location,
+        "currency": profile.get("currency") or settings.currency,
+    }
+    if profile.get("monthly_budget"):
+        context["fixed_costs"] = profile["monthly_budget"]
+    if profile.get("notes"):
+        context["notes"] = profile["notes"]
+    return context
+
+
+def _drain(text: str, image_paths: list[str] | None = None,
+           owner_context: dict | None = None) -> str:
     """Run one turn to completion and return the workforce's written answer.
 
     The graph catches agent failures internally and reports them on the state
@@ -124,8 +145,10 @@ def _drain(text: str) -> str:
     errors: list[str] = []
     gated = False
 
-    for chunk in runtime.start(owner_input=text, image_paths=[],
-                               owner_context={}, session_id=SESSION):
+    for chunk in runtime.start(owner_input=text,
+                               image_paths=image_paths or [],
+                               owner_context=owner_context or {},
+                               session_id=SESSION):
         node = chunk.get("node", "")
         update = chunk.get("update") or {}
         if node == "__interrupt__":
@@ -159,6 +182,62 @@ def _drain(text: str) -> str:
         return ("**The run did not finish.**\n\n"
                 + "\n".join(f"- {e}" for e in errors))
     return "The run finished without producing anything to show."
+
+
+async def api_upload(request):
+    """Photo → Product Vision. The headline flow, reachable from the design.
+
+    Vision runs on its own provider: Groq serves no multimodal model, so with
+    AIW_PROVIDER=groq and no vision key the Product Vision agent says it could
+    not look at the photo rather than guessing. That degradation is reported
+    here so the owner is told, instead of silently getting a worse answer.
+    """
+    if not settings.has_llm:
+        return JSONResponse(
+            {"error": "No API key. Add GROQ_API_KEY to .env and restart."},
+            status_code=400,
+        )
+
+    form = await request.form()
+    upload = form.get("photo")
+    if upload is None or not getattr(upload, "filename", ""):
+        return JSONResponse({"error": "no photo attached"}, status_code=400)
+
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    safe = Path(str(upload.filename)).name
+    dest = UPLOAD_DIR / f"{SESSION}-{safe}"
+    dest.write_bytes(await upload.read())
+
+    quantity = str(form.get("quantity") or "").strip()
+    text = ("Here's a photo of what I make — take a look and tell me whether "
+            "it's worth selling.")
+    context = _owner_context()
+    if quantity.isdigit():
+        text += f" I have {quantity} pieces in stock."
+        context = dict(context)
+        context["stock_items"] = [
+            {"product_name": "", "quantity": int(quantity), "unit_cost": 0}
+        ]
+
+    async with _run_lock:
+        try:
+            answer = await asyncio.to_thread(_drain, text, [str(dest)], context)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("photo turn failed: %s", exc)
+            return JSONResponse({"error": str(exc)}, status_code=500)
+
+    if not settings.vision_provider:
+        answer = (
+            "**I could not actually look at the photo.**\n\n"
+            "This provider serves no vision model, so I worked from your "
+            "description instead. Add a free `GOOGLE_API_KEY` from "
+            "aistudio.google.com/apikey to switch photo reading on — the text "
+            "agents stay where they are.\n\n---\n\n" + answer
+        )
+
+    snap = _snapshot()
+    snap["answer"] = answer
+    return JSONResponse(snap)
 
 
 async def api_decide(request):
@@ -197,6 +276,7 @@ app = Starlette(
         Route("/", index),
         Route("/api/state", api_state),
         Route("/api/ask", api_ask, methods=["POST"]),
+        Route("/api/upload", api_upload, methods=["POST"]),
         Route("/api/decide", api_decide, methods=["POST"]),
         Route("/api/health", api_health),
         # Serves support.js, image-slot.js and vendor/ alongside the page, so

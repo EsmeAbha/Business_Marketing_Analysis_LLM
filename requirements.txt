@@ -19,6 +19,14 @@ pydantic>=2.9.0
 python-dotenv>=1.0.1
 truststore>=0.10.0          # use the OS cert store; fixes TLS-inspected networks
 
+# --- Web workspace (serve.py) ---
+# starlette + uvicorn come in with streamlit; listed so serve.py's deps are
+# explicit rather than incidental.
+starlette>=0.40.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9     # photo uploads
+libsql>=0.1.11              # optional: free hosted Turso DB (AIW_DATABASE_URL)
+
 # --- Tools ---
 tavily-python>=0.5.0        # primary web search (optional, falls back to ddgs)
 ddgs>=9.0.0                 # fallback web search, no API key required
