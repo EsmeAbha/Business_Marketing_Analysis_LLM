@@ -46,6 +46,13 @@ ACCENT_DARK = "#0E4A30"
 ACCENT_TINT = "#EAF1EC"
 ACCENT_EDGE = "#CFE0D5"
 
+# Buttons are maroon red rather than the brand green. Kept as its own token
+# instead of changing ACCENT, so pills, links and status colours stay green
+# and only the things you press change.
+BUTTON = "#7B1E22"
+BUTTON_DARK = "#5E1519"
+BUTTON_TINT = "#F6E9EA"
+
 WARN = "#B4741B"       # amber — attention, not failure
 WARN_TINT = "#FBF1E1"
 WARN_BORDER = "#F0DFC2"
@@ -191,16 +198,16 @@ hr {{ border-color: {BORDER}; margin: 18px 0; }}
     color: {BODY};
 }}
 .stButton > button[kind="secondary"]:hover {{
-    border-color: {ACCENT}; color: {ACCENT}; background: {SURFACE};
+    border-color: {BUTTON}; color: {BUTTON}; background: {SURFACE};
 }}
 .stButton > button[kind="primary"] {{
-    background: {ACCENT}; border: 1px solid {ACCENT};
+    background: {BUTTON}; border: 1px solid {BUTTON};
     color: {GROUND}; font-weight: 600;
 }}
 .stButton > button[kind="primary"]:hover {{
-    background: {ACCENT_DARK}; border-color: {ACCENT_DARK}; color: {GROUND};
+    background: {BUTTON_DARK}; border-color: {BUTTON_DARK}; color: {GROUND};
 }}
-.stButton > button:focus {{ box-shadow: 0 0 0 3px {ACCENT_TINT} !important; }}
+.stButton > button:focus {{ box-shadow: 0 0 0 3px {BUTTON_TINT} !important; }}
 
 /* Opener buttons read as quiet suggestion cards. */
 .st-key-openers .stButton > button {{

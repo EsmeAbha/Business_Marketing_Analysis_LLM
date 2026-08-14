@@ -32,6 +32,40 @@ window.LUCIDA = window.LUCIDA || {};
   margin-left: auto !important;
   margin-right: auto !important;
 }
+
+/* Buttons in maroon red instead of the design's brand green.
+   Matched on the inline style and marked !important, because that is the
+   one thing that outranks an inline style — and the design both paints
+   buttons inline and applies hover by mutating that same inline style.
+
+   The selectors use rgb() rather than #14603F: React re-serialises inline
+   colours, so the hex never appears in the rendered style attribute even
+   though it is what the design source says. */
+button[style*="background: rgb(20, 96, 63)"] {
+  background: #7B1E22 !important;
+}
+button[style*="background: rgb(20, 96, 63)"]:hover {
+  background: #5E1519 !important;
+}
+/* Green label / border on outline and toggle buttons.
+   `color: rgb(...)` also matches inside `border-color: rgb(...)`, which is
+   deliberate — both should move together. */
+button[style*="color: rgb(20, 96, 63)"] { color: #7B1E22 !important; }
+/* Borders are recoloured per side rather than through the `border-color`
+   shorthand: several buttons set their border with the `border` shorthand
+   (`1px solid rgb(…)`), and shorthand-over-shorthand does not reliably win
+   against an inline declaration. The four longhands always do. */
+button[style*="border-color: rgb(20, 96, 63)"],
+button[style*="solid rgb(20, 96, 63)"] {
+  border-top-color: #7B1E22 !important;
+  border-right-color: #7B1E22 !important;
+  border-bottom-color: #7B1E22 !important;
+  border-left-color: #7B1E22 !important;
+}
+/* The pale green wash behind an active nav row / selected toggle. */
+button[style*="background: rgb(234, 241, 236)"] {
+  background: #F6E9EA !important;
+}
 </style>
 <script src="./support.js"></script>
 </head>
@@ -989,14 +1023,14 @@ const STOCK = (window.LUCIDA && window.LUCIDA.stock && window.LUCIDA.stock.lengt
   { initial: 'C', thumbBg: '#FBF1E1', thumbFg: '#B4741B', name: 'Chicken shingara 58g', sub: 'Not made yet · 14 requests', qty: '—', qtyColor: '#A19B8E', rate: '—', cover: '—', coverColor: '#A19B8E', todo: 'Test 600 pieces with the next order' }
 ]);
 
-const CREATIVES = (window.LUCIDA && window.LUCIDA.creatives && window.LUCIDA.creatives.length ? window.LUCIDA.creatives : [
+const CREATIVES = [
   { id: 'c1', slot: 'suite-ad-ig', ph: 'Instagram photo', channel: 'Instagram', chanFg: '#A6377C', spec: 'square post',
     copy: 'Bikeler adda, ar garam shingara. Freezer theke 6 minute — hater banano beef shingara, 12 pcs ৳216. Mirpur e aj e delivery.' },
   { id: 'c2', slot: 'suite-ad-fb', ph: 'Facebook photo', channel: 'Facebook', chanFg: '#2B5C9B', spec: 'carousel, 3 cards',
     copy: 'Ma\'r hater shingara, ekhon freezer-ready. 12 pcs ৳216 · 30 pcs ৳480. Ager theke order kore rakhun — dawat, chayer adda, shob e ready.' },
   { id: 'c3', slot: 'suite-ad-yt', ph: 'Video cover', channel: 'YouTube', chanFg: '#A63A2E', spec: 'short, 18 seconds',
     copy: 'Fold, freeze, fry — 18 second e apnar rannaghor. Shesh e 12 pcs ৳216 pack ta dekhano hobe, sathe order korar link.' }
-]);
+];
 
 const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns && window.LUCIDA.campaigns.length ? window.LUCIDA.campaigns : [
   { name: 'Weekend pack push', sub: 'Started 8 Aug · 12-pc pack', where: 'Facebook, IG', spent: '৳1,750', orders: '38', state: 'Running well', stateFg: '#14603F' },
@@ -1281,8 +1315,8 @@ class Component extends DCLogic {
 
       nav: (s.role === 'builder' ? BUILDER_NAV : OWNER_NAV).map(([id, label, icon]) => ({
         label: label, icon: icon, pick: () => this.go(id),
-        bg: s.page === id ? '#EAF1EC' : 'transparent',
-        fg: s.page === id ? '#14603F' : '#4A554E',
+        bg: s.page === id ? '#F6E9EA' : 'transparent',
+        fg: s.page === id ? '#7B1E22' : '#4A554E',
         weight: s.page === id ? '600' : '500',
         badge: counts[id] || '', badgeShow: counts[id] ? 'flex' : 'none',
         badgeBg: id === 'today' ? '#B4741B' : '#E5E0D6',
@@ -1318,7 +1352,7 @@ class Component extends DCLogic {
           doneText: choice === 'yes' ? d.doneText : d.denyText,
           doneIcon: choice === 'yes' ? '✓' : '◦',
           doneBg: choice === 'yes' ? '#EAF1EC' : '#F1EEE6',
-          doneFg: choice === 'yes' ? '#14603F' : '#4A554E',
+          doneFg: choice === 'yes' ? '#7B1E22' : '#4A554E',
           approve: () => this.decide(d.id, 'yes'),
           deny: () => this.decide(d.id, 'no'),
           tweak: () => this.go(d.id === 'ads' ? 'marketing' : d.id === 'price' ? 'money' : 'stock'),
@@ -1362,7 +1396,7 @@ class Component extends DCLogic {
           pending: !st, settled: !!st,
           doneText: st === 'live' ? 'Published · watching results' : 'Skipped for this week',
           doneBg: st === 'live' ? '#EAF1EC' : '#F1EEE6',
-          doneFg: st === 'live' ? '#14603F' : '#4A554E',
+          doneFg: st === 'live' ? '#7B1E22' : '#4A554E',
           approve: () => { const x = Object.assign({}, s.creatives); x[c.id] = 'live'; this.setState({ creatives: x }); },
           skip: () => { const x = Object.assign({}, s.creatives); x[c.id] = 'skip'; this.setState({ creatives: x }); }
         };
@@ -1384,7 +1418,7 @@ class Component extends DCLogic {
         ? 'Price changed everywhere, and this week\'s ad copy was rewritten to match.'
         : 'Kept at ৳216. Your team will warn you if what you keep drops below 30%.',
       priceDoneBg: raised ? '#EAF1EC' : '#F1EEE6',
-      priceDoneFg: raised ? '#14603F' : '#4A554E',
+      priceDoneFg: raised ? '#7B1E22' : '#4A554E',
       applyPrice: () => this.decide('price', 'yes'),
       keepPrice: () => this.decide('price', 'no'),
 
@@ -1392,9 +1426,9 @@ class Component extends DCLogic {
 
       historyFilters: ['Everything', 'Customers', 'Stock', 'Money', 'Marketing', 'Delivery'].map(f => ({
         label: f, pick: () => this.setState({ filter: f }),
-        bg: s.filter === f ? '#EAF1EC' : '#FFFFFF',
-        border: s.filter === f ? '#14603F' : '#E5E0D6',
-        fg: s.filter === f ? '#14603F' : '#4A554E'
+        bg: s.filter === f ? '#F6E9EA' : '#FFFFFF',
+        border: s.filter === f ? '#7B1E22' : '#E5E0D6',
+        fg: s.filter === f ? '#7B1E22' : '#4A554E'
       })),
       history: HISTORY.filter(h => s.filter === 'Everything' || h.cat === s.filter).map(h => ({
         text: h.text, by: h.by, t: h.t, why: h.why, dot: h.dot,
@@ -1404,9 +1438,9 @@ class Component extends DCLogic {
 
       autopilotOptions: AUTOPILOT.map(a => ({
         label: a.label, note: a.note, pick: () => this.setState({ autopilot: a.id }),
-        bg: s.autopilot === a.id ? '#EAF1EC' : '#FBFAF7',
-        border: s.autopilot === a.id ? '#14603F' : '#E5E0D6',
-        fg: s.autopilot === a.id ? '#14603F' : '#18211D'
+        bg: s.autopilot === a.id ? '#F6E9EA' : '#FBFAF7',
+        border: s.autopilot === a.id ? '#7B1E22' : '#E5E0D6',
+        fg: s.autopilot === a.id ? '#7B1E22' : '#18211D'
       })),
       permissions: PERMS.map(p => ({
         label: p.label, note: p.note,
@@ -1448,7 +1482,7 @@ class Component extends DCLogic {
           state: hot ? 'working now' : touched ? 'used this run' : 'idle',
           dot: hot ? '#14603F' : touched ? '#9EB3A4' : '#DDD8CC',
           fg: touched || hot ? '#18211D' : '#7C877F',
-          bg: hot ? '#EAF1EC' : '#FFFFFF',
+          bg: hot ? '#F6E9EA' : '#FFFFFF',
           border: hot ? '#14603F' : touched ? '#CFE0D5' : '#E5E0D6',
           shadow: hot ? '0 2px 10px rgba(20,96,63,.14)' : '0 1px 2px rgba(24,33,29,.04)'
         };
@@ -1464,9 +1498,9 @@ class Component extends DCLogic {
       runMeta: run.meta,
       runTabs: RUNS.map(r => ({
         label: r.label, pick: () => this.setState({ run: r.id, cursor: 2, playing: true, openStep: null }),
-        bg: s.run === r.id ? '#EAF1EC' : '#FFFFFF',
-        border: s.run === r.id ? '#14603F' : '#E5E0D6',
-        fg: s.run === r.id ? '#14603F' : '#4A554E'
+        bg: s.run === r.id ? '#F6E9EA' : '#FFFFFF',
+        border: s.run === r.id ? '#7B1E22' : '#E5E0D6',
+        fg: s.run === r.id ? '#7B1E22' : '#4A554E'
       })),
       playLabel: gateWaiting ? 'Waiting for you' : busyNow ? 'Pause' : runDone ? 'Replay' : 'Resume',
       playBg: gateWaiting ? '#FBF1E1' : busyNow ? '#F1EEE6' : '#14603F',
@@ -1502,9 +1536,9 @@ class Component extends DCLogic {
 
       logFilters: ['All', 'Info', 'Warn', 'Error'].map(l => ({
         label: l, pick: () => this.setState({ logLevel: l }),
-        bg: s.logLevel === l ? '#EAF1EC' : '#FFFFFF',
-        border: s.logLevel === l ? '#14603F' : '#E5E0D6',
-        fg: s.logLevel === l ? '#14603F' : '#4A554E'
+        bg: s.logLevel === l ? '#F6E9EA' : '#FFFFFF',
+        border: s.logLevel === l ? '#7B1E22' : '#E5E0D6',
+        fg: s.logLevel === l ? '#7B1E22' : '#4A554E'
       })),
       logs: shown.map(st => {
         const lvl = st.level === 'ERROR' ? 'Error' : st.level === 'WARN' ? 'Warn' : 'Info';
@@ -1519,9 +1553,9 @@ class Component extends DCLogic {
       ],
       memFilters: ['Everything', 'Business', 'Customers', 'Stock', 'Money', 'Marketing'].map(f => ({
         label: f, pick: () => this.setState({ memCat: f }),
-        bg: s.memCat === f ? '#EAF1EC' : '#FFFFFF',
-        border: s.memCat === f ? '#14603F' : '#E5E0D6',
-        fg: s.memCat === f ? '#14603F' : '#4A554E'
+        bg: s.memCat === f ? '#F6E9EA' : '#FFFFFF',
+        border: s.memCat === f ? '#7B1E22' : '#E5E0D6',
+        fg: s.memCat === f ? '#7B1E22' : '#4A554E'
       })),
       records: MEM_RECORDS.filter(r => s.memCat === 'Everything' || r.cat === s.memCat).map(r => ({
         store: r.store, key: r.key, value: r.value, by: r.by, when: r.when,
