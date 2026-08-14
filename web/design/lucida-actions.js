@@ -29,15 +29,15 @@
       'position:fixed', 'inset:0', 'z-index:9999',
       'background:rgba(247,245,240,.82)', 'backdrop-filter:blur(2px)',
       'display:flex', 'align-items:center', 'justify-content:center',
-      "font-family:'Plus Jakarta Sans',system-ui,sans-serif"
+      "font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
     ].join(';');
     el.innerHTML =
-      '<div style="background:#FDFAF4;border:1px solid #DDCDB4;border-radius:14px;' +
+      '<div style="background:#FFFFFF;border:1px solid #E4E4E7;border-radius:14px;' +
       'padding:18px 22px;display:flex;align-items:center;gap:11px;' +
       'box-shadow:0 8px 28px rgba(24,33,29,.10)">' +
       '<span style="width:8px;height:8px;border-radius:50%;background:#7B1E22;' +
       'animation:luPulseA 1.1s infinite"></span>' +
-      '<span style="font-size:13.5px;color:#17120F">' + message + '</span></div>' +
+      '<span style="font-size:13.5px;color:#000000">' + message + '</span></div>' +
       '<style>@keyframes luPulseA{0%,100%{opacity:1}50%{opacity:.3}}</style>';
     document.body.appendChild(el);
   }
@@ -54,10 +54,10 @@
     el.style.cssText = [
       'position:fixed', 'right:18px', 'bottom:18px', 'z-index:9999',
       'max-width:380px', 'padding:13px 15px', 'border-radius:12px',
-      'background:' + (bad ? '#F8E9E6' : '#F3E2E1'),
-      'border:1px solid ' + (bad ? '#A63A2E' : '#7B1E22'),
-      'color:' + (bad ? '#A63A2E' : '#7B1E22'),
-      'font:13px/1.5 "Plus Jakarta Sans",system-ui,sans-serif',
+      'background:' + (bad ? '#FEE2E2' : '#FBEBEB'),
+      'border:1px solid ' + (bad ? '#B91C1C' : '#7B1E22'),
+      'color:' + (bad ? '#B91C1C' : '#7B1E22'),
+      'font:13px/1.5 Inter, -apple-system, BlinkMacSystemFont, Segoe UI, system-ui, sans-serif',
       'box-shadow:0 8px 28px rgba(24,33,29,.10)'
     ].join(';');
     el.textContent = message;
@@ -100,23 +100,23 @@
       'position:fixed', 'inset:0', 'z-index:9999', 'display:flex',
       'align-items:center', 'justify-content:center', 'padding:28px',
       'background:rgba(24,33,29,.28)',
-      "font-family:'Plus Jakarta Sans',system-ui,sans-serif"
+      "font-family:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
     ].join(';');
     wrap.innerHTML =
-      '<div style="background:#FDFAF4;border:1px solid #DDCDB4;border-radius:14px;' +
+      '<div style="background:#FFFFFF;border:1px solid #E4E4E7;border-radius:14px;' +
       'max-width:760px;width:100%;max-height:82vh;overflow:auto;' +
       'box-shadow:0 18px 50px rgba(24,33,29,.18)">' +
-        '<div style="padding:17px 20px;border-bottom:1px solid #E7DAC4;' +
-        'display:flex;align-items:center;gap:9px;position:sticky;top:0;background:#FDFAF4">' +
+        '<div style="padding:17px 20px;border-bottom:1px solid #F4F4F5;' +
+        'display:flex;align-items:center;gap:9px;position:sticky;top:0;background:#FFFFFF">' +
           '<span style="font-size:11px;font-weight:600;letter-spacing:.05em;' +
-          'text-transform:uppercase;color:#7B1E22;background:#F3E2E1;' +
+          'text-transform:uppercase;color:#7B1E22;background:#FBEBEB;' +
           'padding:3px 8px;border-radius:6px">Your team</span>' +
-          '<span style="font-size:12px;color:#8A7563">what came back</span>' +
-          '<button id="lucida-close" style="margin-left:auto;border:1px solid #DDCDB4;' +
-          'background:#FDFAF4;color:#4A3728;font-size:12.5px;padding:6px 12px;' +
+          '<span style="font-size:12px;color:#71717A">what came back</span>' +
+          '<button id="lucida-close" style="margin-left:auto;border:1px solid #E4E4E7;' +
+          'background:#FFFFFF;color:#3F3F46;font-size:12.5px;padding:6px 12px;' +
           'border-radius:9px;cursor:pointer">Close</button>' +
         '</div>' +
-        '<div style="padding:6px 20px 20px;font-size:13.5px;color:#17120F">' +
+        '<div style="padding:6px 20px 20px;font-size:13.5px;color:#000000">' +
           render(text) +
         '</div>' +
       '</div>';
@@ -264,7 +264,7 @@
     block.setAttribute('role', 'link');
     block.setAttribute('tabindex', '0');
     block.addEventListener('mouseenter', function () {
-      block.style.background = '#EFE2CE';
+      block.style.background = '#F4F4F5';
     });
     block.addEventListener('mouseleave', function () {
       block.style.background = 'transparent';
@@ -312,26 +312,26 @@
 
     var el = document.createElement('div');
     el.id = NOTICE_ID;
-    el.style.cssText = 'background:#FDFAF4;border:1px solid #7B1E22;'
+    el.style.cssText = 'background:#FFFFFF;border:1px solid #7B1E22;'
       + 'border-radius:14px;padding:16px 18px;margin:0 0 20px;';
     el.innerHTML =
       '<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
       + '<span style="font-size:11px;font-weight:600;letter-spacing:.05em;'
-      + 'text-transform:uppercase;color:#7B1E22;background:#F3E2E1;'
+      + 'text-transform:uppercase;color:#7B1E22;background:#FBEBEB;'
       + 'padding:3px 8px;border-radius:6px">Start here</span>'
-      + '<span style="font-size:12px;color:#8A7563">' + stage[0] + '</span>'
+      + '<span style="font-size:12px;color:#71717A">' + stage[0] + '</span>'
       + '<button id="lucida-firstrun-x" style="margin-left:auto;border:none;'
-      + 'background:none;color:#8A7563;font-size:12.5px;cursor:pointer">'
+      + 'background:none;color:#71717A;font-size:12.5px;cursor:pointer">'
       + 'Hide</button></div>'
       + '<div style="font-size:15px;font-weight:600;margin-bottom:5px;'
-      + 'color:#17120F">The numbers on this page are examples, not yours.</div>'
-      + '<div style="font-size:13.5px;color:#4A3728;line-height:1.6">'
+      + 'color:#000000">The numbers on this page are examples, not yours.</div>'
+      + '<div style="font-size:13.5px;color:#3F3F46;line-height:1.6">'
       + stage[1] + ' Everything here fills in with your own as they work — and '
       + 'nothing is published, ordered or paid for without your say-so.</div>'
-      + '<div style="margin-top:12px;padding:11px 13px;background:#F4EADA;'
-      + 'border-radius:10px;font-size:13px;color:#4A3728">'
+      + '<div style="margin-top:12px;padding:11px 13px;background:#FFFFFF;'
+      + 'border-radius:10px;font-size:13px;color:#3F3F46">'
       + '<strong>Try asking:</strong> &ldquo;' + stage[2] + '&rdquo; '
-      + '<span style="color:#8A7563">— use the “Ask your team” box on the '
+      + '<span style="color:#71717A">— use the “Ask your team” box on the '
       + 'right.</span></div>';
 
     host.insertBefore(el, host.firstChild);
@@ -371,7 +371,7 @@
     box.style.transition = 'background .15s';
     box.title = 'You can edit this before sending';
     box.addEventListener('focus', function () {
-      box.style.background = '#FAF3E7';
+      box.style.background = '#FAFAFA';
     });
     box.addEventListener('blur', function () {
       box.style.background = 'transparent';
