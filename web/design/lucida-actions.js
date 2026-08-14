@@ -214,6 +214,28 @@
    * the way into the account: the tile shows the owner's photo when they
    * have one, and clicking anywhere on the block opens /account.
    */
+  /* The shop name in the rail and the name in the greeting are dc *props*,
+   * not data constants — they carry the demo shop's defaults ("Shomvob
+   * Kitchen", "Rifat") and window.LUCIDA never reaches them. The runtime
+   * exposes setProps for exactly this, so they are set through the design's
+   * own mechanism rather than by rewriting text nodes it will re-render. */
+  var propsDone = false;
+
+  function applyIdentity() {
+    if (propsDone) return;
+    if (typeof window.__dcSetProps !== 'function'
+        || typeof window.__dcRootName !== 'function') return;
+    var L = window.LUCIDA || {};
+    if (!L.account) return;
+    try {
+      window.__dcSetProps(window.__dcRootName(), {
+        businessName: L.businessName || 'Your shop',
+        ownerName: L.ownerName || (L.account.email || '').split('@')[0] || '',
+      });
+      propsDone = true;
+    } catch (e) { /* runtime not ready yet; the poller retries */ }
+  }
+
   function wireProfile() {
     var acct = window.LUCIDA && window.LUCIDA.account;
     if (!acct) return;
@@ -254,9 +276,82 @@
     });
   }
 
+  /* ---- first run ---------------------------------------------------------
+   * A new owner lands on a dashboard full of the design's sample figures.
+   * Left unexplained that reads as their own trading history. This says what
+   * is going on and what to do first, and disappears for good once the shop
+   * has anything of its own in it.
+   */
+  var NOTICE_ID = 'lucida-firstrun';
+  var DISMISSED = 'lucida-firstrun-dismissed';
+
+  function firstRunNotice() {
+    var L = window.LUCIDA || {};
+    if (!L.firstRun || !L.account) return;
+    if (document.getElementById(NOTICE_ID)) return;
+    try {
+      if (window.localStorage.getItem(DISMISSED) === '1') return;
+    } catch (e) { /* private mode — just show it */ }
+
+    // Sit above the greeting on the Today page only.
+    var h1 = document.querySelector('h1');
+    if (!h1) return;
+    var host = h1.parentElement && h1.parentElement.parentElement;
+    if (!host) return;
+
+    var stage = (L.account.stage === 'running')
+      ? ['You said you are already selling.',
+         'Tell your team what you sell and what it costs you, and they will '
+         + 'price it, watch your stock and write your ads.',
+         'What do I sell and am I charging enough?']
+      : ['You said you are starting out.',
+         'Describe the idea, or add a photo of what you make. Your team will '
+         + 'research demand, check what rivals charge and tell you plainly '
+         + 'whether it is worth doing.',
+         'What food business should I start with 30,000 taka?'];
+
+    var el = document.createElement('div');
+    el.id = NOTICE_ID;
+    el.style.cssText = 'background:#FDFAF4;border:1px solid #7B1E22;'
+      + 'border-radius:14px;padding:16px 18px;margin:0 0 20px;';
+    el.innerHTML =
+      '<div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">'
+      + '<span style="font-size:11px;font-weight:600;letter-spacing:.05em;'
+      + 'text-transform:uppercase;color:#7B1E22;background:#F3E2E1;'
+      + 'padding:3px 8px;border-radius:6px">Start here</span>'
+      + '<span style="font-size:12px;color:#8A7563">' + stage[0] + '</span>'
+      + '<button id="lucida-firstrun-x" style="margin-left:auto;border:none;'
+      + 'background:none;color:#8A7563;font-size:12.5px;cursor:pointer">'
+      + 'Hide</button></div>'
+      + '<div style="font-size:15px;font-weight:600;margin-bottom:5px;'
+      + 'color:#17120F">The numbers on this page are examples, not yours.</div>'
+      + '<div style="font-size:13.5px;color:#4A3728;line-height:1.6">'
+      + stage[1] + ' Everything here fills in with your own as they work — and '
+      + 'nothing is published, ordered or paid for without your say-so.</div>'
+      + '<div style="margin-top:12px;padding:11px 13px;background:#F4EADA;'
+      + 'border-radius:10px;font-size:13px;color:#4A3728">'
+      + '<strong>Try asking:</strong> &ldquo;' + stage[2] + '&rdquo; '
+      + '<span style="color:#8A7563">— use the “Ask your team” box on the '
+      + 'right.</span></div>';
+
+    host.insertBefore(el, host.firstChild);
+    var x = document.getElementById('lucida-firstrun-x');
+    if (x) {
+      x.onclick = function () {
+        try { window.localStorage.setItem(DISMISSED, '1'); } catch (e) {}
+        el.remove();
+      };
+    }
+  }
+
   // The design re-renders on every navigation, so re-attach when the Stock
   // page mounts rather than only once at boot.
-  function wireAll() { wirePhoto(); wireProfile(); }
+  function wireAll() {
+    applyIdentity();
+    wirePhoto();
+    wireProfile();
+    firstRunNotice();
+  }
   document.addEventListener('DOMContentLoaded', wireAll);
   setInterval(wireAll, 900);
 
