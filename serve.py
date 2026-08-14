@@ -274,6 +274,14 @@ async def api_delivery_book(request):
         "provider": result.provider,
     })
 
+
+async def favicon(request):
+    """The tab icon. Its absence was a 404 on every single page load."""
+    return FileResponse(DESIGN_DIR / "favicon.svg",
+                        media_type="image/svg+xml",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -1467,6 +1475,8 @@ app = Starlette(
               methods=["POST"]),
         Route("/api/delivery/book", api_delivery_book,
               methods=["POST"]),
+        Route("/favicon.ico", favicon),
+        Route("/favicon.svg", favicon),
         Route("/board", board),
         Route("/media/{name}", media),
         Route("/api/studio/generate", api_studio_generate,

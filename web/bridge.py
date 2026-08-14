@@ -559,6 +559,11 @@ def _step(ev: dict) -> dict:
     detail = "\n".join(detail_bits)
 
     step = {
+        # The node id as well as the label. The graph used to look agents up
+        # by display name, and the run player writes "Inventory" where the
+        # roster says "Inventory Agent" — so nothing matched and the flow
+        # never drew. An id matches or it does not.
+        "id": NODE_ID.get(str(ev.get("actor") or ""), ""),
         "t": str(ev.get("ts") or "")[11:16],
         "a": actor or "Supervisor",
         "k": kind,
@@ -1093,6 +1098,60 @@ def facts(session_id: str) -> dict[str, str]:
     return f
 
 
+
+def price_advice() -> dict[str, str]:
+    """What the Pricing agent last worked out, in the shop's own numbers.
+
+    The bundle carried a whole worked example about oil rising nine taka a
+    litre. This says what was actually recorded, and says nothing when
+    nothing has been.
+    """
+    hist = memory.pricing_history()
+    if not hist:
+        return {
+            "headline": "No price worked out yet",
+            "body": "Ask your team what to charge for something you sell and "
+                    "the reasoning appears here, with the cost, the margin "
+                    "and the break-even it used.",
+            "source": "nothing checked yet",
+            "doneText": "", "raiseLabel": "", "keepLabel": "",
+        }
+    latest = hist[0]
+    product = latest.get("product_name") or "your product"
+    price = _cur(latest.get("sell_price"))
+    cost = _cur(latest.get("unit_cost"))
+    margin = latest.get("margin_pct")
+    body = (f"{cost} to make, {price} to sell"
+            + (f" — you keep {float(margin):.0f}%." if margin is not None else ".")
+            + " " + (latest.get("rationale") or "")[:400])
+    return {
+        "headline": f"{product} at {price}",
+        "body": body.strip(),
+        "source": f"from your own costs on {str(latest.get('created_at') or '')[:10]}",
+        "doneText": f"Kept at {price}. Your team will tell you if what you "
+                    f"keep starts dropping.",
+        "raiseLabel": f"Keep {price}",
+        "keepLabel": "Ask for a new price",
+    }
+
+
+
+def rivals() -> list[dict]:
+    """Who else sells this, at what price.
+
+    The bundle listed four named snack shops in Mirpur with their prices.
+    Nothing in this backend records a competitor as a row — the research
+    agent writes prose, and turning prose into a priced table would be
+    inventing the numbers, which is the whole thing this pass is removing.
+    So: empty, and the panel says how to fill it.
+
+    To make this real, the research tool would need to store what it finds
+    as structured rows (name, price, where seen) rather than a summary.
+    """
+    return []
+
+
+
 # ---------------------------------------------------------------------------
 # Assembly
 # ---------------------------------------------------------------------------
@@ -1243,6 +1302,8 @@ def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
         "todayLabel": today_label(),
         "facts": facts(session_id),
         "margin": margin(),
+        "priceAdvice": price_advice(),
+        "rivals": rivals(),
         "costRows": cost_rows(),
         "team": team(session_id),
         "dayLine": day_line(session_id, pending),

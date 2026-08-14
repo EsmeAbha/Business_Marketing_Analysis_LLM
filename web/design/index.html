@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <script>
 /* Injected by Lucida — map the dc-runtime's CDN URLs onto vendored copies.
    `cdnScriptFor()` in support.js consults window.__resources first, so this
@@ -32,6 +33,58 @@ window.LUCIDA = window.LUCIDA || {};
   margin-left: auto !important;
   margin-right: auto !important;
 }
+
+/* The bundle was drawn for a desktop: fixed pixel panels and grids of four
+   and five columns, all in inline styles. Below about 1280px it dragged the
+   whole page sideways. Inline styles beat a stylesheet, so these overrides
+   are the one place `!important` is warranted — the alternative is editing a
+   few hundred style attributes and losing the design in the process.
+
+   Nothing changes at the width the design was drawn for. */
+
+@media (max-width: 1280px) {
+  /* The shell: rail beside content becomes rail above content. */
+  #lucida-shell, [style*="grid-template-columns: 248px"],
+  [style*="grid-template-columns: 236px"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  aside { position: static !important; height: auto !important; }
+  [style*="padding: 30px 36px"] { padding: 22px 20px !important; }
+}
+
+@media (max-width: 1100px) {
+  /* Four and five column tables of figures go to two. */
+  [style*="repeat(4,"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  [style*="120px 120px 120px 130px"],
+  [style*="96px 104px"],
+  [style*="110px 120px 130px"],
+  [style*="168px 170px"],
+  [style*="128px 96px"],
+  [style*="140px 160px"],
+  [style*="1.55fr"], [style*="1.5fr"], [style*="1.4fr"], [style*="1.3fr"],
+  [style*="1.1fr"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  [style*="aspect-ratio: 900 / 440"] { aspect-ratio: 900 / 620 !important; }
+}
+
+@media (max-width: 760px) {
+  /* One column, everywhere, and let long words break rather than push. */
+  [style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  [style*="repeat(3,"] { grid-template-columns: minmax(0, 1fr) !important; }
+  main, main * { min-width: 0 !important; }
+  h1 { font-size: 24px !important; }
+  code, pre { overflow-wrap: anywhere !important; }
+}
+
+/* A last resort so no single element can drag the page sideways at any
+   width the media queries above did not anticipate. */
+html, body { max-width: 100%; overflow-x: hidden; }
+main { min-width: 0; }
 
 </style>
 <script src="./support.js"></script>
@@ -455,12 +508,12 @@ window.LUCIDA = window.LUCIDA || {};
           <div style="background: #FFFFFF; border: 1px solid {{ priceBorder }}; border-radius: 14px; padding: 18px;">
             <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
               <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: {{ priceTagFg }}; background: {{ priceTagBg }}; padding: 3px 8px; border-radius: 6px;">{{ priceTag }}</span>
-              <span style="font-size: 12px; color: #71717A;">checked against 14 nearby sellers</span>
+              <span style="font-size: 12px; color: #71717A;">{{ priceSource }}</span>
             </div>
             <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{ priceHeadline }}</div>
             <p style="margin: 0 0 14px; font-size: 13.5px; color: #3F3F46; line-height: 1.6;">{{ priceBody }}</p>
             <div style="display: flex; gap: 20px; padding: 13px 15px; background: #FFFFFF; border-radius: 11px; margin-bottom: 15px;">
-              <div><div style="font-size: 11.5px; color: #71717A;">12-pc pack</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ packPrice }}</div></div>
+              <div><div style="font-size: 11.5px; color: #71717A;">{{ packLabel }}</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ packPrice }}</div></div>
               <div><div style="font-size: 11.5px; color: #71717A;">You keep</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: {{ marginNoteColor }};">{{ marginNow }}</div></div>
               <div><div style="font-size: 11.5px; color: #71717A;">Wholesale</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ wholesale }}</div></div>
               <div><div style="font-size: 11.5px; color: #71717A;">Nearest rival</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ rivalPrice }}</div></div>
@@ -948,12 +1001,8 @@ const PNL = (window.LUCIDA && window.LUCIDA.pnl !== undefined ? window.LUCIDA.pn
 
 const DEMANDS = (window.LUCIDA && window.LUCIDA.demands !== undefined ? window.LUCIDA.demands : []);
 
-const RIVALS = [
-  { name: 'Pallabi Frozen Foods', price: '৳22', note: 'veg only · 4.1k followers' },
-  { name: 'Ma\'r Hater Ranna', price: '৳20', note: 'beef · sold out 3 times this month' },
-  { name: 'Mirpur Snack House', price: '৳15', note: 'bulk only, 50 pcs minimum' },
-  { name: '11 smaller sellers', price: '৳16–28', note: 'mostly veg, irregular stock' }
-];
+const RIVALS = (window.LUCIDA && window.LUCIDA.rivals !== undefined
+  ? window.LUCIDA.rivals : []);
 
 const HISTORY = (window.LUCIDA && window.LUCIDA.history !== undefined ? window.LUCIDA.history : []);
 
@@ -962,7 +1011,7 @@ const PERMS = [
   { id: 'p2', label: 'Take preorders in chat', note: 'Reserve stock and confirm the amount. No payment is taken.', on: true },
   { id: 'p3', label: 'Post free content', note: 'Stories and page posts. Paid ads always need your yes.', on: true },
   { id: 'p4', label: 'Offer small discounts', note: 'Up to 10% for repeat and wholesale buyers.', on: true },
-  { id: 'p5', label: 'Reorder stock under ৳5,000', note: 'From suppliers you have used before.', on: false },
+  { id: 'p5', label: 'Reorder stock under your limit', note: 'From suppliers you have used before.', on: false },
   { id: 'p6', label: 'Change prices on its own', note: 'Not recommended — customers see this immediately.', on: false }
 ];
 
@@ -999,6 +1048,11 @@ function T() {
 function D() {
   return (window.LUCIDA && window.LUCIDA.dayLine)
     || { line: 'Your team is ready.', pending: 'nothing waiting' };
+}
+function P() {
+  return (window.LUCIDA && window.LUCIDA.priceAdvice)
+    || { headline: 'No price worked out yet', body: '', source: '',
+         doneText: '', raiseLabel: '', keepLabel: '' };
 }
 function G() {
   return (window.LUCIDA && window.LUCIDA.grow)
@@ -1227,13 +1281,11 @@ class Component extends DCLogic {
       priceTag: raised ? 'Price updated' : s.price ? 'Watching' : 'Suggested change',
       priceTagBg: raised ? '#FBEBEB' : '#FEF9C3',
       priceTagFg: raised ? '#7B1E22' : '#A16207',
-      priceHeadline: raised ? '12-piece pack is now ৳228' : 'Raise the 12-piece pack from ৳216 to ৳228',
-      priceBody: raised
-        ? 'Live on your page, in your ads, and in the replies your team sends. Wholesale stayed at ৳480 to keep resellers on side, and your margin is back to where it was in July.'
-        : 'Oil rose ৳9 a litre, so each piece now costs you ৳12.05 instead of ৳11.40. ৳19 a piece (৳228 a pack) restores what you keep and still undercuts the ৳20 seller nearby. Wholesale stays at ৳480 to protect the reseller relationship.',
-      priceDoneText: raised
-        ? 'Price changed everywhere, and this week\'s ad copy was rewritten to match.'
-        : 'Kept at ৳216. Your team will warn you if what you keep drops below 30%.',
+      priceHeadline: P().headline,
+      priceSource: P().source,
+      packLabel: M().product || 'Your product',
+      priceBody: P().body,
+      priceDoneText: P().doneText,
       priceDoneBg: raised ? '#FBEBEB' : '#F4F4F5',
       priceDoneFg: raised ? '#7B1E22' : '#3F3F46',
       applyPrice: () => this.decide('price', 'yes'),
@@ -1297,7 +1349,14 @@ class Component extends DCLogic {
         stateFg: a.bad ? '#B91C1C' : a.wait ? '#A16207' : a.busy ? '#7B1E22' : '#71717A'
       })),
       nodes: ROSTER.map(a => {
-        const p = NODE_POS[a.id], hot = busyNow && a.name === lastAgent, touched = shown.some(x => x.a === a.name);
+        /* Matched on the node id for the same reason the flow is: the run
+           player writes "Inventory" where the roster says "Inventory Agent",
+           so comparing labels left every card reading idle through a run it
+           had taken part in. */
+        const p = NODE_POS[a.id];
+        const ranHere = (x) => (x.id ? x.id === a.id : x.a === a.name);
+        const hot = busyNow && shown.length && ranHere(shown[shown.length - 1]);
+        const touched = shown.some(ranHere);
         return {
           name: a.name, left: (p[0] / 900) * 100, top: (p[1] / 440) * 100,
           state: hot ? 'working now' : touched ? 'used this run' : 'idle',
@@ -1326,14 +1385,16 @@ class Component extends DCLogic {
          short of centre at both ends so the arrowhead lands on the card edge
          rather than under it. */
       flow: (function () {
-        const idFor = (name) => {
-          const hit = ROSTER.find((a) => a.name === name);
-          return hit ? hit.id : '';
+        /* The step carries the node id. The label is for people. */
+        const idFor = (st) => {
+          if (st.id && NODE_POS[st.id]) return st.id;
+          const hit = ROSTER.find((a) => a.name === st.a);
+          return hit && NODE_POS[hit.id] ? hit.id : '';
         };
         const seq = [];
         shown.forEach((st) => {
-          const id = idFor(st.a);
-          if (id && NODE_POS[id] && seq[seq.length - 1] !== id) seq.push(id);
+          const id = idFor(st);
+          if (id && seq[seq.length - 1] !== id) seq.push(id);
         });
         const hops = [];
         for (let i = 0; i < seq.length - 1; i++) {
