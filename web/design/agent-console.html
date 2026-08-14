@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #08090A; }
+  body { -webkit-font-smoothing: antialiased; }
+  a { color: #3DDC97; text-decoration: none; }
+  a:hover { color: #6DE9B4; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #23282D; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(61,220,151,.45); } 70% { box-shadow: 0 0 0 7px rgba(61,220,151,0); } 100% { box-shadow: 0 0 0 0 rgba(61,220,151,0); } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes dash { to { stroke-dashoffset: -18; } }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; background: radial-gradient(1200px 600px at 12% -10%, #101A16 0%, #08090A 60%); color: #E6EBE9; font-family: 'Space Grotesk', system-ui, sans-serif; display: grid; grid-template-rows: auto 1fr; font-size: 13px;">
+
+  <header style="display: flex; align-items: center; gap: 18px; padding: 12px 20px; border-bottom: 1px solid #1B2024; background: rgba(10,12,13,.82); backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 20;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(140deg, #3DDC97, #1B7A55); display: grid; place-items: center; font-weight: 700; font-size: 13px; color: #05130D;">U</div>
+      <div style="display: flex; flex-direction: column; line-height: 1.15;">
+        <span style="font-weight: 600; letter-spacing: -0.01em;">Udyog</span>
+        <span style="font-size: 10px; color: #6E7A80; letter-spacing: .06em; text-transform: uppercase;">AI Business Workforce</span>
+      </div>
+    </div>
+
+    <div style="height: 26px; width: 1px; background: #1F252A;"></div>
+
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 24px; height: 24px; border-radius: 50%; background: #2A312F; display: grid; place-items: center; font-size: 10px; color: #9FB0A8; font-weight: 600;">RA</div>
+      <div style="display: flex; flex-direction: column; line-height: 1.2;">
+        <span style="font-size: 12px; font-weight: 500;">Shomvob Kitchen</span>
+        <span style="font-size: 10px; color: #6E7A80;">Rifat Ara · Mirpur, Dhaka</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 6px; margin-left: 6px; padding: 5px 10px; border: 1px solid #23303A; border-radius: 999px; background: #0E1417;">
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ statusColor }};"></span>
+      <span style="font-size: 11px; color: #A9B6BC; font-family: 'IBM Plex Mono', monospace;">{{ stageLabel }}</span>
+    </div>
+
+    <div style="flex: 1;"></div>
+
+    <div style="display: flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A948F;">
+      <span>{{ totalTokens }} tok</span>
+      <span style="color: #2B3238;">|</span>
+      <span style="color: #C0F26E;">${{ totalCost }}</span>
+      <span style="color: #2B3238;">|</span>
+      <span>{{ elapsed }}</span>
+    </div>
+
+    <div style="display: flex; gap: 6px;">
+      <button onClick="{{ togglePlay }}" style="display: flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 8px; border: 1px solid #2A3A33; background: {{ playBg }}; color: {{ playFg }}; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer;" style-hover="filter: brightness(1.12)">{{ playLabel }}</button>
+      <button onClick="{{ resetRun }}" style="padding: 7px 11px; border-radius: 8px; border: 1px solid #23282D; background: #0E1214; color: #8A948F; font-size: 12px; cursor: pointer; font-family: 'Space Grotesk', sans-serif;" style-hover="color: #E6EBE9; border-color: #33403A">Reset</button>
+    </div>
+  </header>
+
+  <div style="display: grid; grid-template-columns: 246px minmax(0, 1fr) 306px; align-items: start; min-height: 0; min-width: 1180px;">
+
+    <aside style="border-right: 1px solid #1B2024; padding: 16px 14px 32px; display: flex; flex-direction: column; gap: 22px; position: sticky; top: 51px; max-height: calc(100vh - 51px); overflow-y: auto;">
+      <div>
+        <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #5F6A70; margin-bottom: 10px;">Workflow runs</div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <sc-for list="{{ runList }}" as="r" hint-placeholder-count="4">
+            <button onClick="{{ r.pick }}" style="text-align: left; padding: 9px 10px; border-radius: 9px; border: 1px solid {{ r.border }}; background: {{ r.bg }}; color: #DCE4E0; cursor: pointer; font-family: 'Space Grotesk', sans-serif; display: flex; flex-direction: column; gap: 3px;" style-hover="border-color: #33403A">
+              <span style="font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: {{ r.num }};">{{ r.code }}</span>
+              <span style="font-size: 12px; font-weight: 500; line-height: 1.25;">{{ r.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #5F6A70; margin-bottom: 10px;">Lifecycle stage</div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <sc-for list="{{ stages }}" as="st" hint-placeholder-count="8">
+            <div style="display: flex; align-items: center; gap: 9px; padding: 5px 4px;">
+              <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ st.dot }}; flex: none;"></span>
+              <span style="font-size: 11.5px; color: {{ st.fg }};">{{ st.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #5F6A70; margin-bottom: 10px;">Agents</div>
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <sc-for list="{{ agentList }}" as="a" hint-placeholder-count="9">
+            <div style="display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 8px; background: {{ a.bg }};">
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ a.dot }}; animation: {{ a.anim }}; flex: none;"></span>
+              <div style="display: flex; flex-direction: column; min-width: 0; line-height: 1.25;">
+                <span style="font-size: 11.5px; font-weight: 500; color: {{ a.fg }};">{{ a.name }}</span>
+                <span style="font-size: 10px; color: #616C72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ a.role }}</span>
+              </div>
+              <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #566067;">{{ a.calls }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </aside>
+
+    <main style="min-width: 0; padding: 0 0 40px;">
+      <nav style="display: flex; gap: 2px; padding: 10px 18px 0; border-bottom: 1px solid #1B2024; overflow-x: auto;">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="7">
+          <button onClick="{{ t.pick }}" style="padding: 9px 13px 10px; border: none; background: none; border-bottom: 2px solid {{ t.line }}; color: {{ t.fg }}; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;" style-hover="color: #E6EBE9">
+            {{ t.name }}<span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #5F6A70;">{{ t.count }}</span>
+          </button>
+        </sc-for>
+      </nav>
+
+      <sc-if value="{{ isTrace }}" hint-placeholder-val="{{ true }}">
+        <div style="padding: 18px;">
+          <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Live execution trace</h2>
+            <span style="font-size: 11px; color: #6E7A80; font-family: 'IBM Plex Mono', monospace;">{{ traceSub }}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <sc-for list="{{ visibleSteps }}" as="s" hint-placeholder-count="6">
+              <div onClick="{{ s.pick }}" style="border: 1px solid {{ s.border }}; border-left: 3px solid {{ s.color }}; border-radius: 10px; background: {{ s.bg }}; padding: 11px 13px; cursor: pointer; animation: fadeUp .28s ease both;" style-hover="border-color: #33403A">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #5F6A70;">{{ s.t }}</span>
+                  <span style="font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: {{ s.color }};">{{ s.agentName }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; padding: 2px 6px; border-radius: 5px; background: {{ s.kindBg }}; color: {{ s.kindFg }};">{{ s.kindLabel }}</span>
+                  <span style="font-size: 12.5px; color: #DCE4E0; font-weight: 500;">{{ s.title }}</span>
+                  <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #566067;">{{ s.meta }}</span>
+                </div>
+                <sc-if value="{{ s.open }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top: 9px; padding: 10px 12px; border-radius: 8px; background: #0A0D0F; border: 1px solid #191F23; font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 1.65; color: #9DAAA4; white-space: pre-wrap;">{{ s.detail }}</div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ awaitingApproval }}" hint-placeholder-val="{{ false }}">
+              <div style="border: 1px dashed #4A3A18; border-radius: 10px; background: rgba(242,178,59,.06); padding: 14px; display: flex; align-items: center; gap: 12px;">
+                <span style="width: 9px; height: 9px; border-radius: 50%; background: #F2B23B; animation: pulseRing 1.8s infinite;"></span>
+                <span style="font-size: 12.5px; color: #F0D8A8;">Workflow paused at human-in-the-loop checkpoint — resolve it in the right rail to continue.</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ runComplete }}" hint-placeholder-val="{{ false }}">
+              <div style="border: 1px solid #1E3229; border-radius: 10px; background: rgba(61,220,151,.05); padding: 13px; font-size: 12.5px; color: #A9D9C2;">Run complete · all agent handoffs logged and written to shared memory. Open the <b>Report</b> tab for the owner-facing output.</div>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isGraph }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 18px;">
+          <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Execution graph</h2>
+            <span style="font-size: 11px; color: #6E7A80; font-family: 'IBM Plex Mono', monospace;">LangGraph state graph · supervisor router</span>
+          </div>
+          <div style="position: relative; width: 100%; max-width: 920px; aspect-ratio: 900 / 470; border: 1px solid #1B2024; border-radius: 14px; background: linear-gradient(#0C0F11, #0A0C0D); overflow: hidden;">
+            <svg viewBox="0 0 900 470" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+              <sc-for list="{{ edges }}" as="e" hint-placeholder-count="12">
+                <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}" style="{{ e.style }}"></line>
+              </sc-for>
+            </svg>
+            <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="9">
+              <div style="position: absolute; left: {{ n.left }}%; top: {{ n.top }}%; transform: translate(-50%, -50%); width: 18.6%; min-width: 128px; padding: 9px 11px; border-radius: 10px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; box-shadow: {{ n.glow }};">
+                <div style="display: flex; align-items: center; gap: 7px;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ n.dot }}; flex: none;"></span>
+                  <span style="font-size: 11px; font-weight: 600; color: {{ n.fg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ n.name }}</span>
+                </div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #5F6A70; margin-top: 3px;">{{ n.state }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 18px; margin-top: 12px; font-size: 11px; color: #6E7A80;">
+            <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #3DDC97;"></span>running</span>
+            <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #4A5A52;"></span>completed this run</span>
+            <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #262C31;"></span>idle</span>
+            <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: #F2B23B;"></span>conditional edge (HITL gate)</span>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isMessages }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 18px;">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Agent communication history</h2>
+          <p style="margin: 0 0 16px; font-size: 11.5px; color: #6E7A80;">Structured task envelopes exchanged through the supervisor. Every payload is also persisted to shared memory.</p>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ messages }}" as="m" hint-placeholder-count="4">
+              <div style="border: 1px solid #1B2024; border-radius: 11px; background: #0C0F11; overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 9px; padding: 10px 13px; border-bottom: 1px solid #161B1F;">
+                  <span style="font-size: 11px; font-weight: 600; color: {{ m.fromColor }};">{{ m.from }}</span>
+                  <span style="color: #3A4349;">→</span>
+                  <span style="font-size: 11px; font-weight: 600; color: {{ m.toColor }};">{{ m.to }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; padding: 2px 6px; border-radius: 5px; background: #141A1E; color: #7C8A82;">{{ m.type }}</span>
+                  <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #566067;">{{ m.t }}</span>
+                </div>
+                <pre style="margin: 0; padding: 12px 13px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; line-height: 1.7; color: #9DAAA4; white-space: pre-wrap;">{{ m.payload }}</pre>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isMemory }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 18px;">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Shared memory</h2>
+          <p style="margin: 0 0 16px; font-size: 11.5px; color: #6E7A80;">Postgres (structured) + Chroma (vectors). Agents read and write here rather than passing state only through messages.</p>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 18px;">
+            <sc-for list="{{ memStores }}" as="ms" hint-placeholder-count="4">
+              <div style="border: 1px solid #1B2024; border-radius: 11px; background: #0C0F11; padding: 12px;">
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #6E7A80;">{{ ms.kind }}</div>
+                <div style="font-size: 12.5px; font-weight: 600; margin: 4px 0 6px;">{{ ms.name }}</div>
+                <div style="font-family: 'IBM Plex Mono', monospace; font-size: 18px; color: #C0F26E;">{{ ms.count }}</div>
+                <div style="font-size: 10.5px; color: #616C72; margin-top: 2px;">{{ ms.unit }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="border: 1px solid #1B2024; border-radius: 11px; overflow: hidden;">
+            <div style="display: grid; grid-template-columns: 180px 190px 1fr 92px; gap: 12px; padding: 9px 13px; background: #0E1214; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #5F6A70;">
+              <span>Store</span><span>Key</span><span>Value</span><span>Written</span>
+            </div>
+            <sc-for list="{{ memRecords }}" as="rec" hint-placeholder-count="6">
+              <div style="display: grid; grid-template-columns: 180px 190px 1fr 92px; gap: 12px; padding: 10px 13px; border-top: 1px solid #161B1F; font-size: 11.5px; background: {{ rec.bg }};">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: {{ rec.storeColor }};">{{ rec.store }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #8A948F;">{{ rec.key }}</span>
+                <span style="color: #DCE4E0;">{{ rec.value }}</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #566067;">{{ rec.when }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 18px;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Logs &amp; errors</h2>
+            <div style="display: flex; gap: 4px; margin-left: auto;">
+              <sc-for list="{{ logFilters }}" as="f" hint-placeholder-count="4">
+                <button onClick="{{ f.pick }}" style="padding: 5px 10px; border-radius: 7px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-family: 'IBM Plex Mono', monospace; font-size: 10px; cursor: pointer;" style-hover="border-color: #33403A">{{ f.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div style="border: 1px solid #1B2024; border-radius: 11px; background: #0A0C0D; overflow: hidden;">
+            <sc-for list="{{ logs }}" as="l" hint-placeholder-count="8">
+              <div style="display: grid; grid-template-columns: 74px 58px 152px 1fr; gap: 12px; padding: 9px 13px; border-bottom: 1px solid #14181B; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; align-items: baseline;">
+                <span style="color: #4E585E;">{{ l.t }}</span>
+                <span style="color: {{ l.levelColor }}; font-weight: 600;">{{ l.level }}</span>
+                <span style="color: #7C8A82;">{{ l.source }}</span>
+                <span style="color: {{ l.msgColor }};">{{ l.msg }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 18px;">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Customer listening</h2>
+          <p style="margin: 0 0 16px; font-size: 11.5px; color: #6E7A80;">Messenger + Instagram DMs and comments, classified by the Customer Engagement Agent. Preorders and unmet demand are extracted into memory automatically.</p>
+          <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-bottom: 16px;">
+            <div style="border: 1px solid #1B2024; border-radius: 11px; background: #0C0F11; padding: 13px;">
+              <div style="font-size: 10.5px; color: #6E7A80;">Sentiment · 47 threads</div>
+              <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin: 10px 0 8px;">
+                <span style="width: 68%; background: #3DDC97;"></span><span style="width: 21%; background: #4A5A52;"></span><span style="width: 11%; background: #E5675C;"></span>
+              </div>
+              <div style="display: flex; gap: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #7C8A82;"><span>68% pos</span><span>21% neu</span><span>11% neg</span></div>
+            </div>
+            <div style="border: 1px solid #1B2024; border-radius: 11px; background: #0C0F11; padding: 13px;">
+              <div style="font-size: 10.5px; color: #6E7A80;">Preorders extracted</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; color: #C0F26E; margin-top: 6px;">312 pcs</div>
+              <div style="font-size: 10.5px; color: #616C72;">across 9 threads · ৳5,616 at ৳18</div>
+            </div>
+            <div style="border: 1px solid #1B2024; border-radius: 11px; background: #0C0F11; padding: 13px;">
+              <div style="font-size: 10.5px; color: #6E7A80;">Top unmet demand</div>
+              <div style="font-size: 13px; color: #E6EBE9; margin-top: 6px; font-weight: 500;">Chicken shingara</div>
+              <div style="font-size: 10.5px; color: #616C72;">14 mentions / 30d · not in catalog</div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <sc-for list="{{ dms }}" as="d" hint-placeholder-count="6">
+              <div style="border: 1px solid #1B2024; border-left: 3px solid {{ d.color }}; border-radius: 10px; background: #0C0F11; padding: 11px 13px;">
+                <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 5px;">
+                  <span style="font-size: 12px; font-weight: 600;">{{ d.name }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; padding: 2px 6px; border-radius: 5px; background: #141A1E; color: #7C8A82;">{{ d.channel }}</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: {{ d.color }};">{{ d.sentiment }}</span>
+                  <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #566067;">{{ d.t }}</span>
+                </div>
+                <div style="font-size: 12.5px; color: #C7D1CC; line-height: 1.5;">{{ d.text }}</div>
+                <div style="margin-top: 7px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #7C8A82;">extracted → {{ d.extract }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isReport }}" hint-placeholder-val="{{ false }}">
+        <div style="padding: 18px; max-width: 860px;">
+
+          <sc-if value="{{ isR1 }}" hint-placeholder-val="{{ true }}">
+            <div style="border: 1px solid #1E3229; border-radius: 14px; background: linear-gradient(#0D1412, #0A0D0E); overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid #17211D;">
+                <span style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #6E7A80;">Product validation report</span>
+                <span style="margin-left: auto; padding: 4px 11px; border-radius: 999px; background: rgba(61,220,151,.12); color: #3DDC97; font-size: 11px; font-weight: 700; letter-spacing: .05em;">GO</span>
+              </div>
+              <div style="display: grid; grid-template-columns: 200px 1fr; gap: 18px; padding: 18px;">
+                <div>
+                  <image-slot id="udyog-product" shape="rounded" radius="10" style="width: 200px; height: 200px;" placeholder="Owner's product photo"></image-slot>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #566067; margin-top: 7px;">upload_0219.jpg · 09:41:04</div>
+                </div>
+                <div>
+                  <h3 style="margin: 0 0 4px; font-size: 18px; font-weight: 600; letter-spacing: -0.01em;">Hand-folded beef shingara, 58 g</h3>
+                  <p style="margin: 0 0 14px; font-size: 12.5px; color: #8A948F; line-height: 1.6;">Par-fried and freezer-ready. Vision confidence 0.93. Low competition on the beef variant — only 2 of 14 nearby sellers offer it, and demand signals for frozen shingara in Dhaka North are up 18% month over month.</p>
+                  <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                    <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 10px; background: #0C0F11;">
+                      <div style="font-size: 10px; color: #6E7A80;">Unit cost</div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px;">৳11.40</div>
+                    </div>
+                    <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 10px; background: #0C0F11;">
+                      <div style="font-size: 10px; color: #6E7A80;">Rec. price</div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px; color: #C0F26E;">৳18.00</div>
+                    </div>
+                    <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 10px; background: #0C0F11;">
+                      <div style="font-size: 10px; color: #6E7A80;">Gross margin</div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px;">36.7%</div>
+                    </div>
+                    <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 10px; background: #0C0F11;">
+                      <div style="font-size: 10px; color: #6E7A80;">Break-even</div>
+                      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px;">1,240/mo</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding: 0 18px 18px;">
+                <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #6E7A80; margin: 6px 0 8px;">Competitor scan · 4 km radius</div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; overflow: hidden;">
+                  <div style="display: grid; grid-template-columns: 1fr 92px 92px 1fr; gap: 10px; padding: 8px 12px; background: #0E1214; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #5F6A70;"><span>Seller</span><span>Price/pc</span><span>Variant</span><span>Signal</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 92px 92px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>Pallabi Frozen Foods</span><span style="font-family: 'IBM Plex Mono', monospace;">৳22</span><span style="color: #8A948F;">Veg</span><span style="color: #8A948F;">4.1k page likes</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 92px 92px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>Ma'r Hater Ranna</span><span style="font-family: 'IBM Plex Mono', monospace;">৳20</span><span style="color: #8A948F;">Beef</span><span style="color: #8A948F;">sold out 3× / 30d</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 92px 92px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>Mirpur Snack House</span><span style="font-family: 'IBM Plex Mono', monospace;">৳15</span><span style="color: #8A948F;">Veg</span><span style="color: #8A948F;">bulk only, 50 pc min</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 92px 92px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>11 smaller sellers</span><span style="font-family: 'IBM Plex Mono', monospace;">৳16–28</span><span style="color: #8A948F;">Mixed</span><span style="color: #8A948F;">median ৳20</span></div>
+                </div>
+                <div style="margin-top: 14px; padding: 13px; border-radius: 10px; background: rgba(61,220,151,.05); border: 1px solid #1E3229; font-size: 12.5px; color: #A9D9C2; line-height: 1.6;">Recommendation: launch two SKUs — a 12-pc retail pack at ৳216 and a 30-pc wholesale pack at ৳480 — priced ৳2 under the nearest beef competitor. First order: 1,500 pcs (৳17,100 stock cost), recoverable in ~3.5 weeks at the demand signal observed.</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isR2 }}" hint-placeholder-val="{{ false }}">
+            <div style="border: 1px solid #1B2024; border-radius: 14px; background: #0B0E10; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 15px 18px; border-bottom: 1px solid #161B1F;">
+                <span style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #6E7A80;">Ad creative · pending publish</span>
+                <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #F2B23B;">meta_graph_adapter · SIMULATED</span>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 18px;">
+                <div style="border: 1px solid #1B2024; border-radius: 11px; overflow: hidden; background: #0C0F11;">
+                  <image-slot id="udyog-ad-ig" shape="rect" style="width: 100%; height: 168px;" placeholder="IG square creative"></image-slot>
+                  <div style="padding: 11px;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #F472B6; margin-bottom: 6px;">INSTAGRAM · FEED</div>
+                    <div style="font-size: 12px; line-height: 1.55; color: #C7D1CC;">Ghore bosha bikel, hater kache garam shingara. Freezer theke 6 minute — beef, hand-folded, 12 pcs ৳216. Mirpur-e same-day delivery.</div>
+                  </div>
+                </div>
+                <div style="border: 1px solid #1B2024; border-radius: 11px; overflow: hidden; background: #0C0F11;">
+                  <image-slot id="udyog-ad-fb" shape="rect" style="width: 100%; height: 168px;" placeholder="FB landscape creative"></image-slot>
+                  <div style="padding: 11px;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #6AA9FF; margin-bottom: 6px;">FACEBOOK · CAROUSEL</div>
+                    <div style="font-size: 12px; line-height: 1.55; color: #C7D1CC;">Ma'r hater shingara, ekhon freezer-ready. 12 pc ৳216 · 30 pc ৳480. Order kore rakhun, biyer dawat theke chayer adda — shob e ready.</div>
+                  </div>
+                </div>
+                <div style="border: 1px solid #1B2024; border-radius: 11px; overflow: hidden; background: #0C0F11;">
+                  <image-slot id="udyog-ad-yt" shape="rect" style="width: 100%; height: 168px;" placeholder="YouTube Shorts thumb"></image-slot>
+                  <div style="padding: 11px;">
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #E5675C; margin-bottom: 6px;">YOUTUBE · SHORTS 18s</div>
+                    <div style="font-size: 12px; line-height: 1.55; color: #C7D1CC;">Fold → freeze → fry. 18 seconds of the real kitchen, ending on the ৳216 pack. Hook at 0:00, CTA card at 0:14.</div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding: 0 18px 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 11px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Daily budget</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px;">৳350</div></div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 11px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Radius</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px;">6 km</div></div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 11px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Est. reach/day</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px;">4.2k</div></div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 11px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Target CPA</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; margin-top: 3px; color: #C0F26E;">৳41</div></div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isR3 }}" hint-placeholder-val="{{ false }}">
+            <div style="border: 1px solid #1B2024; border-radius: 14px; background: #0B0E10; overflow: hidden;">
+              <div style="padding: 15px 18px; border-bottom: 1px solid #161B1F; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #6E7A80;">Demand digest &amp; restock plan</div>
+              <div style="padding: 18px;">
+                <p style="margin: 0 0 16px; font-size: 12.5px; color: #8A948F; line-height: 1.6;">47 conversations read this week. Beef shingara is outrunning forecast by 22%, and a variant customers keep asking for is not in the catalog at all.</p>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; overflow: hidden; margin-bottom: 16px;">
+                  <div style="display: grid; grid-template-columns: 1fr 88px 88px 96px 1fr; gap: 10px; padding: 8px 12px; background: #0E1214; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #5F6A70;"><span>SKU</span><span>On hand</span><span>Cover</span><span>Restock</span><span>Note</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 88px 88px 96px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>Beef shingara 58g</span><span style="font-family: 'IBM Plex Mono', monospace; color: #E5675C;">620 pc</span><span style="color: #8A948F;">4 days</span><span style="font-family: 'IBM Plex Mono', monospace; color: #C0F26E;">+2,000</span><span style="color: #8A948F;">low-stock flag raised</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 88px 88px 96px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>Veg samosa 50g</span><span style="font-family: 'IBM Plex Mono', monospace;">1,140 pc</span><span style="color: #8A948F;">17 days</span><span style="font-family: 'IBM Plex Mono', monospace; color: #8A948F;">hold</span><span style="color: #8A948F;">steady</span></div>
+                  <div style="display: grid; grid-template-columns: 1fr 88px 88px 96px 1fr; gap: 10px; padding: 9px 12px; border-top: 1px solid #161B1F; font-size: 11.5px;"><span>Chicken shingara <span style="color: #C0F26E;">(new)</span></span><span style="font-family: 'IBM Plex Mono', monospace; color: #566067;">—</span><span style="color: #8A948F;">—</span><span style="font-family: 'IBM Plex Mono', monospace; color: #C0F26E;">+600 pilot</span><span style="color: #8A948F;">14 unmet requests</span></div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div style="border: 1px solid #1E3229; border-radius: 10px; background: rgba(61,220,151,.05); padding: 13px; font-size: 12.5px; color: #A9D9C2; line-height: 1.6;">Restock PO drafted: 2,000 pc beef at ৳11.40 (৳22,800) + 600 pc chicken pilot at ৳12.10 (৳7,260). Supplier lead time 2 days — stock lands before the 4-day cover runs out.</div>
+                  <div style="border: 1px solid #23282D; border-radius: 10px; background: #0C0F11; padding: 13px; font-size: 12.5px; color: #8A948F; line-height: 1.6;">Preorders already committed: <b style="color: #E6EBE9;">312 pcs / ৳5,616</b>, which covers 25% of the PO before it ships. 9 threads awaiting a confirmation reply the Engagement Agent has drafted.</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isR4 }}" hint-placeholder-val="{{ false }}">
+            <div style="border: 1px solid #1B2024; border-radius: 14px; background: #0B0E10; overflow: hidden;">
+              <div style="padding: 15px 18px; border-bottom: 1px solid #161B1F; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #6E7A80;">Week 32 report · 05–11 Aug</div>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 18px;">
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 12px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Revenue</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; margin-top: 4px;">৳48,240</div><div style="font-size: 10.5px; color: #C0F26E; margin-top: 2px;">+14% WoW</div></div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 12px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Units sold</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; margin-top: 4px;">2,680</div><div style="font-size: 10.5px; color: #C0F26E; margin-top: 2px;">+22% vs forecast</div></div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 12px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Gross margin</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; margin-top: 4px; color: #F2B23B;">33.1%</div><div style="font-size: 10.5px; color: #E5675C; margin-top: 2px;">−3.6 pts (oil +9%)</div></div>
+                <div style="border: 1px solid #1B2024; border-radius: 10px; padding: 12px; background: #0C0F11;"><div style="font-size: 10px; color: #6E7A80;">Ad CPA</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; margin-top: 4px;">৳37</div><div style="font-size: 10.5px; color: #C0F26E; margin-top: 2px;">under ৳41 target</div></div>
+              </div>
+              <div style="padding: 0 18px 18px; display: grid; gap: 12px;">
+                <div style="border: 1px solid #4A3A18; border-radius: 10px; background: rgba(242,178,59,.06); padding: 13px; font-size: 12.5px; color: #F0D8A8; line-height: 1.6;">Replan: soybean oil rose ৳9/L, pushing unit cost to ৳12.05. Holding ৳18 retail drops margin to 33.1%. Recommended — move the 12-pc pack to ৳228 (৳19/pc) and keep wholesale at ৳480 to protect the reseller relationship. Modelled impact: margin back to 36.9%, est. volume loss 3%.</div>
+                <div style="border: 1px solid #23282D; border-radius: 10px; background: #0C0F11; padding: 13px;">
+                  <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #6E7A80; margin-bottom: 8px;">Delivery dispatch</div>
+                  <div style="display: flex; align-items: center; gap: 14px; font-size: 12.5px; color: #C7D1CC; flex-wrap: wrap;">
+                    <span>Pathao Courier · pickup booked 12 Aug, 14:00</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; padding: 3px 8px; border-radius: 6px; background: #141A1E; color: #7C8A82;">consignment PT-4471903</span>
+                    <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #E5675C;">Steadfast adapter timed out → failed over to Pathao</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+        </div>
+      </sc-if>
+    </main>
+
+    <aside style="border-left: 1px solid #1B2024; padding: 16px 14px 32px; display: flex; flex-direction: column; gap: 18px; position: sticky; top: 51px; max-height: calc(100vh - 51px); overflow-y: auto;">
+
+      <div style="border: 1px solid {{ ckptBorder }}; border-radius: 12px; background: {{ ckptBg }}; padding: 13px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 9px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ ckptDot }}; animation: {{ ckptAnim }};"></span>
+          <span style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #8A948F;">Human in the loop</span>
+        </div>
+        <div style="font-size: 12.5px; font-weight: 600; line-height: 1.4; margin-bottom: 4px;">{{ ckptTitle }}</div>
+        <div style="font-size: 11.5px; color: #8A948F; line-height: 1.55;">{{ ckptBody }}</div>
+        <sc-if value="{{ awaitingApproval }}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; gap: 6px; margin-top: 12px;">
+            <button onClick="{{ approve }}" style="padding: 9px; border-radius: 8px; border: none; background: #3DDC97; color: #05130D; font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer;" style-hover="filter: brightness(1.08)">Approve &amp; continue</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+              <button onClick="{{ retry }}" style="padding: 8px; border-radius: 8px; border: 1px solid #2A3238; background: #0E1214; color: #C7D1CC; font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; cursor: pointer;" style-hover="border-color: #3DDC97">Retry step</button>
+              <button onClick="{{ reject }}" style="padding: 8px; border-radius: 8px; border: 1px solid #3A2523; background: #120E0E; color: #E5675C; font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; cursor: pointer;" style-hover="border-color: #E5675C">Reject</button>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #5F6A70; margin-bottom: 10px;">Token &amp; cost</div>
+        <div style="border: 1px solid #1B2024; border-radius: 12px; background: #0C0F11; padding: 13px;">
+          <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px;">
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 22px; color: #C0F26E;">${{ totalCost }}</span>
+            <span style="font-size: 10.5px; color: #6E7A80;">session · {{ totalTokens }} tokens</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px;">
+            <sc-for list="{{ costBars }}" as="c" hint-placeholder-count="5">
+              <div>
+                <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: #8A948F; margin-bottom: 3px;">
+                  <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;">{{ c.name }}</span><span style="font-family: 'IBM Plex Mono', monospace; color: #6E7A80; flex: none;">{{ c.tok }}</span>
+                </div>
+                <div style="height: 5px; border-radius: 3px; background: #141A1E; overflow: hidden;">
+                  <div style="height: 100%; width: {{ c.pct }}%; background: {{ c.color }}; border-radius: 3px;"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #161B1F; font-size: 10.5px; color: #616C72; line-height: 1.55;">Priced at Sonnet input ৳/1M · vision calls billed per image. Projected monthly cost at current run rate: <b style="color: #C7D1CC;">$18.40</b>.</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #5F6A70; margin-bottom: 10px;">Tool adapters</div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <sc-for list="{{ adapters }}" as="ad" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #1B2024; border-radius: 9px; background: #0C0F11;">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: {{ ad.dot }};"></span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #C7D1CC;">{{ ad.name }}</span>
+              <span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 9px; padding: 2px 5px; border-radius: 4px; background: {{ ad.tagBg }}; color: {{ ad.tagFg }};">{{ ad.mode }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;playbackSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.5,&quot;max&quot;:3,&quot;step&quot;:0.5,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Demo&quot;,&quot;unit&quot;:&quot;×&quot;}}">
+const AGENTS = [
+  { id: 'supervisor', name: 'Supervisor', role: 'Routing & HITL gates', color: '#3DDC97' },
+  { id: 'market', name: 'Market Research', role: 'Niche & competitor scan', color: '#6AA9FF' },
+  { id: 'vision', name: 'Product Vision', role: 'Photo → product ID', color: '#A78BFA' },
+  { id: 'pricing', name: 'Pricing & Cost', role: 'Margin, break-even', color: '#F2B23B' },
+  { id: 'inventory', name: 'Inventory', role: 'Stock, photos, flags', color: '#4FD1C5' },
+  { id: 'ads', name: 'Ad Creation', role: 'Creative & publishing', color: '#F472B6' },
+  { id: 'engage', name: 'Cust. Engagement', role: 'DMs, sentiment, preorders', color: '#7DD3FC' },
+  { id: 'delivery', name: 'Delivery', role: 'Courier dispatch', color: '#FBBF77' },
+  { id: 'report', name: 'Reporting', role: 'Digest & replanning', color: '#C0F26E' }
+];
+
+const KINDS = {
+  plan: ['PLAN', '#1A2430', '#8FB6D8'],
+  tool: ['TOOL', '#161F1B', '#8FD8B4'],
+  llm: ['LLM', '#1E1A2B', '#B9A9F0'],
+  memory: ['MEMORY', '#1B2426', '#8FD5D8'],
+  handoff: ['HANDOFF', '#231F14', '#E0C68A'],
+  error: ['ERROR', '#2A1917', '#E5675C'],
+  gate: ['GATE', '#2A2114', '#F2B23B'],
+  action: ['ACTION', '#16221C', '#9BE0B8']
+};
+
+const RUNS = [
+  {
+    id: 'r1', code: 'RUN-014', label: 'Photo → validation → owner approval', stage: 'Product Validation',
+    ckpt: { title: 'Approve the business plan?', body: 'GO recommendation on beef shingara at ৳18/pc, 36.7% margin. Approving unlocks sourcing and inventory setup; nothing is spent until you do.' },
+    steps: [
+      { t: '09:41:02', a: 'supervisor', k: 'plan', title: 'Intent classified → PRODUCT_VALIDATION', tok: 640, cost: 0.0021, detail: 'input: { text: "ei jinish ki bikri hobe?", images: 1 }\nrouter → stage=PRODUCT_VALIDATION (conf 0.88)\nplan: vision → market_research → pricing → reporting\ngate: HITL_PLAN_APPROVAL before sourcing' },
+      { t: '09:41:04', a: 'vision', k: 'tool', title: 'Vision model on upload_0219.jpg', tok: 1180, cost: 0.0094, detail: 'tool: vision.describe(image=upload_0219.jpg)\n→ hand-folded beef shingara (samosa), ~58 g, par-fried, freezer-ready\n  confidence 0.93 · secondary: onion pakora 0.11\n  attributes: triangular fold, coarse crumb, visible mince filling' },
+      { t: '09:41:05', a: 'vision', k: 'memory', title: 'Wrote product draft to catalog', tok: 210, cost: 0.0006, mem: { store: 'pg.catalog', key: 'prod_draft_014', value: 'Beef shingara 58g · par-fried · frozen', when: '09:41:05' }, detail: 'write pg.catalog/prod_draft_014\nembedded description → chroma.products (1 vector, 1536d)' },
+      { t: '09:41:06', a: 'market', k: 'tool', title: 'Web search: frozen snack pricing, Mirpur', tok: 2450, cost: 0.0142, detail: 'tool: web_search("frozen shingara price Mirpur Pallabi 2026")\n34 results → 14 relevant sellers\nmedian retail ৳20/pc · range ৳15–28\n3 Facebook pages, 2 IG shops within 4 km' },
+      { t: '09:41:09', a: 'market', k: 'tool', title: 'Social demand scan (FB + IG)', tok: 1930, cost: 0.0111, detail: 'tool: meta_graph_adapter.search(hashtags=["frozenshingara","dhakafood"])\n61 posts / 30d in Dhaka North (+18% MoM)\nbeef variant offered by only 2 of 14 sellers → low competition' },
+      { t: '09:41:10', a: 'market', k: 'handoff', title: '→ Pricing & Cost Agent', tok: 320, cost: 0.0009, msg: { from: 'Market Research', to: 'Pricing & Cost', type: 'task.envelope', payload: '{\n  "task": "unit_economics",\n  "product_ref": "prod_draft_014",\n  "competitor_prices": [22, 20, 15, 18, 24, 28, 16, 19, 20, 21],\n  "median_price": 20,\n  "demand_index": 1.18,\n  "competition": "low_on_variant:beef"\n}' } },
+      { t: '09:41:11', a: 'pricing', k: 'tool', title: 'Code execution: unit economics', tok: 1420, cost: 0.0068, detail: 'python> cogs = 5.10+2.30+1.60+1.20+1.20  # ৳11.40\npython> price = 18.00 ; gm = (price-cogs)/price  # 0.3667\npython> break_even = 14100/(price-cogs)  # 1,240 pc/mo\nsensitivity: at ৳16 → GM 28.8% · at ৳20 → GM 43.0%' },
+      { t: '09:41:12', a: 'pricing', k: 'error', title: 'Competitor price API returned 429', tok: 0, cost: 0, level: 'ERROR', detail: 'meta_graph_adapter.prices → HTTP 429 rate limited\nretry policy: exponential backoff (2.0s, 4.0s)\nattempt 2 → 200 OK · workflow not interrupted' },
+      { t: '09:41:15', a: 'report', k: 'llm', title: 'Drafted go/no-go recommendation', tok: 3180, cost: 0.0214, detail: 'rag: chroma.products + pg.pricing_history (7 chunks)\n→ GO. Two SKUs: 12-pc ৳216, 30-pc wholesale ৳480\nfirst order 1,500 pc (৳17,100), payback ~3.5 weeks\nconfidence: medium-high (thin data on beef-variant elasticity)' },
+      { t: '09:41:15', a: 'supervisor', k: 'gate', title: 'HITL gate: awaiting owner approval', tok: 180, cost: 0.0005, gate: true, detail: 'interrupt_before: ["sourcing"]\nstate checkpointed → thread_id=shomvob-014\nowner notified via app + Messenger' },
+      { t: '09:43:40', a: 'supervisor', k: 'action', title: 'Owner approved · plan locked', tok: 240, cost: 0.0007, detail: 'resume(thread_id=shomvob-014, decision="approve")\nplan v1 frozen → pg.plans/plan_014' },
+      { t: '09:43:41', a: 'inventory', k: 'memory', title: 'Sourcing checklist written to memory', tok: 380, cost: 0.0011, mem: { store: 'pg.inventory', key: 'sourcing_014', value: '1,500 pc target · supplier shortlist (3) · ৳17,100 budget', when: '09:43:41' }, detail: 'write pg.inventory/sourcing_014\nnext stage → INVENTORY_SETUP (awaiting owner stock photos)' }
+    ]
+  },
+  {
+    id: 'r2', code: 'RUN-021', label: 'Ad creative → approval → publish', stage: 'Marketing Launch',
+    ckpt: { title: 'Publish these three creatives?', body: 'Approving spends ৳350/day across Meta and uploads one Shorts video. Copy, budget and radius are editable before you approve.' },
+    steps: [
+      { t: '11:02:14', a: 'supervisor', k: 'plan', title: 'Intent classified → MARKETING_LAUNCH', tok: 590, cost: 0.0019, detail: 'input: { text: "ad diye dao" }\nplan: reporting(rag) → ads(copy) → ads(creative) → pricing(offer check) → HITL → ads(publish)' },
+      { t: '11:02:15', a: 'report', k: 'memory', title: 'RAG: pulled approved plan + catalog', tok: 1640, cost: 0.0071, detail: 'rag over pg.plans/plan_014 + pg.catalog/prod_014 + chroma.conversations\nrecovered: price ৳18, packs 12/30, brand voice "warm, Banglish, home-kitchen"' },
+      { t: '11:02:18', a: 'ads', k: 'llm', title: 'Generated 3 creative variants', tok: 4120, cost: 0.0288, detail: 'variants: IG feed square, FB carousel, YT Shorts 18s\ntone locked to brand voice from memory\nCTA: same-day Mirpur delivery' },
+      { t: '11:02:24', a: 'ads', k: 'tool', title: 'Rendered creative assets', tok: 0, cost: 0.0400, detail: 'tool: image_gen(3 assets, 1:1 / 1.91:1 / 9:16)\nasset ids: cr_881, cr_882, cr_883 → object storage' },
+      { t: '11:02:26', a: 'ads', k: 'handoff', title: '→ Pricing & Cost Agent (offer check)', tok: 300, cost: 0.0008, msg: { from: 'Ad Creation', to: 'Pricing & Cost', type: 'task.envelope', payload: '{\n  "task": "verify_offer_margin",\n  "offer": { "pack": 12, "price": 216, "channel": "meta" },\n  "ad_spend_daily": 350,\n  "target_cpa": null\n}' } },
+      { t: '11:02:27', a: 'pricing', k: 'tool', title: 'Code execution: CPA ceiling', tok: 980, cost: 0.0044, detail: 'python> contribution = 216 - (12*11.40)  # ৳79.20\npython> max_cpa = contribution * 0.55  # ৳43.56\n→ target CPA ৳41 keeps blended margin ≥ 20%' },
+      { t: '11:02:28', a: 'supervisor', k: 'gate', title: 'HITL gate: creative approval required', tok: 170, cost: 0.0005, gate: true, detail: 'interrupt_before: ["publish"]\nreason: irreversible + spends budget' },
+      { t: '11:06:02', a: 'ads', k: 'action', title: 'Published to Facebook + Instagram', tok: 260, cost: 0.0008, detail: 'meta_graph_adapter.publish(page=shomvob.kitchen) [SIMULATED]\n→ post ids fb_1099231, ig_17925 · campaign cmp_4412 live' },
+      { t: '11:06:09', a: 'ads', k: 'action', title: 'Uploaded YouTube Short', tok: 210, cost: 0.0006, detail: 'youtube_adapter.upload(cr_883) [SIMULATED]\n→ video id yt_x8Kd21 · unlisted → public in 5 min' },
+      { t: '11:06:10', a: 'ads', k: 'memory', title: 'Campaign written to memory', tok: 340, cost: 0.0010, mem: { store: 'pg.campaigns', key: 'cmp_4412', value: '3 creatives live · ৳350/day · target CPA ৳41', when: '11:06:10' }, detail: 'write pg.campaigns/cmp_4412 · engagement agent subscribed to comment stream' }
+    ]
+  },
+  {
+    id: 'r3', code: 'RUN-036', label: 'Customer DMs → unmet demand → restock', stage: 'Customer Engagement',
+    ckpt: { title: 'Approve restock PO (৳30,060)?', body: '2,000 pc beef restock plus a 600 pc chicken shingara pilot driven by 14 unmet requests. Approving sends the PO to the supplier.' },
+    steps: [
+      { t: '18:20:00', a: 'supervisor', k: 'plan', title: 'Scheduled trigger → CUSTOMER_ENGAGEMENT', tok: 420, cost: 0.0013, detail: 'cron: daily 18:20 · plan: engage(fetch) → engage(sentiment) → engage(extract) → inventory → pricing → reporting → HITL' },
+      { t: '18:20:03', a: 'engage', k: 'tool', title: 'Fetched 47 DMs and comments', tok: 2870, cost: 0.0161, detail: 'messenger_adapter.list(since=24h) → 31 threads\nig_adapter.comments(cmp_4412) → 16 comments' },
+      { t: '18:20:07', a: 'engage', k: 'llm', title: 'Sentiment + intent classification', tok: 3320, cost: 0.0198, detail: '68% positive · 21% neutral · 11% negative\nnegative cluster: 3 threads on delivery delay in Pallabi\nintents: preorder(9) · price_query(12) · variant_request(20) · complaint(3)' },
+      { t: '18:20:11', a: 'engage', k: 'llm', title: 'Extracted 312 pc of preorders', tok: 1980, cost: 0.0104, detail: 'structured extraction → 9 preorders, 312 pc, ৳5,616 at ৳18\nunmet demand: chicken shingara ×14, veg samosa mini ×6, paratha ×3' },
+      { t: '18:20:12', a: 'engage', k: 'memory', title: 'Preorders + demand signals persisted', tok: 460, cost: 0.0014, mem: { store: 'pg.orders', key: 'preorders_0811', value: '9 preorders · 312 pc · ৳5,616 committed', when: '18:20:12' }, detail: 'write pg.orders/preorders_0811 + chroma.conversations (47 vectors)' },
+      { t: '18:20:13', a: 'engage', k: 'handoff', title: '→ Inventory Agent', tok: 290, cost: 0.0008, msg: { from: 'Cust. Engagement', to: 'Inventory', type: 'task.envelope', payload: '{\n  "task": "check_cover",\n  "committed_units": { "beef_58g": 312 },\n  "unmet_demand": [\n    { "sku": "chicken_shingara", "mentions": 14 },\n    { "sku": "veg_samosa_mini", "mentions": 6 }\n  ]\n}' } },
+      { t: '18:20:14', a: 'inventory', k: 'tool', title: 'Stock check → low-stock flag', tok: 760, cost: 0.0031, detail: 'pg.inventory: beef_58g 620 pc · veg_50g 1,140 pc\nrun rate 155 pc/day → cover 4.0 days → FLAG low_stock\nchicken_shingara: not in catalog' },
+      { t: '18:20:16', a: 'inventory', k: 'error', title: 'Image storage read timeout (bucket)', tok: 0, cost: 0, level: 'WARN', detail: 'storage.get(stock_photo_0731.jpg) timed out after 5s\nnon-blocking: quantities read from pg, photo lazy-loaded later\nsurfaced to owner as a warning, workflow continued' },
+      { t: '18:20:19', a: 'pricing', k: 'tool', title: 'Code execution: PO cost + pilot margin', tok: 1120, cost: 0.0052, detail: 'python> beef = 2000*11.40  # ৳22,800\npython> chicken = 600*12.10  # ৳7,260\npilot price ৳19 → GM 36.3% · payback 11 days at observed demand' },
+      { t: '18:20:23', a: 'report', k: 'llm', title: 'Restock + new-SKU plan drafted', tok: 2740, cost: 0.0182, detail: 'restock 2,000 pc beef (lead time 2d, beats 4d cover)\nlaunch 600 pc chicken pilot on 14 unmet requests\n312 pc preorders pre-fund 25% of the PO' },
+      { t: '18:20:24', a: 'supervisor', k: 'gate', title: 'HITL gate: PO spend ৳30,060', tok: 190, cost: 0.0005, gate: true, detail: 'interrupt_before: ["place_purchase_order"] · reason: spends budget' },
+      { t: '18:31:11', a: 'inventory', k: 'action', title: 'PO sent to supplier · replies drafted', tok: 520, cost: 0.0017, detail: 'po_9931 → Karwan Bazar Foods, ETA 13 Aug\nengagement agent queued 9 preorder confirmations for owner review' }
+    ]
+  },
+  {
+    id: 'r4', code: 'RUN-042', label: 'Weekly report → reprice → delivery', stage: 'Reporting & Replanning',
+    ckpt: { title: 'Approve price change to ৳228/12-pc?', body: 'Oil cost rose 9%, cutting margin to 33.1%. Repricing restores 36.9% with an estimated 3% volume loss. Wholesale stays at ৳480.' },
+    steps: [
+      { t: '08:00:00', a: 'supervisor', k: 'plan', title: 'Weekly trigger → REPORTING', tok: 480, cost: 0.0015, detail: 'cron: Mon 08:00 · plan: reporting(rag) → pricing(recalc) → reporting(replan) → HITL → delivery' },
+      { t: '08:00:04', a: 'report', k: 'memory', title: 'RAG over week 32 memory', tok: 5240, cost: 0.0301, detail: 'sources: pg.orders (2,680 units) · pg.campaigns/cmp_4412 · chroma.conversations (203 vectors) · pg.pricing_history\nrevenue ৳48,240 (+14% WoW) · CPA ৳37' },
+      { t: '08:00:09', a: 'pricing', k: 'tool', title: 'Code execution: cost re-baseline', tok: 1380, cost: 0.0064, detail: 'soybean oil +৳9/L → oil cost/pc 1.60 → 2.25\npython> cogs = 12.05 ; gm_at_18 = 0.3306\npython> price_for_target(0.369) → ৳19.05/pc → ৳228/12-pc pack' },
+      { t: '08:00:12', a: 'report', k: 'llm', title: 'Revised plan + elasticity note', tok: 3620, cost: 0.0241, detail: 'recommend ৳228 retail, hold ৳480 wholesale (reseller relationship)\nelasticity from 4 weeks of order data → est. −3% volume\nalternative modelled: shrink pack to 10 pc (rejected, weaker value perception)' },
+      { t: '08:00:13', a: 'supervisor', k: 'gate', title: 'HITL gate: price change', tok: 175, cost: 0.0005, gate: true, detail: 'interrupt_before: ["update_price"] · customer-visible change' },
+      { t: '08:14:52', a: 'pricing', k: 'memory', title: 'Price v3 written to pricing history', tok: 350, cost: 0.0010, mem: { store: 'pg.pricing_history', key: 'price_v3', value: '12-pc ৳228 · wholesale ৳480 · GM 36.9%', when: '08:14:52' }, detail: 'write pg.pricing_history/price_v3 · ads agent notified to refresh creative copy' },
+      { t: '08:14:55', a: 'delivery', k: 'error', title: 'Steadfast adapter timed out', tok: 0, cost: 0, level: 'ERROR', detail: 'steadfast_adapter.book() → timeout 10s (2 retries)\nfallback chain: steadfast → pathao\nowner notified, no manual action needed' },
+      { t: '08:15:02', a: 'delivery', k: 'action', title: 'Pathao pickup booked', tok: 410, cost: 0.0013, detail: 'pathao_adapter.book(pickup="12 Aug 14:00", parcels=38) [SIMULATED]\n→ consignment PT-4471903 · COD ৳9,120' },
+      { t: '08:15:03', a: 'report', k: 'memory', title: 'Week 32 report archived', tok: 620, cost: 0.0019, mem: { store: 'pg.reports', key: 'week_32', value: 'Revenue ৳48,240 · GM 33.1→36.9% · CPA ৳37', when: '08:15:03' }, detail: 'write pg.reports/week_32 + embedded summary → chroma.reports' }
+    ]
+  }
+];
+
+const STAGES = ['Idea & Market Research', 'Product Validation', 'Owner Decision', 'Inventory Setup', 'Marketing Launch', 'Customer Engagement', 'Reporting & Replanning', 'Delivery'];
+
+const TABS = [
+  ['trace', 'Trace'], ['graph', 'Graph'], ['messages', 'Messages'], ['memory', 'Memory'], ['logs', 'Logs'], ['inbox', 'Inbox'], ['report', 'Report']
+];
+
+const NODE_POS = {
+  supervisor: [430, 232], vision: [430, 52], market: [128, 92], pricing: [716, 92],
+  inventory: [742, 232], ads: [716, 372], engage: [430, 400], delivery: [128, 372], report: [96, 232]
+};
+
+const EDGES = [
+  ['supervisor', 'vision'], ['supervisor', 'market'], ['supervisor', 'pricing'], ['supervisor', 'inventory'],
+  ['supervisor', 'ads'], ['supervisor', 'engage'], ['supervisor', 'delivery'], ['supervisor', 'report'],
+  ['market', 'pricing'], ['engage', 'inventory'], ['inventory', 'report'], ['ads', 'pricing']
+];
+
+const BASE_MEM = [
+  { store: 'pg.business_profile', key: 'shomvob_kitchen', value: 'Home kitchen · Mirpur 11 · owner Rifat Ara · BDT · 2 staff', when: '02 Aug' },
+  { store: 'pg.catalog', key: 'prod_014', value: 'Beef shingara 58g · ৳18 retail · 12/30 pc packs', when: '05 Aug' },
+  { store: 'pg.catalog', key: 'prod_009', value: 'Veg samosa 50g · ৳15 retail', when: '02 Aug' },
+  { store: 'chroma.conversations', key: '203 vectors', value: 'Customer threads, Aug 2–11 · 1536d · avg 42 tokens/chunk', when: '11 Aug' },
+  { store: 'pg.pricing_history', key: 'price_v2', value: '12-pc ৳216 · GM 36.7% · effective 06 Aug', when: '06 Aug' },
+  { store: 'pg.reports', key: 'week_31', value: 'Revenue ৳42,310 · 2,190 units · CPA ৳44', when: '04 Aug' }
+];
+
+const DMS = [
+  { name: 'Nusrat J.', channel: 'Messenger', sentiment: 'positive', text: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.', extract: 'preorder 24 pc · variant_request: chicken ×1', color: '#3DDC97', t: '17:52' },
+  { name: 'Tanvir H.', channel: 'IG comment', sentiment: 'positive', text: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.', extract: 'preorder 50 pc · question: reheat instructions', color: '#3DDC97', t: '17:20' },
+  { name: 'Shahana B.', channel: 'Messenger', sentiment: 'negative', text: 'Kal delivery ashe nai, 3 din hoye gelo. Pallabi te ki deliver koren na?', extract: 'complaint · delivery_delay · zone Pallabi', color: '#E5675C', t: '16:44' },
+  { name: 'Rakib A.', channel: 'IG DM', sentiment: 'neutral', text: '30 pcs pack er dam koto? Ar wholesale hoy?', extract: 'price_query · wholesale interest', color: '#8A948F', t: '15:58' },
+  { name: 'Farhana K.', channel: 'IG comment', sentiment: 'positive', text: 'Chicken shingara korle bolben please, ami regular nibo.', extract: 'variant_request: chicken ×1 · repeat-buyer intent', color: '#3DDC97', t: '14:31' },
+  { name: 'Imran S.', channel: 'Messenger', sentiment: 'positive', text: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.', extract: 'preorder 24 pc · variant_request: veg mini ×1', color: '#3DDC97', t: '13:07' }
+];
+
+const ADAPTERS = [
+  { name: 'web_search', mode: 'LIVE' }, { name: 'vision.describe', mode: 'LIVE' },
+  { name: 'python_exec', mode: 'LIVE' }, { name: 'chroma / postgres', mode: 'LIVE' },
+  { name: 'meta_graph_adapter', mode: 'SIM' }, { name: 'youtube_adapter', mode: 'SIM' },
+  { name: 'pathao_adapter', mode: 'SIM' }, { name: 'steadfast_adapter', mode: 'SIM' }
+];
+
+class Component extends DCLogic {
+  state = { runId: 'r1', cursor: 3, playing: true, panel: 'trace', openStep: null, logFilter: 'ALL', decided: {}, tick: 0 };
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      const s = this.state;
+      if (!s.playing) return;
+      const run = this.run();
+      if (s.cursor >= run.steps.length) { this.setState({ playing: false }); return; }
+      const next = run.steps[s.cursor];
+      if (next.gate) { this.setState({ cursor: s.cursor + 1, playing: false }); return; }
+      if (this.gateOpen()) return;
+      this.setState({ cursor: s.cursor + 1, tick: s.tick + 1 });
+    }, Math.max(260, 1000 / (this.props.playbackSpeed ?? 1)));
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  run() { return RUNS.find(r => r.id === this.state.runId); }
+  revealed() { return this.run().steps.slice(0, this.state.cursor); }
+  gateIdx() { const st = this.run().steps; for (let i = 0; i < this.state.cursor; i++) if (st[i].gate) return i; return -1; }
+  gateOpen() {
+    const gi = this.gateIdx();
+    return gi >= 0 && !this.state.decided[this.state.runId];
+  }
+  agent(id) { return AGENTS.find(a => a.id === id) || AGENTS[0]; }
+
+  pickRun(id) { this.setState({ runId: id, cursor: 2, playing: true, openStep: null }); }
+  approveGate() {
+    const d = Object.assign({}, this.state.decided); d[this.state.runId] = 'approved';
+    this.setState({ decided: d, playing: true });
+  }
+
+  renderVals() {
+    const s = this.state, run = this.run(), steps = this.revealed();
+    const awaiting = this.gateOpen();
+    const complete = s.cursor >= run.steps.length && !awaiting;
+    const lastAgent = steps.length ? steps[steps.length - 1].a : null;
+    const busy = s.playing && !awaiting && !complete;
+    const used = {};
+    steps.forEach(st => { used[st.a] = (used[st.a] || 0) + 1; });
+    const tokBy = {};
+    steps.forEach(st => { tokBy[st.a] = (tokBy[st.a] || 0) + (st.tok || 0); });
+    const totalTok = steps.reduce((n, st) => n + (st.tok || 0), 0);
+    const totalCost = steps.reduce((n, st) => n + (st.cost || 0), 0);
+    const maxTok = Math.max(1, ...Object.values(tokBy));
+
+    const fmt = n => n.toLocaleString('en-US');
+
+    return {
+      stageLabel: run.stage,
+      statusColor: awaiting ? '#F2B23B' : busy ? '#3DDC97' : '#6E7A80',
+      totalTokens: fmt(totalTok),
+      totalCost: totalCost.toFixed(4),
+      elapsed: steps.length ? steps[steps.length - 1].t : '00:00:00',
+      playLabel: busy ? 'Pause' : awaiting ? 'Blocked' : complete ? 'Replay' : 'Run',
+      playBg: busy ? '#12201A' : awaiting ? '#221B10' : '#3DDC97',
+      playFg: busy ? '#8FD8B4' : awaiting ? '#F2B23B' : '#05130D',
+      togglePlay: () => {
+        if (awaiting) return;
+        if (complete) { this.setState({ cursor: 2, playing: true, decided: {} }); return; }
+        this.setState({ playing: !s.playing });
+      },
+      resetRun: () => this.setState({ cursor: 1, playing: false, openStep: null, decided: {} }),
+
+      runList: RUNS.map(r => ({
+        code: r.code, label: r.label, pick: () => this.pickRun(r.id),
+        bg: r.id === s.runId ? '#111A16' : '#0B0E10',
+        border: r.id === s.runId ? '#2A5443' : '#1B2024',
+        num: r.id === s.runId ? '#3DDC97' : '#5F6A70'
+      })),
+
+      stages: STAGES.map(name => {
+        const active = name === run.stage;
+        const done = STAGES.indexOf(name) < STAGES.indexOf(run.stage);
+        return { name, dot: active ? '#3DDC97' : done ? '#3A4A42' : '#262C31', fg: active ? '#E6EBE9' : done ? '#7C8A82' : '#5A6469' };
+      }),
+
+      agentList: AGENTS.map(a => {
+        const isBusy = busy && a.id === lastAgent;
+        return {
+          name: a.name, role: a.role, calls: used[a.id] ? used[a.id] + '×' : '—',
+          dot: isBusy ? a.color : used[a.id] ? '#3A4A42' : '#262C31',
+          anim: isBusy ? 'pulseRing 1.6s infinite' : 'none',
+          bg: isBusy ? 'rgba(61,220,151,.06)' : 'transparent',
+          fg: used[a.id] ? '#DCE4E0' : '#7C8A82'
+        };
+      }),
+
+      tabs: TABS.map(([id, name]) => ({
+        name, pick: () => this.setState({ panel: id }),
+        fg: s.panel === id ? '#E6EBE9' : '#7C8A82',
+        line: s.panel === id ? '#3DDC97' : 'transparent',
+        count: id === 'trace' ? steps.length : id === 'messages' ? steps.filter(x => x.msg).length || '' : id === 'logs' ? steps.length + 6 : id === 'inbox' ? DMS.length : ''
+      })),
+
+      isTrace: s.panel === 'trace', isGraph: s.panel === 'graph', isMessages: s.panel === 'messages',
+      isMemory: s.panel === 'memory', isLogs: s.panel === 'logs', isInbox: s.panel === 'inbox', isReport: s.panel === 'report',
+      isR1: s.runId === 'r1', isR2: s.runId === 'r2', isR3: s.runId === 'r3', isR4: s.runId === 'r4',
+      traceSub: run.code + ' · thread shomvob-' + run.code.slice(4) + ' · ' + steps.length + '/' + run.steps.length + ' steps',
+      awaitingApproval: awaiting,
+      runComplete: complete,
+
+      visibleSteps: steps.map((st, i) => {
+        const a = this.agent(st.a), k = KINDS[st.k] || KINDS.tool;
+        return {
+          t: st.t, agentName: a.name, color: a.color, title: st.title, detail: st.detail || '—',
+          kindLabel: k[0], kindBg: k[1], kindFg: k[2],
+          meta: st.tok ? fmt(st.tok) + ' tok · $' + (st.cost || 0).toFixed(4) : st.k === 'error' ? 'retried' : '',
+          open: s.openStep === i,
+          bg: st.k === 'error' ? 'rgba(229,103,92,.05)' : st.gate ? 'rgba(242,178,59,.05)' : '#0C0F11',
+          border: st.k === 'error' ? '#3A2523' : st.gate ? '#4A3A18' : '#1B2024',
+          pick: () => this.setState({ openStep: s.openStep === i ? null : i })
+        };
+      }).reverse(),
+
+      nodes: AGENTS.map(a => {
+        const p = NODE_POS[a.id], isBusy = busy && a.id === lastAgent, touched = !!used[a.id];
+        return {
+          name: a.name, left: (p[0] / 900) * 100, top: (p[1] / 470) * 100,
+          state: isBusy ? 'running' : touched ? used[a.id] + ' calls' : 'idle',
+          dot: isBusy ? a.color : touched ? '#4A5A52' : '#262C31',
+          fg: touched ? '#E6EBE9' : '#7C8A82',
+          bg: isBusy ? 'rgba(61,220,151,.10)' : touched ? '#12171A' : '#0C0F11',
+          border: isBusy ? a.color : touched ? '#2A3238' : '#1B2024',
+          glow: isBusy ? '0 0 22px rgba(61,220,151,.22)' : 'none'
+        };
+      }),
+
+      edges: EDGES.map(([f, t]) => {
+        const p1 = NODE_POS[f], p2 = NODE_POS[t];
+        const hot = busy && (t === lastAgent || f === lastAgent);
+        const gateEdge = f === 'supervisor' && (t === 'ads' || t === 'delivery');
+        return {
+          x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1],
+          stroke: hot ? '#3DDC97' : gateEdge ? '#4A3A18' : '#1C2226',
+          w: hot ? 2 : 1.2,
+          dash: gateEdge ? '5 5' : hot ? '6 6' : '0',
+          style: hot ? 'animation: dash .7s linear infinite' : ''
+        };
+      }),
+
+      messages: steps.filter(x => x.msg).map(x => ({
+        from: x.msg.from, to: x.msg.to, type: x.msg.type, payload: x.msg.payload, t: x.t,
+        fromColor: this.agent(x.a).color,
+        toColor: (AGENTS.find(a => a.name === x.msg.to) || AGENTS[0]).color
+      })).reverse(),
+
+      memStores: [
+        { kind: 'structured', name: 'Postgres', count: String(BASE_MEM.length + steps.filter(x => x.mem).length), unit: 'records this session' },
+        { kind: 'vector', name: 'Chroma', count: '1,482', unit: 'embeddings · 1536d' },
+        { kind: 'objects', name: 'Photo store', count: '37', unit: 'product & stock images' },
+        { kind: 'checkpoints', name: 'Graph state', count: '4', unit: 'resumable threads' }
+      ],
+      memRecords: steps.filter(x => x.mem).map(x => ({
+        store: x.mem.store, key: x.mem.key, value: x.mem.value, when: x.mem.when,
+        storeColor: x.mem.store.indexOf('chroma') === 0 ? '#A78BFA' : '#4FD1C5',
+        bg: 'rgba(61,220,151,.04)'
+      })).reverse().concat(BASE_MEM.map(m => ({
+        store: m.store, key: m.key, value: m.value, when: m.when,
+        storeColor: m.store.indexOf('chroma') === 0 ? '#A78BFA' : '#4FD1C5', bg: 'transparent'
+      }))),
+
+      logFilters: ['ALL', 'INFO', 'WARN', 'ERROR'].map(l => ({
+        label: l, pick: () => this.setState({ logFilter: l }),
+        bg: s.logFilter === l ? '#141A1E' : 'transparent',
+        border: s.logFilter === l ? '#33403A' : '#1B2024',
+        fg: s.logFilter === l ? '#E6EBE9' : '#7C8A82'
+      })),
+      logs: steps.map(st => {
+        const lvl = st.level || (st.gate ? 'INFO' : 'INFO');
+        const a = this.agent(st.a);
+        return {
+          t: st.t, level: lvl, source: a.id + '.' + st.k,
+          msg: (st.detail || st.title).split('\n')[0],
+          levelColor: lvl === 'ERROR' ? '#E5675C' : lvl === 'WARN' ? '#F2B23B' : '#7C8A82',
+          msgColor: lvl === 'ERROR' ? '#E5A19A' : lvl === 'WARN' ? '#E8CE9A' : '#8A948F'
+        };
+      }).filter(l => s.logFilter === 'ALL' || l.level === s.logFilter).reverse(),
+
+      dms: DMS,
+      adapters: ADAPTERS.map(a => ({
+        name: a.name, mode: a.mode,
+        dot: a.mode === 'LIVE' ? '#3DDC97' : '#F2B23B',
+        tagBg: a.mode === 'LIVE' ? 'rgba(61,220,151,.12)' : 'rgba(242,178,59,.12)',
+        tagFg: a.mode === 'LIVE' ? '#3DDC97' : '#F2B23B'
+      })),
+
+      costBars: AGENTS.filter(a => tokBy[a.id]).map(a => ({
+        name: a.name, tok: fmt(tokBy[a.id]), color: a.color,
+        pct: Math.round((tokBy[a.id] / maxTok) * 100)
+      })),
+
+      ckptTitle: awaiting ? run.ckpt.title : complete ? 'No open checkpoint' : 'Monitoring — no gate reached',
+      ckptBody: awaiting ? run.ckpt.body : complete ? 'This run cleared its gate and finished. Every decision is checkpointed, so you can rewind and re-decide any step.' : 'The supervisor will pause the graph before any irreversible or budget-spending action and hand control back to you here.',
+      ckptBorder: awaiting ? '#4A3A18' : '#1B2024',
+      ckptBg: awaiting ? 'rgba(242,178,59,.06)' : '#0C0F11',
+      ckptDot: awaiting ? '#F2B23B' : complete ? '#3DDC97' : '#3A4A42',
+      ckptAnim: awaiting ? 'pulseRing 1.8s infinite' : 'none',
+      approve: () => this.approveGate(),
+      reject: () => this.setState({ cursor: Math.max(1, this.gateIdx()), playing: false }),
+      retry: () => this.setState({ cursor: Math.max(1, s.cursor - 1), playing: true })
+    };
+  }
+}
+
+</script>
+</body>
+</html>

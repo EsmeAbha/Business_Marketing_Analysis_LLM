@@ -1,4 +1,4 @@
-"""AI Business Workforce — a multi-agent system that runs a small business.
+"""Lucida — a multi-agent system that runs a small business.
 
 A Supervisor agent coordinates eight specialists across the business lifecycle:
 idea research -> product validation -> inventory -> marketing -> customer

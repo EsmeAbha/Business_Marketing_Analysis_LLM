@@ -1,4 +1,4 @@
-"""Structured logging, the execution-trace event bus, and error capture.
+﻿"""Structured logging, the execution-trace event bus, and error capture.
 
 Every agent action, tool call, hand-off and failure lands here with a
 timestamp. The Streamlit UI reads the same store, so what the user sees in the
@@ -27,7 +27,7 @@ _LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)-28s | %(message)s"
 
 
 def _build_logger() -> logging.Logger:
-    logger = logging.getLogger("aiworkforce")
+    logger = logging.getLogger("lucida")
     if logger.handlers:
         return logger
     logger.setLevel(logging.INFO)

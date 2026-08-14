@@ -1,4 +1,4 @@
-"""Render functions for each dashboard panel.
+﻿"""Render functions for each dashboard panel.
 
 Kept separate from app.py so the control flow (running the graph, handling
 approvals) stays readable and the panels stay pure-render.
@@ -12,12 +12,12 @@ from typing import Any
 import streamlit as st
 from streamlit.components.v1 import html as render_html
 
-from aiworkforce.agents.base import ledger_for
-from aiworkforce.config import settings
-from aiworkforce.memory import memory
-from aiworkforce.observability import bus
-from aiworkforce.pricing import MODEL_RATES
-from aiworkforce.state import STAGE_ORDER
+from lucida.agents.base import ledger_for
+from lucida.config import settings
+from lucida.memory import memory
+from lucida.observability import bus
+from lucida.pricing import MODEL_RATES
+from lucida.state import STAGE_ORDER
 
 # Colour + icon per trace event kind.
 KIND_STYLE: dict[str, tuple[str, str]] = {
@@ -214,14 +214,22 @@ def render_graph(runtime) -> None:
 
     mermaid = runtime.mermaid()
 
+    # Deliberately still components.v1.html: it renders inline HTML in a
+    # sandboxed iframe that can run scripts, which Mermaid needs. `st.iframe`
+    # (the suggested replacement) takes a src URL, and `st.html` strips
+    # <script>, so neither can draw this diagram.
     render_html(
         f"""
-        <div style="background:#ffffff;border-radius:8px;padding:12px;overflow:auto">
+        <div style="background:#FFFFFF;border:1px solid #E5E0D6;border-radius:14px;
+                    padding:14px;overflow:auto">
           <pre class="mermaid">{mermaid}</pre>
         </div>
         <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
         <script>
-          mermaid.initialize({{ startOnLoad: true, theme: 'default' }});
+          mermaid.initialize({{ startOnLoad: true, theme: 'base',
+            themeVariables: {{ primaryColor: '#EAF1EC', primaryTextColor: '#18211D',
+              primaryBorderColor: '#14603F', lineColor: '#7C877F',
+              fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif' }} }});
         </script>
         """,
         height=620,
@@ -279,7 +287,7 @@ def render_cost(session_id: str) -> None:
             ledger.by_agent().items(), key=lambda kv: -kv[1]["cost_usd"]
         )
     ]
-    st.dataframe(rows, use_container_width=True, hide_index=True)
+    st.dataframe(rows, width="stretch", hide_index=True)
 
     # Share-of-spend bars, drawn without a charting dependency.
     peak = max((r["Cost (USD)"] for r in rows), default=0.0)
@@ -304,7 +312,7 @@ def render_cost(session_id: str) -> None:
                 }
                 for i, c in enumerate(ledger.calls, 1)
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -318,7 +326,7 @@ def _render_rate_card() -> None:
                 {"Model": m, "Input": f"${i:.2f}", "Output": f"${o:.2f}"}
                 for m, (i, o) in MODEL_RATES.items()
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
         st.caption(
@@ -413,7 +421,7 @@ def render_memory() -> None:
         for label, rows in tables.items():
             with st.expander(f"{label} ({len(rows)})"):
                 if rows:
-                    st.dataframe(rows, use_container_width=True, hide_index=True)
+                    st.dataframe(rows, width="stretch", hide_index=True)
                 else:
                     st.caption("(empty)")
 
@@ -502,14 +510,14 @@ def render_approval_gate(pending: dict[str, Any]) -> dict[str, Any] | None:
         )
 
         a, b, c = st.columns(3)
-        if a.button("✅ Approve", type="primary", use_container_width=True):
+        if a.button("✅ Approve", type="primary", width="stretch"):
             return {"decision": "approve", "feedback": feedback}
-        if b.button("✏️ Request changes", use_container_width=True):
+        if b.button("✏️ Request changes", width="stretch"):
             if not feedback.strip():
                 st.error("Please describe what you want changed.")
             else:
                 return {"decision": "request_changes", "feedback": feedback}
-        if c.button("❌ Reject", use_container_width=True):
+        if c.button("❌ Reject", width="stretch"):
             return {"decision": "reject", "feedback": feedback}
 
     return None

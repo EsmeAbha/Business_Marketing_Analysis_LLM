@@ -1,9 +1,13 @@
-"""AI Business Workforce — conversational interface.
+﻿"""Lucida — the owner's workspace.
 
-The owner talks to the workforce the way they'd talk to a person: plain
-language, photos dropped straight into the composer. Agent activity is narrated
-inline as it happens, and approval checkpoints appear as messages in the thread
-rather than as a separate control panel.
+Laid out to the `Business Suite` design: a 244px rail of sections on the left,
+the working column on the right. Streamlit is the transport, not the look —
+its chrome is removed in `ui/theme.py` and the page is rebuilt to the design's
+own measurements.
+
+Today is the conversation: the owner talks to the workforce the way they'd talk
+to a person, and approval checkpoints appear as decision cards in the thread.
+The other sections are windows onto the same shared memory the agents write to.
 
 Run with:  streamlit run app.py
 """
@@ -18,19 +22,33 @@ import streamlit as st
 # Make `src/` importable without requiring an editable install.
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from aiworkforce.agents.base import ledger_for  # noqa: E402
-from aiworkforce.config import UPLOAD_DIR, settings  # noqa: E402
-from aiworkforce.graph import WorkforceRuntime, agent_roster  # noqa: E402
-from aiworkforce.memory import memory  # noqa: E402
-from aiworkforce.observability import bus  # noqa: E402
-from ui import panels  # noqa: E402
+from lucida.agents.base import ledger_for  # noqa: E402
+from lucida.config import UPLOAD_DIR, settings  # noqa: E402
+from lucida.graph import WorkforceRuntime, agent_roster  # noqa: E402
+from lucida.memory import memory  # noqa: E402
+from lucida.observability import bus  # noqa: E402
+from ui import pages, panels, theme  # noqa: E402
 
 st.set_page_config(
-    page_title="AI Business Workforce",
+    page_title="Lucida",
     page_icon="🏪",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# The rail, in the design's order: what the owner does, then what the
+# workforce did. (key, icon, label)
+NAV = [
+    ("today", "◆", "Today"),
+    ("customers", "◇", "Customers"),
+    ("stock", "▣", "Stock"),
+    ("marketing", "◈", "Marketing"),
+    ("money", "◉", "Money"),
+    ("grow", "◐", "Grow"),
+    ("history", "▤", "History"),
+    ("workforce", "⬡", "The workforce"),
+    ("settings", "⚙", "Settings"),
+]
 
 # What each agent is doing, phrased the way a colleague would say it.
 NARRATION = {
@@ -45,22 +63,6 @@ NARRATION = {
     "reporting": ("📊", "Pulling your report together"),
     "finalize": ("✍️", "Writing up what I found"),
 }
-
-CSS = """
-<style>
-  /* Roomier, more readable conversation column */
-  .block-container { padding-top: 2.2rem; max-width: 52rem; }
-  [data-testid="stChatMessage"] { padding: 0.25rem 0; }
-  [data-testid="stChatMessageContent"] p { line-height: 1.65; }
-  /* Quieter status blocks so narration doesn't shout over the answer */
-  [data-testid="stExpander"] summary { font-size: 0.9rem; }
-  .aiw-suggestion { font-size: 0.85rem; color: #8b93a7; }
-  .aiw-strip {
-      font-size: 0.78rem; color: #8b93a7; padding: 0.35rem 0 0.9rem 0;
-      border-bottom: 1px solid rgba(140,150,175,0.18); margin-bottom: 1.1rem;
-  }
-</style>
-"""
 
 OPENERS = [
     "What food business should I start in Dhaka with 30,000 taka?",
@@ -85,7 +87,8 @@ def init_state() -> None:
     ss.setdefault("session_id", WorkforceRuntime.new_session_id())
     ss.setdefault("messages", [])       # the conversation thread
     ss.setdefault("run_request", None)  # {"kind": "start"|"resume", ...}
-    ss.setdefault("show_inspector", False)
+    ss.setdefault("nav", "today")       # which rail section is showing
+    ss.setdefault("context", {})        # owner context from Settings
 
 
 def reset_conversation() -> None:
@@ -134,42 +137,57 @@ def render_message(msg: dict) -> None:
 
 
 def render_approval_message(msg: dict) -> None:
-    """An approval checkpoint, shown as a message in the thread."""
+    """An approval checkpoint, shown as a decision card in the thread.
+
+    The card body is design-system HTML; the controls under it are native
+    widgets, because these are the buttons that actually release a spend.
+    """
     pending = msg["pending"]
     resolved = msg.get("resolved")
+    agent = pending.get("agent", "")
+    kind = "Delivery" if "deliver" in str(agent).lower() else "Spend"
 
     with st.chat_message("assistant", avatar="🙋"):
-        st.markdown(f"**{pending.get('title', 'I need your go-ahead')}**")
-        st.markdown(pending.get("detail", ""))
+        theme.card(
+            title=pending.get("title", "I need your go-ahead"),
+            body=pending.get("detail", ""),
+            tag_text=kind,
+            tone="warn",
+            by=f"from {agent}" if agent else "",
+        )
 
         if resolved:
-            verdict = {
-                "approve": "✅ You approved this.",
-                "reject": "❌ You rejected this.",
-                "request_changes": "✏️ You asked for changes.",
-            }.get(resolved["decision"], resolved["decision"])
+            verdict, tone = {
+                "approve": ("You approved this", "ok"),
+                "reject": ("You said not now", "error"),
+                "request_changes": ("You asked for changes", "warn"),
+            }.get(resolved["decision"], (resolved["decision"], "idle"))
             note = f" — *{resolved['feedback']}*" if resolved.get("feedback") else ""
-            st.caption(verdict + note)
+            st.markdown(theme.pill(verdict, tone) + note, unsafe_allow_html=True)
             return
 
-        st.caption("I won't do this until you say so.")
         feedback = st.text_area(
             "Anything you want changed?",
             key=f"fb_{msg['id']}",
             placeholder="e.g. make the Bangla less formal and lead with the price",
             height=72,
         )
-        a, b, c = st.columns(3)
-        if a.button("✅ Go ahead", key=f"ok_{msg['id']}", type="primary",
-                    use_container_width=True):
+        a, b, c = st.columns([1, 1, 1])
+        if a.button("Go ahead", key=f"ok_{msg['id']}", type="primary",
+                    width="stretch"):
             _resolve(msg, "approve", feedback)
-        if b.button("✏️ Change it", key=f"ch_{msg['id']}", use_container_width=True):
+        if b.button("Change it", key=f"ch_{msg['id']}", width="stretch"):
             if not feedback.strip():
                 st.error("Tell me what to change first.")
             else:
                 _resolve(msg, "request_changes", feedback)
-        if c.button("❌ Don't", key=f"no_{msg['id']}", use_container_width=True):
+        if c.button("Not now", key=f"no_{msg['id']}", width="stretch"):
             _resolve(msg, "reject", feedback)
+        st.markdown(
+            f"<div class='lu-meta' style='margin-top:6px;'>"
+            f"Nothing happens until you tap.</div>",
+            unsafe_allow_html=True,
+        )
 
 
 def _resolve(msg: dict, decision: str, feedback: str) -> None:
@@ -293,116 +311,94 @@ def execute_turn(runtime: WorkforceRuntime, request: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Sidebar
+# The rail
 # ---------------------------------------------------------------------------
 
 
-def sidebar() -> dict:
+def rail() -> None:
+    """The design's left rail: identity, section nav, live footer."""
     ss = st.session_state
 
     with st.sidebar:
-        st.markdown("### 🏪 AI Business Workforce")
-        st.caption("A supervisor and eight specialists, working for your shop.")
-
-        if not settings.has_llm:
-            st.error(
-                "**No API key.** Copy `.env.example` to `.env`, add "
-                "`ANTHROPIC_API_KEY`, then restart."
-            )
-
-        if st.button("✨ New conversation", use_container_width=True):
-            reset_conversation()
-            st.rerun()
-
-        ss.show_inspector = st.toggle(
-            "🔬 Inspector",
-            value=ss.show_inspector,
-            help="Execution trace, agent messages, graph, cost, logs and memory.",
+        st.markdown(
+            f"<div style='display:flex;align-items:center;gap:10px;"
+            f"padding:0 4px 16px;'>"
+            f"<div style='width:34px;height:34px;border-radius:11px;"
+            f"background:{theme.ACCENT};color:#F4EFE2;display:grid;"
+            f"place-items:center;font-family:{theme.SERIF};font-size:19px;'>L</div>"
+            f"<div style='display:flex;flex-direction:column;line-height:1.25;"
+            f"min-width:0;'>"
+            f"<span style='font-weight:600;font-size:14px;'>Lucida</span>"
+            f"<span style='font-size:11.5px;color:{theme.MUTED};white-space:nowrap;"
+            f"overflow:hidden;text-overflow:ellipsis;'>{theme.esc(settings.location)}"
+            f"</span></div></div>",
+            unsafe_allow_html=True,
         )
 
-        st.divider()
-        with st.expander("⚙️ Business details", expanded=False):
-            st.caption("Optional — the agents estimate anything you leave blank.")
-            location = st.text_input("Where you sell", value=settings.location)
-            unit_cost = st.number_input("Your unit cost", min_value=0.0, value=0.0, step=1.0)
-            fixed_costs = st.number_input(
-                "Fixed monthly costs", min_value=0.0, value=0.0, step=100.0
-            )
-            expected_units = st.number_input(
-                "Expected monthly sales", min_value=0, value=0, step=10
-            )
-            platforms = st.multiselect(
-                "Ad platforms",
-                ["facebook", "instagram", "youtube"],
-                default=["facebook", "instagram"],
-            )
+        if not settings.has_llm:
+            st.error("**No API key.** Add `GROQ_API_KEY` to `.env`, then restart.")
 
-        with st.expander("📦 Stock you've bought", expanded=False):
-            stock_name = st.text_input("Product")
-            c1, c2 = st.columns(2)
-            stock_qty = c1.number_input("Qty", min_value=0, value=0, step=1)
-            stock_cost = c2.number_input("Cost each", min_value=0.0, value=0.0, step=1.0)
+        # Nav rows. The active one is `primary`, which theme.py restyles to the
+        # design's tinted row rather than a filled button.
+        badges = _rail_badges()
+        with st.container(key="nav"):
+            for key, icon, label in NAV:
+                n = badges.get(key)
+                text = f"{icon}  {label}" + (f"   ({n})" if n else "")
+                if st.button(
+                    text,
+                    key=f"nav_{key}",
+                    width="stretch",
+                    type="primary" if ss.nav == key else "secondary",
+                ):
+                    ss.nav = key
+                    st.rerun()
 
-        with st.expander("🚚 Delivery details", expanded=False):
-            provider = st.selectbox("Courier", ["steadfast", "pathao", "uber"])
-            recipient = st.text_input("Customer name")
-            phone = st.text_input("Phone")
-            address = st.text_area("Address", height=68)
-            cod = st.number_input("Cash on delivery", min_value=0.0, value=0.0, step=10.0)
-
-        st.divider()
         ledger = ledger_for(ss.session_id)
-        if ledger.calls:
-            st.caption(
-                f"This conversation: {len(ledger.calls)} calls · "
-                f"{ledger.total_tokens:,} tokens · ${ledger.total_cost_usd:.4f}"
+        with st.container(key="railfoot"):
+            theme.live_dot(
+                "Workforce ready" if settings.has_llm else "Waiting for a key"
             )
-
-        with st.expander("🔌 Integrations", expanded=False):
-            for label, status in settings.integration_status().items():
-                icon = (
-                    "🟢" if status.startswith("LIVE")
-                    else ("🔴" if "MISSING" in status else "🟡")
-                )
+            if ledger.calls:
                 st.markdown(
-                    f"<div style='font-size:0.78rem'>{icon} {label} — <code>{status}</code></div>",
+                    f"<div style='font-size:11.5px;color:{theme.MUTED};"
+                    f"line-height:1.5;padding:4px 0 10px;'>"
+                    f"{len(ledger.calls)} calls · {ledger.total_tokens:,} tokens · "
+                    f"${ledger.total_cost_usd:.4f}</div>",
                     unsafe_allow_html=True,
                 )
-            st.caption("🟡 simulated adapter — add the API key in `.env` to go live.")
+            if st.button("New conversation", width="stretch"):
+                reset_conversation()
+                st.rerun()
 
-    context = {
-        "location": location,
-        "unit_cost": unit_cost or None,
-        "fixed_costs": fixed_costs,
-        "expected_monthly_units": expected_units,
-        "platforms": platforms,
-    }
-    if stock_name and stock_qty:
-        context["stock_items"] = [
-            {"product_name": stock_name, "quantity": int(stock_qty), "unit_cost": stock_cost}
-        ]
-    if recipient and address:
-        context["delivery"] = {
-            "provider": provider,
-            "recipient": recipient,
-            "phone": phone,
-            "address": address,
-            "cod_amount": cod,
-            "product_name": stock_name,
+
+def _rail_badges() -> dict[str, int]:
+    """Counts shown beside rail entries, matching the design's badge dots."""
+    try:
+        stats = memory.stats()
+        return {
+            "customers": stats["conversations"],
+            "stock": len(memory.low_stock()),
+            "marketing": stats["campaigns"],
+            "history": stats["reports"],
         }
-    return context
+    except Exception:  # noqa: BLE001 — a badge must never break the rail
+        return {}
 
 
 # ---------------------------------------------------------------------------
-# Inspector
+# The workforce section
 # ---------------------------------------------------------------------------
 
 
-def render_inspector(runtime: WorkforceRuntime) -> None:
-    st.divider()
-    st.markdown("#### 🔬 Inspector")
+def render_workforce(runtime: WorkforceRuntime) -> None:
+    theme.page_header(
+        "The workforce",
+        "Who did what, which tools they called, and what it cost — the same "
+        "run your agents just executed, opened up.",
+    )
     tabs = st.tabs(
-        ["Dashboard", "Trace", "Agent comms", "Graph", "Cost", "Logs", "Memory", "Reports"]
+        ["Roster", "Trace", "Hand-offs", "Graph", "Cost", "Logs", "Memory", "Reports"]
     )
     sid = st.session_state.session_id
     with tabs[0]:
@@ -442,82 +438,133 @@ def _save_uploads(files) -> list[str]:
     return paths
 
 
-def main() -> None:
-    init_state()
-    st.markdown(CSS, unsafe_allow_html=True)
-    runtime = get_runtime()
+def shop_kpis() -> None:
+    """The design's KPI row, built strictly from what memory actually holds.
+
+    The source design showed sales, days-of-cover and margin; those come from
+    its demo fixture, not from this system. The row reports what Lucida
+    genuinely knows instead, because a dashboard that invents numbers is worse
+    than one that admits what it hasn't learned yet.
+    """
+    stats = memory.stats()
+    low = memory.low_stock()
+    if not any((stats["products"], stats["preorders"], stats["campaigns"], low)):
+        return
+
+    cards = [
+        {"label": "Products", "value": stats["products"],
+         "note": "in your catalogue"},
+        {"label": "Pre-orders waiting", "value": stats["preorders"],
+         "note": "found in customer chat"},
+    ]
+    if low:
+        names = ", ".join(str(i.get("name", "item")) for i in low[:2])
+        cards.append({"label": "Low on stock", "value": len(low),
+                      "note": f"{names} running low", "tone": "warn"})
+    else:
+        cards.append({"label": "Low on stock", "value": 0, "note": "nothing urgent"})
+    cards.append({"label": "Campaigns", "value": stats["campaigns"],
+                  "note": "written so far"})
+    theme.kpis(cards)
+
+
+def render_today(runtime: WorkforceRuntime) -> None:
+    """Today is the conversation — the design's home screen."""
     ss = st.session_state
-
-    context = sidebar()
-
-    # Compact live strip: what stage we're at, and what the shop looks like.
     values = runtime.state_values(ss.session_id)
     stage = (values.get("stage") or "").replace("_", " ")
-    stats = memory.stats()
-    bits = [f"stage: **{stage}**"] if stage else []
-    if stats["products"]:
-        bits.append(f"{stats['products']} product(s)")
-    if stats["preorders"]:
-        bits.append(f"{stats['preorders']} pre-order(s)")
-    low = memory.low_stock()
-    if low:
-        bits.append(f"⚠️ {len(low)} low on stock")
-    if bits:
-        st.markdown(
-            f"<div class='aiw-strip'>{' &nbsp;·&nbsp; '.join(bits)}</div>",
-            unsafe_allow_html=True,
-        )
 
-    # --- opening state ---
     if not ss.messages:
-        st.markdown("## What can I help you with?")
-        st.caption(
+        theme.page_header(
+            "What can I help you with?",
             "Tell me about your business, or drop in a photo of what you make. "
-            "I'll pull in whichever specialists the job needs."
+            "I'll pull in whichever specialists the job needs.",
         )
-        cols = st.columns(2)
-        for i, opener in enumerate(OPENERS):
-            if cols[i % 2].button(opener, use_container_width=True, key=f"op{i}"):
-                ss.messages.append({"role": "user", "content": opener, "images": []})
-                ss.run_request = {
-                    "kind": "start", "text": opener, "images": [], "context": context,
-                }
-                st.rerun()
+        shop_kpis()
+        theme.section("Ask your team", "or just type below")
+        with st.container(key="openers"):
+            cols = st.columns(2)
+            for i, opener in enumerate(OPENERS):
+                if cols[i % 2].button(opener, width="stretch", key=f"op{i}"):
+                    ss.messages.append(
+                        {"role": "user", "content": opener, "images": []}
+                    )
+                    ss.run_request = {
+                        "kind": "start", "text": opener,
+                        "images": [], "context": ss.context,
+                    }
+                    st.rerun()
+    else:
+        theme.page_header("Today", "")
+        if stage:
+            st.markdown(
+                f"<div style='margin:-10px 0 16px;'>{theme.pill(stage, 'ok')}</div>",
+                unsafe_allow_html=True,
+            )
+        shop_kpis()
 
-    # --- conversation ---
     for msg in ss.messages:
         render_message(msg)
 
-    # --- run a pending turn ---
     if ss.run_request:
         request = ss.run_request
         ss.run_request = None
         execute_turn(runtime, request)
         st.rerun()
 
-    # --- composer ---
     submitted = st.chat_input(
-        "Message the workforce…  (attach a product photo with 📎)",
+        "Message the workforce…  (attach a product photo with the clip)",
         accept_file="multiple",
         file_type=["jpg", "jpeg", "png", "webp", "gif"],
         disabled=not settings.has_llm,
     )
-
     if submitted:
         text = (getattr(submitted, "text", "") or "").strip()
         files = getattr(submitted, "files", None) or []
         paths = _save_uploads(files)
         if not text and paths:
-            text = "Here's a photo of what I make — take a look and tell me what you think."
+            text = (
+                "Here's a photo of what I make — take a look and tell me "
+                "what you think."
+            )
         if text or paths:
             ss.messages.append({"role": "user", "content": text, "images": paths})
             ss.run_request = {
-                "kind": "start", "text": text, "images": paths, "context": context,
+                "kind": "start", "text": text, "images": paths,
+                "context": ss.context,
             }
             st.rerun()
 
-    if ss.show_inspector:
-        render_inspector(runtime)
+
+def main() -> None:
+    init_state()
+    theme.inject()
+    runtime = get_runtime()
+    ss = st.session_state
+
+    rail()
+
+    section = ss.nav
+    if section == "today":
+        render_today(runtime)
+    elif section == "customers":
+        pages.customers()
+    elif section == "stock":
+        pages.stock()
+    elif section == "marketing":
+        pages.marketing()
+    elif section == "money":
+        pages.money(ss.session_id, ledger_for(ss.session_id))
+    elif section == "grow":
+        pages.grow()
+    elif section == "history":
+        pages.history()
+    elif section == "workforce":
+        render_workforce(runtime)
+    elif section == "settings":
+        # Settings owns the owner-context form; the answer is cached in
+        # session state so a run started from Today still sees it.
+        ss.context = pages.settings_page()
 
 
 if __name__ == "__main__":

@@ -1,0 +1,182 @@
+/* Lucida — connects the design's own controls to the real workforce.
+ *
+ * The design ships as a self-contained prototype: its Ask button navigates,
+ * and its decision buttons only flip local state. This file gives those same
+ * controls real effects, without changing the design's markup or styling.
+ *
+ * Patched into the page by web/patch_design.py, which rewrites two handler
+ * bindings to call through here:
+ *
+ *   goGrow            -> LucidaActions.ask(text)     POST /api/ask
+ *   decide(id,choice) -> LucidaActions.decide(...)   POST /api/decide
+ *
+ * After a call returns, the page reloads. The server injects a fresh snapshot
+ * on every render, so a reload is the simplest way to get consistent state
+ * everywhere at once — the design's data constants are read at module scope
+ * and would otherwise keep showing the values captured at first paint.
+ */
+(function () {
+  'use strict';
+
+  var BUSY_ID = 'lucida-busy';
+
+  function overlay(message) {
+    if (document.getElementById(BUSY_ID)) return;
+    var el = document.createElement('div');
+    el.id = BUSY_ID;
+    el.setAttribute('role', 'status');
+    el.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999',
+      'background:rgba(247,245,240,.82)', 'backdrop-filter:blur(2px)',
+      'display:flex', 'align-items:center', 'justify-content:center',
+      "font-family:'Plus Jakarta Sans',system-ui,sans-serif"
+    ].join(';');
+    el.innerHTML =
+      '<div style="background:#FFFFFF;border:1px solid #E5E0D6;border-radius:14px;' +
+      'padding:18px 22px;display:flex;align-items:center;gap:11px;' +
+      'box-shadow:0 8px 28px rgba(24,33,29,.10)">' +
+      '<span style="width:8px;height:8px;border-radius:50%;background:#14603F;' +
+      'animation:luPulseA 1.1s infinite"></span>' +
+      '<span style="font-size:13.5px;color:#18211D">' + message + '</span></div>' +
+      '<style>@keyframes luPulseA{0%,100%{opacity:1}50%{opacity:.3}}</style>';
+    document.body.appendChild(el);
+  }
+
+  function clear() {
+    var el = document.getElementById(BUSY_ID);
+    if (el) el.remove();
+  }
+
+  function toast(message, tone) {
+    clear();
+    var bad = tone === 'error';
+    var el = document.createElement('div');
+    el.style.cssText = [
+      'position:fixed', 'right:18px', 'bottom:18px', 'z-index:9999',
+      'max-width:380px', 'padding:13px 15px', 'border-radius:12px',
+      'background:' + (bad ? '#F8E9E6' : '#EAF1EC'),
+      'border:1px solid ' + (bad ? '#A63A2E' : '#14603F'),
+      'color:' + (bad ? '#A63A2E' : '#14603F'),
+      'font:13px/1.5 "Plus Jakarta Sans",system-ui,sans-serif',
+      'box-shadow:0 8px 28px rgba(24,33,29,.10)'
+    ].join(';');
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(function () { el.remove(); }, 7000);
+  }
+
+  /* Minimal markdown -> HTML for the workforce's written answer: headings,
+     bold, bullets and paragraphs. Everything is escaped first, so model output
+     can never inject markup. */
+  function render(md) {
+    var esc = String(md)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return esc.split(/\n{2,}/).map(function (block) {
+      var b = block.trim();
+      if (!b) return '';
+      b = b.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      var head = b.match(/^(#{1,4})\s+(.*)$/m);
+      if (head && b.indexOf('\n') === -1) {
+        return '<div style="font-weight:600;font-size:15px;margin:14px 0 4px">'
+          + head[2] + '</div>';
+      }
+      if (/^[-*]\s+/m.test(b)) {
+        var items = b.split('\n').filter(Boolean).map(function (l) {
+          return '<li style="margin:3px 0">' + l.replace(/^[-*]\s+/, '') + '</li>';
+        }).join('');
+        return '<ul style="margin:7px 0;padding-left:19px">' + items + '</ul>';
+      }
+      return '<p style="margin:9px 0;line-height:1.62">'
+        + b.replace(/\n/g, '<br>') + '</p>';
+    }).join('');
+  }
+
+  /* The answer, shown in the design's card idiom. Closing it reloads so every
+     section picks up whatever the run just wrote to memory. */
+  function answerPanel(text) {
+    clear();
+    var wrap = document.createElement('div');
+    wrap.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999', 'display:flex',
+      'align-items:center', 'justify-content:center', 'padding:28px',
+      'background:rgba(24,33,29,.28)',
+      "font-family:'Plus Jakarta Sans',system-ui,sans-serif"
+    ].join(';');
+    wrap.innerHTML =
+      '<div style="background:#FFFFFF;border:1px solid #E5E0D6;border-radius:14px;' +
+      'max-width:760px;width:100%;max-height:82vh;overflow:auto;' +
+      'box-shadow:0 18px 50px rgba(24,33,29,.18)">' +
+        '<div style="padding:17px 20px;border-bottom:1px solid #EFEBE1;' +
+        'display:flex;align-items:center;gap:9px;position:sticky;top:0;background:#FFFFFF">' +
+          '<span style="font-size:11px;font-weight:600;letter-spacing:.05em;' +
+          'text-transform:uppercase;color:#14603F;background:#EAF1EC;' +
+          'padding:3px 8px;border-radius:6px">Your team</span>' +
+          '<span style="font-size:12px;color:#7C877F">what came back</span>' +
+          '<button id="lucida-close" style="margin-left:auto;border:1px solid #E5E0D6;' +
+          'background:#FFFFFF;color:#4A554E;font-size:12.5px;padding:6px 12px;' +
+          'border-radius:9px;cursor:pointer">Close</button>' +
+        '</div>' +
+        '<div style="padding:6px 20px 20px;font-size:13.5px;color:#18211D">' +
+          render(text) +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+    wrap.querySelector('#lucida-close').onclick = function () {
+      window.location.reload();
+    };
+  }
+
+  function post(url, body, busyMessage, showAnswer) {
+    overlay(busyMessage);
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+        return data;
+      });
+    }).then(function (data) {
+      if (showAnswer && data && data.answer) {
+        answerPanel(data.answer);
+        return;
+      }
+      // Fresh data is injected server-side on render.
+      window.location.reload();
+    }).catch(function (err) {
+      toast(String(err.message || err), 'error');
+    });
+  }
+
+  window.LucidaActions = {
+    /** Send the owner's question to the workforce. */
+    ask: function (text) {
+      text = (text || '').trim();
+      if (!text) {
+        toast('Type a question first.', 'error');
+        return;
+      }
+      if (window.LUCIDA && window.LUCIDA.hasLlm === false) {
+        toast('No API key. Add GROQ_API_KEY to .env, then restart.', 'error');
+        return;
+      }
+      post('/api/ask', { text: text }, 'Your team is working on it…', true);
+    },
+
+    /** Answer the approval gate the graph is suspended on. */
+    decide: function (id, choice) {
+      // Only the gate the server actually reported is a real suspension; the
+      // design's own sample decisions stay local so the prototype still demos.
+      var live = window.LUCIDA && window.LUCIDA.decisions
+              && window.LUCIDA.decisions.length && id === 'gate';
+      if (!live) return false;
+      post(
+        '/api/decide',
+        { decision: choice === 'yes' ? 'approve' : 'reject', feedback: '' },
+        choice === 'yes' ? 'Approving…' : 'Holding it back…'
+      );
+      return true;
+    }
+  };
+})();

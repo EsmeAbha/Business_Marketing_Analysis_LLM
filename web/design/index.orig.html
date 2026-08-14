@@ -1,0 +1,1506 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="./image-slot.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #F7F5F0; }
+  body { -webkit-font-smoothing: antialiased; }
+  a { color: #14603F; text-decoration: none; }
+  a:hover { color: #0E4A30; }
+  input, textarea, button { font-family: inherit; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #DDD8CC; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @keyframes softPulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+</style>
+</helmet>
+
+<div style="min-height: 100vh; background: #F7F5F0; color: #18211D; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; display: grid; grid-template-columns: 244px minmax(0, 1fr); min-width: 1180px;">
+
+  <aside style="border-right: 1px solid #E5E0D6; background: #FBFAF7; padding: 18px 14px 24px; display: flex; flex-direction: column; gap: 20px; position: sticky; top: 0; height: 100vh;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 6px;">
+      <div style="width: 34px; height: 34px; border-radius: 11px; background: #14603F; color: #F4EFE2; display: grid; place-items: center; font-family: 'Instrument Serif', serif; font-size: 19px;">S</div>
+      <div style="display: flex; flex-direction: column; line-height: 1.25; min-width: 0;">
+        <span style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ businessName }}</span>
+        <span style="font-size: 11.5px; color: #7C877F;">Mirpur 11, Dhaka</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 3px; padding: 3px; background: #F1EEE6; border-radius: 10px;">
+      <sc-for list="{{ roles }}" as="r" hint-placeholder-count="2">
+        <button onClick="{{ r.pick }}" style="flex: 1; padding: 7px 4px; border-radius: 8px; border: none; background: {{ r.bg }}; color: {{ r.fg }}; font-size: 12px; font-weight: {{ r.weight }}; cursor: pointer; box-shadow: {{ r.shadow }};" style-hover="color: #14603F">{{ r.label }}</button>
+      </sc-for>
+    </div>
+
+    <nav style="display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="8">
+        <button onClick="{{ n.pick }}" style="display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 10px; border: none; background: {{ n.bg }}; color: {{ n.fg }}; font-size: 13.5px; font-weight: {{ n.weight }}; cursor: pointer; text-align: left; width: 100%;" style-hover="background: #F1EEE6">
+          <span style="width: 18px; text-align: center; font-size: 13px; opacity: .85;">{{ n.icon }}</span>
+          <span style="flex: 1;">{{ n.label }}</span>
+          <span style="min-width: 20px; height: 19px; padding: 0 6px; border-radius: 999px; background: {{ n.badgeBg }}; color: {{ n.badgeFg }}; font-size: 11px; font-weight: 600; display: {{ n.badgeShow }}; align-items: center; justify-content: center;">{{ n.badge }}</span>
+        </button>
+      </sc-for>
+    </nav>
+
+    <div style="margin-top: auto; border-top: 1px solid #E5E0D6; padding-top: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; padding: 0 6px 9px;">
+        <span style="width: 7px; height: 7px; border-radius: 50%; background: #14603F; animation: softPulse 2.4s infinite;"></span>
+        <span style="font-size: 11.5px; font-weight: 600; color: #4A554E;">{{ footTitle }}</span>
+      </div>
+      <div style="font-size: 11.5px; color: #7C877F; line-height: 1.5; padding: 0 6px 12px;">{{ footBody }}</div>
+      <button onClick="{{ footAction }}" style="width: 100%; padding: 8px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">{{ footButton }}</button>
+    </div>
+  </aside>
+
+  <main style="min-width: 0; padding: 0 0 60px;">
+
+    <sc-if value="{{ isToday }}" hint-placeholder-val="{{ true }}">
+      <div style="padding: 30px 36px; max-width: 1120px;">
+        <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 26px;">
+          <div>
+            <div style="font-size: 12px; color: #7C877F; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px;">Tuesday, 12 August</div>
+            <h1 style="margin: 0; font-family: 'Instrument Serif', serif; font-size: 34px; font-weight: 400; letter-spacing: -0.01em;">Good morning, {{ ownerName }}.</h1>
+            <p style="margin: 7px 0 0; font-size: 14.5px; color: #4A554E; max-width: 620px; line-height: 1.55;">{{ dayLine }}</p>
+          </div>
+          <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button onClick="{{ goActivity }}" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; font-size: 13px; color: #4A554E; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">See everything it did</button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 26px;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #7C877F;">Sales today</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">৳6,480</div>
+            <div style="font-size: 12px; color: #14603F; margin-top: 2px;">24 orders · +12% vs last Tue</div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #7C877F;">Preorders waiting</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">312 pcs</div>
+            <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">৳5,616 · 9 customers</div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #F0DFC2; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #7C877F;">Stock will last</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px; color: #B4741B;">4 days</div>
+            <div style="font-size: 12px; color: #B4741B; margin-top: 2px;">Beef shingara running low</div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
+            <div style="font-size: 12px; color: #7C877F;">Profit per pack</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">{{ marginNow }}</div>
+            <div style="font-size: 12px; color: {{ marginNoteColor }}; margin-top: 2px;">{{ marginNote }}</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; align-items: start;">
+          <section>
+            <div style="display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px;">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 600;">Needs your decision</h2>
+              <span style="font-size: 12.5px; color: #7C877F;">{{ pendingLine }}</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <sc-for list="{{ decisions }}" as="d" hint-placeholder-count="3">
+                <div style="background: #FFFFFF; border: 1px solid {{ d.border }}; border-radius: 14px; padding: 16px 17px; animation: fadeUp .25s ease both;">
+                  <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
+                    <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: {{ d.tagFg }}; background: {{ d.tagBg }}; padding: 3px 8px; border-radius: 6px;">{{ d.tag }}</span>
+                    <span style="font-size: 12px; color: #7C877F;">{{ d.by }}</span>
+                    <span style="margin-left: auto; font-size: 12px; color: #7C877F;">{{ d.when }}</span>
+                  </div>
+                  <div style="font-size: 15.5px; font-weight: 600; line-height: 1.4; margin-bottom: 6px;">{{ d.title }}</div>
+                  <div style="font-size: 13.5px; color: #4A554E; line-height: 1.6;">{{ d.body }}</div>
+                  <div style="display: flex; gap: 14px; margin: 12px 0 13px; padding: 11px 13px; background: #F7F5F0; border-radius: 10px;">
+                    <sc-for list="{{ d.facts }}" as="f" hint-placeholder-count="3">
+                      <div>
+                        <div style="font-size: 11.5px; color: #7C877F;">{{ f.k }}</div>
+                        <div style="font-size: 14px; font-weight: 600; margin-top: 2px; color: {{ f.color }};">{{ f.v }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ d.open }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <button onClick="{{ d.approve }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">{{ d.yes }}</button>
+                      <button onClick="{{ d.tweak }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">{{ d.edit }}</button>
+                      <button onClick="{{ d.deny }}" style="padding: 9px 14px; border-radius: 9px; border: none; background: none; color: #A63A2E; font-size: 13px; cursor: pointer;" style-hover="text-decoration: underline">Not now</button>
+                      <span style="margin-left: auto; font-size: 12px; color: #7C877F;">{{ d.hint }}</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ d.closed }}" hint-placeholder-val="{{ false }}">
+                    <div style="display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-radius: 10px; background: {{ d.doneBg }}; font-size: 13px; color: {{ d.doneFg }};">
+                      <span>{{ d.doneIcon }}</span><span>{{ d.doneText }}</span>
+                      <button onClick="{{ d.undo }}" style="margin-left: auto; border: none; background: none; color: #4A554E; font-size: 12.5px; cursor: pointer; text-decoration: underline;">Undo</button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+
+              <sc-if value="{{ allClear }}" hint-placeholder-val="{{ false }}">
+                <div style="background: #EAF1EC; border: 1px solid #CFE0D5; border-radius: 14px; padding: 18px; font-size: 14px; color: #14603F; line-height: 1.6;">All caught up. Your team will keep working and only interrupt you when money, stock, or a customer's promise is on the line.</div>
+              </sc-if>
+            </div>
+          </section>
+
+          <aside style="display: flex; flex-direction: column; gap: 20px;">
+            <section style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 16px 17px;">
+              <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Done while you slept</h2>
+              <p style="margin: 0 0 12px; font-size: 12.5px; color: #7C877F;">No approval needed — these are inside your autopilot rules.</p>
+              <div style="display: flex; flex-direction: column; gap: 11px;">
+                <sc-for list="{{ overnight }}" as="o" hint-placeholder-count="5">
+                  <div style="display: flex; gap: 10px;">
+                    <span style="width: 6px; height: 6px; border-radius: 50%; background: #14603F; margin-top: 6px; flex: none;"></span>
+                    <div>
+                      <div style="font-size: 13.5px; line-height: 1.45;">{{ o.text }}</div>
+                      <div style="font-size: 11.5px; color: #7C877F; margin-top: 2px;">{{ o.by }} · {{ o.t }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+
+            <section style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 16px 17px;">
+              <h2 style="margin: 0 0 11px; font-size: 15px; font-weight: 600;">Ask your team</h2>
+              <div style="display: flex; gap: 8px; margin-bottom: 11px;">
+                <input value="{{ askText }}" onChange="{{ onAsk }}" placeholder="e.g. should I sell chicken shingara?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E5E0D6; font-size: 13px; background: #FBFAF7; color: #18211D;" />
+                <button onClick="{{ goGrow }}" style="padding: 10px 13px; border-radius: 10px; border: none; background: #18211D; color: #F7F5F0; font-size: 13px; cursor: pointer;" style-hover="background: #14603F">Ask</button>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <sc-for list="{{ prompts }}" as="p" hint-placeholder-count="3">
+                  <button onClick="{{ p.pick }}" style="padding: 7px 11px; border-radius: 999px; border: 1px solid #E5E0D6; background: #FBFAF7; color: #4A554E; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">{{ p.label }}</button>
+                </sc-for>
+              </div>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1180px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Customers</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Every message from Messenger, Instagram and your page — read, sorted, and answered in your voice. You only step in where it matters.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #7C877F;">Messages today</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">47</div>
+            <div style="font-size: 12px; color: #14603F; margin-top: 2px;">38 answered automatically</div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #7C877F;">Orders found in chat</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">312 pcs</div>
+            <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">৳5,616 · added to preorders</div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #7C877F;">Happy customers</div>
+            <div style="display: flex; height: 7px; border-radius: 4px; overflow: hidden; margin: 11px 0 8px;">
+              <span style="width: 68%; background: #14603F;"></span><span style="width: 21%; background: #C9C3B4;"></span><span style="width: 11%; background: #A63A2E;"></span>
+            </div>
+            <div style="display: flex; gap: 10px; font-size: 11.5px; color: #7C877F;"><span>68% happy</span><span>21% neutral</span><span>11% upset</span></div>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #F0DFC2; border-radius: 14px; padding: 14px 15px;">
+            <div style="font-size: 12px; color: #7C877F;">Asking for something you don't sell</div>
+            <div style="font-size: 15px; font-weight: 600; margin-top: 5px;">Chicken shingara</div>
+            <div style="font-size: 12px; color: #B4741B; margin-top: 2px;">14 people this month</div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+            <sc-for list="{{ threads }}" as="th" hint-placeholder-count="6">
+              <button onClick="{{ th.pick }}" style="width: 100%; text-align: left; display: block; padding: 13px 15px; border: none; border-bottom: 1px solid #EFEBE1; border-left: 3px solid {{ th.mark }}; background: {{ th.bg }}; cursor: pointer;" style-hover="background: #F7F5F0">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="font-size: 13.5px; font-weight: 600;">{{ th.name }}</span>
+                  <span style="font-size: 11px; color: #7C877F;">{{ th.channel }}</span>
+                  <span style="margin-left: auto; font-size: 11.5px; color: #7C877F;">{{ th.t }}</span>
+                </div>
+                <div style="font-size: 12.5px; color: #4A554E; margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{ th.preview }}</div>
+                <div style="font-size: 11.5px; color: {{ th.stateFg }}; margin-top: 5px; font-weight: 500;">{{ th.state }}</div>
+              </button>
+            </sc-for>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 20px 22px;">
+            <div style="display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #EFEBE1;">
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: #EAF1EC; color: #14603F; display: grid; place-items: center; font-size: 13px; font-weight: 600;">{{ thread.initials }}</div>
+              <div>
+                <div style="font-size: 14.5px; font-weight: 600;">{{ thread.name }}</div>
+                <div style="font-size: 12px; color: #7C877F;">{{ thread.channel }} · {{ thread.history }}</div>
+              </div>
+              <div style="margin-left: auto; display: flex; gap: 6px;">
+                <sc-for list="{{ thread.tags }}" as="tg" hint-placeholder-count="2">
+                  <span style="font-size: 11.5px; padding: 4px 9px; border-radius: 999px; background: {{ tg.bg }}; color: {{ tg.fg }}; font-weight: 500;">{{ tg.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="padding: 16px 0; display: flex; flex-direction: column; gap: 12px;">
+              <div style="max-width: 78%; background: #F7F5F0; border-radius: 14px 14px 14px 4px; padding: 12px 14px; font-size: 13.5px; line-height: 1.55;">{{ thread.message }}</div>
+              <div style="font-size: 12px; color: #7C877F; padding-left: 4px;">{{ thread.read }}</div>
+            </div>
+
+            <div style="border: 1px solid #CFE0D5; background: #F4F8F5; border-radius: 12px; padding: 14px 15px;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 9px;">
+                <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #14603F;">Reply drafted for you</span>
+                <span style="font-size: 12px; color: #7C877F;">in your usual tone · Bangla + English</span>
+              </div>
+              <div style="font-size: 13.5px; line-height: 1.65; color: #18211D; white-space: pre-wrap;">{{ thread.draft }}</div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 13px;">
+                <sc-if value="{{ thread.unsent }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ thread.send }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Send reply</button>
+                </sc-if>
+                <sc-if value="{{ thread.sent }}" hint-placeholder-val="{{ false }}">
+                  <span style="padding: 9px 14px; border-radius: 9px; background: #EAF1EC; color: #14603F; font-size: 13px; font-weight: 600;">Sent {{ thread.sentAt }}</span>
+                </sc-if>
+                <button style="padding: 9px 14px; border-radius: 9px; border: 1px solid #DFDACE; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Edit first</button>
+                <span style="margin-left: auto; font-size: 12px; color: #7C877F;">{{ thread.action }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isStock }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1120px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Stock</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Snap a photo when stock arrives. Your team counts it, tracks what's selling, and tells you when to reorder — before you run out.</p>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden; margin-bottom: 18px;">
+          <div style="display: grid; grid-template-columns: 76px minmax(0,1.4fr) 110px 120px 130px minmax(0,1fr); gap: 14px; padding: 11px 16px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+            <span></span><span>Item</span><span>In stock</span><span>Selling</span><span>Runs out</span><span>What to do</span>
+          </div>
+          <sc-for list="{{ stock }}" as="s" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: 76px minmax(0,1.4fr) 110px 120px 130px minmax(0,1fr); gap: 14px; padding: 14px 16px; border-top: 1px solid #EFEBE1; align-items: center;">
+              <div style="width: 52px; height: 52px; border-radius: 11px; background: {{ s.thumbBg }}; color: {{ s.thumbFg }}; display: grid; place-items: center; font-family: 'Instrument Serif', serif; font-size: 20px;">{{ s.initial }}</div>
+              <div>
+                <div style="font-size: 14px; font-weight: 600;">{{ s.name }}</div>
+                <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">{{ s.sub }}</div>
+              </div>
+              <div style="font-size: 14px; font-weight: 600; color: {{ s.qtyColor }};">{{ s.qty }}</div>
+              <div style="font-size: 13px; color: #4A554E;">{{ s.rate }}</div>
+              <div style="font-size: 13px; color: {{ s.coverColor }}; font-weight: 500;">{{ s.cover }}</div>
+              <div style="font-size: 13px; color: #4A554E; line-height: 1.45;">{{ s.todo }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start;">
+          <div style="background: #FFFFFF; border: 1px solid {{ poBorder }}; border-radius: 14px; padding: 18px;">
+            <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #B4741B; background: #FBF1E1; padding: 3px 8px; border-radius: 6px;">Reorder suggested</span>
+              <span style="font-size: 12px; color: #7C877F;">based on 4 weeks of sales + 312 pcs already promised</span>
+            </div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Order 2,000 beef shingara and pilot 600 chicken</div>
+            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A554E; line-height: 1.6;">Karwan Bazar Foods delivers in 2 days — that lands before your beef runs out on Saturday. The chicken pilot answers 14 customers who asked for it this month; if it sells at ৳19 you keep ৳6.90 a piece.</p>
+            <div style="display: flex; gap: 22px; padding: 13px 15px; background: #F7F5F0; border-radius: 11px; margin-bottom: 15px;">
+              <div><div style="font-size: 11.5px; color: #7C877F;">Total cost</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳30,060</div></div>
+              <div><div style="font-size: 11.5px; color: #7C877F;">Already promised</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: #14603F;">৳5,616</div></div>
+              <div><div style="font-size: 11.5px; color: #7C877F;">Arrives</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">Thu 14 Aug</div></div>
+              <div><div style="font-size: 11.5px; color: #7C877F;">Money back in</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">11 days</div></div>
+            </div>
+            <sc-if value="{{ poOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button onClick="{{ approvePo }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Send the order</button>
+                <button style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Change quantity</button>
+                <span style="margin-left: auto; font-size: 12px; color: #7C877F;">Nothing is ordered until you tap.</span>
+              </div>
+            </sc-if>
+            <sc-if value="{{ poDone }}" hint-placeholder-val="{{ false }}">
+              <div style="padding: 12px 14px; border-radius: 10px; background: #EAF1EC; color: #14603F; font-size: 13.5px; line-height: 1.55;">Order sent to Karwan Bazar Foods · ref PO-9931. Delivery expected Thu 14 Aug, and your stock page will update itself when it arrives.</div>
+            </sc-if>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 5px; font-size: 15px; font-weight: 600;">Add stock with a photo</h2>
+            <p style="margin: 0 0 13px; font-size: 13px; color: #7C877F; line-height: 1.55;">Drop a photo of what arrived. Your team recognises the item, asks only for the count, and updates everything else.</p>
+            <div style="height: 150px; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
+              <image-slot id="suite-stock-upload" shape="rounded" radius="12" placeholder="Drop a photo of new stock"></image-slot>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input placeholder="How many pieces?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E5E0D6; font-size: 13px; background: #FBFAF7;" />
+              <button style="padding: 10px 14px; border-radius: 10px; border: none; background: #18211D; color: #F7F5F0; font-size: 13px; cursor: pointer;" style-hover="background: #14603F">Log it</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isMarketing }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1120px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Marketing</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Posts and ads written and scheduled for you. Nothing goes out, and no money is spent, before you say yes.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 22px;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">Spent this week</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳2,450</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">Sales from ads</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳11,880</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">৳4.85 back per ৳1</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">Cost per customer</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">৳37</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">under your ৳41 limit</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 14px 15px;"><div style="font-size: 12px; color: #7C877F;">People reached</div><div style="font-family: 'Instrument Serif', serif; font-size: 24px; margin-top: 3px;">18.4k</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">6 km around Mirpur</div></div>
+        </div>
+
+        <h2 style="margin: 0 0 4px; font-size: 16px; font-weight: 600;">Waiting for your yes</h2>
+        <p style="margin: 0 0 13px; font-size: 13px; color: #7C877F;">Three posts written for this week's ৳350/day budget. Tap a photo box to use your own picture instead.</p>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 16px;">
+          <sc-for list="{{ creatives }}" as="c" hint-placeholder-count="3">
+            <div style="background: #FFFFFF; border: 1px solid {{ c.border }}; border-radius: 14px; overflow: hidden;">
+              <div style="height: 176px;">
+                <image-slot id="{{ c.slot }}" shape="rect" placeholder="{{ c.ph }}"></image-slot>
+              </div>
+              <div style="padding: 14px 15px;">
+                <div style="display: flex; align-items: center; gap: 7px; margin-bottom: 8px;">
+                  <span style="font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: {{ c.chanFg }};">{{ c.channel }}</span>
+                  <span style="font-size: 11.5px; color: #7C877F;">{{ c.spec }}</span>
+                </div>
+                <div style="font-size: 13px; line-height: 1.6; color: #18211D; min-height: 84px;">{{ c.copy }}</div>
+                <div style="margin-top: 12px;">
+                  <sc-if value="{{ c.pending }}" hint-placeholder-val="{{ true }}">
+                    <div style="display: flex; gap: 7px;">
+                      <button onClick="{{ c.approve }}" style="flex: 1; padding: 9px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 12.5px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Publish</button>
+                      <button onClick="{{ c.skip }}" style="padding: 9px 12px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 12.5px; cursor: pointer;" style-hover="border-color: #A63A2E; color: #A63A2E">Skip</button>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ c.settled }}" hint-placeholder-val="{{ false }}">
+                    <div style="padding: 9px 11px; border-radius: 9px; background: {{ c.doneBg }}; color: {{ c.doneFg }}; font-size: 12.5px; font-weight: 600;">{{ c.doneText }}</div>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <h2 style="margin: 22px 0 12px; font-size: 16px; font-weight: 600;">Already running</h2>
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: minmax(0,1.5fr) 120px 120px 120px 130px; gap: 14px; padding: 11px 16px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+            <span>Campaign</span><span>Where</span><span>Spent</span><span>Orders</span><span>Status</span>
+          </div>
+          <sc-for list="{{ campaigns }}" as="cp" hint-placeholder-count="2">
+            <div style="display: grid; grid-template-columns: minmax(0,1.5fr) 120px 120px 120px 130px; gap: 14px; padding: 13px 16px; border-top: 1px solid #EFEBE1; align-items: center; font-size: 13.5px;">
+              <div><div style="font-weight: 600;">{{ cp.name }}</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">{{ cp.sub }}</div></div>
+              <span style="color: #4A554E;">{{ cp.where }}</span>
+              <span style="color: #4A554E;">{{ cp.spent }}</span>
+              <span style="font-weight: 600;">{{ cp.orders }}</span>
+              <span style="font-size: 12.5px; color: {{ cp.stateFg }}; font-weight: 500;">{{ cp.state }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isMoney }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1120px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Money</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">What each piece really costs you, what you keep, and what to charge when your costs move.</p>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; margin-bottom: 18px;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">One beef shingara, honestly costed</h2>
+            <sc-for list="{{ costRows }}" as="cr" hint-placeholder-count="5">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #F1EEE6;">
+                <span style="font-size: 13.5px; color: #4A554E; flex: 1;">{{ cr.k }}</span>
+                <span style="width: 120px; height: 6px; border-radius: 3px; background: #F1EEE6; overflow: hidden;"><span style="display: block; height: 100%; width: {{ cr.pct }}%; background: {{ cr.color }};"></span></span>
+                <span style="font-size: 13.5px; font-weight: 600; width: 62px; text-align: right;">{{ cr.v }}</span>
+              </div>
+            </sc-for>
+            <div style="display: flex; justify-content: space-between; padding-top: 13px; font-size: 14.5px; font-weight: 700;">
+              <span>You keep</span><span style="color: #14603F;">{{ keepPerPiece }}</span>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid {{ priceBorder }}; border-radius: 14px; padding: 18px;">
+            <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: {{ priceTagFg }}; background: {{ priceTagBg }}; padding: 3px 8px; border-radius: 6px;">{{ priceTag }}</span>
+              <span style="font-size: 12px; color: #7C877F;">checked against 14 nearby sellers</span>
+            </div>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{ priceHeadline }}</div>
+            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A554E; line-height: 1.6;">{{ priceBody }}</p>
+            <div style="display: flex; gap: 20px; padding: 13px 15px; background: #F7F5F0; border-radius: 11px; margin-bottom: 15px;">
+              <div><div style="font-size: 11.5px; color: #7C877F;">12-pc pack</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">{{ packPrice }}</div></div>
+              <div><div style="font-size: 11.5px; color: #7C877F;">You keep</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: {{ marginNoteColor }};">{{ marginNow }}</div></div>
+              <div><div style="font-size: 11.5px; color: #7C877F;">Wholesale</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳480</div></div>
+              <div><div style="font-size: 11.5px; color: #7C877F;">Nearest rival</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳20/pc</div></div>
+            </div>
+            <sc-if value="{{ priceOpen }}" hint-placeholder-val="{{ true }}">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button onClick="{{ applyPrice }}" style="padding: 10px 16px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Raise to ৳228</button>
+                <button onClick="{{ keepPrice }}" style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Keep ৳216 for now</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{ priceSettled }}" hint-placeholder-val="{{ false }}">
+              <div style="padding: 12px 14px; border-radius: 10px; background: {{ priceDoneBg }}; color: {{ priceDoneFg }}; font-size: 13.5px; line-height: 1.55;">{{ priceDoneText }}</div>
+            </sc-if>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+          <div style="padding: 15px 18px; border-bottom: 1px solid #EFEBE1; display: flex; align-items: baseline; gap: 10px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Last week, in plain numbers</h2>
+            <span style="font-size: 12.5px; color: #7C877F;">5–11 August</span>
+          </div>
+          <sc-for list="{{ pnl }}" as="p" hint-placeholder-count="5">
+            <div style="display: grid; grid-template-columns: minmax(0,1fr) 140px 160px; gap: 14px; padding: 12px 18px; border-bottom: 1px solid #F5F2EA; align-items: center;">
+              <span style="font-size: 13.5px; color: {{ p.keyColor }}; font-weight: {{ p.weight }};">{{ p.k }}</span>
+              <span style="font-size: 14px; font-weight: {{ p.weight }}; color: {{ p.vColor }};">{{ p.v }}</span>
+              <span style="font-size: 12.5px; color: #7C877F;">{{ p.note }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isGrow }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1120px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Grow</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Test an idea before you spend on it, and see what your own customers are already asking for.</p>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 20px; margin-bottom: 18px; display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 20px; align-items: start;">
+          <div>
+            <div style="height: 210px; border-radius: 12px; overflow: hidden;">
+              <image-slot id="suite-idea-photo" shape="rounded" radius="12" placeholder="Photo of your product idea"></image-slot>
+            </div>
+            <div style="font-size: 12px; color: #7C877F; margin-top: 8px; text-align: center;">Drop a photo · or type the idea</div>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 10px;">
+              <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #14603F; background: #EAF1EC; padding: 3px 8px; border-radius: 6px;">Worth selling</span>
+              <span style="font-size: 12px; color: #7C877F;">checked yesterday · 14 sellers, 61 posts, your own chat history</span>
+            </div>
+            <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em;">Chicken shingara, 58g — start with 600 pieces</h2>
+            <p style="margin: 0 0 16px; font-size: 14px; color: #4A554E; line-height: 1.65; max-width: 640px;">Fourteen of your own customers asked for it this month and nobody within 4 km sells it. Filling costs ৳0.70 more than beef, so at ৳19 a piece you keep slightly more than you do today. Start small: 600 pieces is under two days of your current sales, so a flop costs you ৳7,260, not your month.</p>
+            <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; max-width: 640px;">
+              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Asked for by</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">14 people</div></div>
+              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Rivals selling it</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">0 nearby</div></div>
+              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Suggested price</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px; color: #14603F;">৳19/pc</div></div>
+              <div style="border: 1px solid #E5E0D6; border-radius: 11px; padding: 12px;"><div style="font-size: 11.5px; color: #7C877F;">Risk if it flops</div><div style="font-size: 16px; font-weight: 600; margin-top: 3px;">৳7,260</div></div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 16px;">
+              <button onClick="{{ goStock }}" style="padding: 10px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Add to the next order</button>
+              <button style="padding: 10px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Show me the working</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">What customers keep asking for</h2>
+            <p style="margin: 0 0 14px; font-size: 12.5px; color: #7C877F;">Pulled from your own messages this month — none of these are in your list yet.</p>
+            <sc-for list="{{ demands }}" as="d" hint-placeholder-count="3">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 0; border-top: 1px solid #F1EEE6;">
+                <div style="flex: 1;">
+                  <div style="font-size: 13.5px; font-weight: 600;">{{ d.name }}</div>
+                  <div style="font-size: 12px; color: #7C877F; margin-top: 2px;">{{ d.note }}</div>
+                </div>
+                <span style="width: 90px; height: 6px; border-radius: 3px; background: #F1EEE6; overflow: hidden;"><span style="display: block; height: 100%; width: {{ d.pct }}%; background: #14603F;"></span></span>
+                <span style="font-size: 13px; font-weight: 600; width: 34px; text-align: right;">{{ d.n }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Who else sells near you</h2>
+            <p style="margin: 0 0 14px; font-size: 12.5px; color: #7C877F;">14 sellers within 4 km · median price ৳20 a piece.</p>
+            <sc-for list="{{ rivals }}" as="r" hint-placeholder-count="4">
+              <div style="display: grid; grid-template-columns: minmax(0,1fr) 74px minmax(0,1fr); gap: 12px; padding: 11px 0; border-top: 1px solid #F1EEE6; align-items: center;">
+                <span style="font-size: 13.5px;">{{ r.name }}</span>
+                <span style="font-size: 13.5px; font-weight: 600;">{{ r.price }}</span>
+                <span style="font-size: 12px; color: #7C877F;">{{ r.note }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1000px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">History</h1>
+        <p style="margin: 0 0 20px; font-size: 14px; color: #4A554E;">Everything your team did, in order, with the reason behind it. Nothing happens that you can't read back later.</p>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;">
+          <sc-for list="{{ historyFilters }}" as="f" hint-placeholder-count="5">
+            <button onClick="{{ f.pick }}" style="padding: 7px 13px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #14603F">{{ f.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+          <sc-for list="{{ history }}" as="h" hint-placeholder-count="7">
+            <div onClick="{{ h.toggle }}" style="padding: 14px 18px; border-bottom: 1px solid #F1EEE6; cursor: pointer; background: {{ h.bg }};" style-hover="background: #FBFAF7">
+              <div style="display: flex; align-items: center; gap: 11px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ h.dot }}; flex: none;"></span>
+                <span style="font-size: 13.5px; color: #18211D; flex: 1;">{{ h.text }}</span>
+                <span style="font-size: 11.5px; color: #7C877F;">{{ h.by }}</span>
+                <span style="font-size: 11.5px; color: #A19B8E; width: 62px; text-align: right;">{{ h.t }}</span>
+              </div>
+              <sc-if value="{{ h.open }}" hint-placeholder-val="{{ false }}">
+                <div style="margin: 11px 0 2px 19px; padding: 12px 14px; background: #F7F5F0; border-radius: 10px; font-size: 13px; color: #4A554E; line-height: 1.65;">{{ h.why }}</div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1000px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Settings</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">Decide how much your team may do on its own. You can change this any day, and every rule is reversible.</p>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 20px; margin-bottom: 16px;">
+          <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">How much freedom?</h2>
+          <p style="margin: 0 0 14px; font-size: 12.5px; color: #7C877F;">This sets the switches below in one move.</p>
+          <div style="display: flex; gap: 8px;">
+            <sc-for list="{{ autopilotOptions }}" as="a" hint-placeholder-count="3">
+              <button onClick="{{ a.pick }}" style="flex: 1; text-align: left; padding: 14px 15px; border-radius: 12px; border: 1px solid {{ a.border }}; background: {{ a.bg }}; cursor: pointer;" style-hover="border-color: #14603F">
+                <div style="font-size: 14px; font-weight: 600; color: {{ a.fg }};">{{ a.label }}</div>
+                <div style="font-size: 12.5px; color: #7C877F; margin-top: 4px; line-height: 1.5;">{{ a.note }}</div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden; margin-bottom: 16px;">
+          <div style="padding: 15px 18px; border-bottom: 1px solid #EFEBE1; font-size: 15px; font-weight: 600;">What it may do without asking</div>
+          <sc-for list="{{ permissions }}" as="p" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #F5F2EA;">
+              <div style="flex: 1;">
+                <div style="font-size: 13.5px; font-weight: 600;">{{ p.label }}</div>
+                <div style="font-size: 12.5px; color: #7C877F; margin-top: 2px;">{{ p.note }}</div>
+              </div>
+              <button onClick="{{ p.toggle }}" style="width: 46px; height: 26px; border-radius: 999px; border: none; background: {{ p.trackBg }}; position: relative; cursor: pointer; flex: none;">
+                <span style="position: absolute; top: 3px; left: {{ p.knobLeft }}px; width: 20px; height: 20px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .16s ease;"></span>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Connected accounts</h2>
+            <sc-for list="{{ channels }}" as="ch" hint-placeholder-count="5">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #F1EEE6;">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ ch.dot }};"></span>
+                <span style="font-size: 13.5px; flex: 1;">{{ ch.name }}</span>
+                <span style="font-size: 12px; color: {{ ch.fg }};">{{ ch.state }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Spending limits</h2>
+            <div style="display: flex; flex-direction: column; gap: 13px;">
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A554E;">Ads per day</span><span style="font-size: 14px; font-weight: 600;">৳350</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A554E;">Stock order without asking</span><span style="font-size: 14px; font-weight: 600;">৳5,000</span></div>
+              <div style="display: flex; align-items: center; gap: 10px;"><span style="font-size: 13.5px; flex: 1; color: #4A554E;">Discount it may offer</span><span style="font-size: 14px; font-weight: 600;">up to 10%</span></div>
+              <div style="padding-top: 12px; border-top: 1px solid #F1EEE6; font-size: 12.5px; color: #7C877F; line-height: 1.55;">Anything above a limit becomes a decision on your Today page instead of an action.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1180px;">
+        <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 22px;">
+          <div>
+            <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">The workforce</h1>
+            <p style="margin: 0; font-size: 14px; color: #4A554E; max-width: 680px;">One supervisor routes every request to eight specialists. They hand work to each other, write to one shared memory, and stop at your gates.</p>
+          </div>
+          <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button onClick="{{ goRuns }}" style="padding: 9px 14px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; font-size: 13px; color: #4A554E; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Watch a run</button>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+            <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Execution graph</h2>
+            <span style="font-size: 12.5px; color: #7C877F;">{{ graphCaption }}</span>
+            <div style="margin-left: auto; display: flex; gap: 14px; font-size: 12px; color: #7C877F;">
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #14603F;"></span>working now</span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #9EB3A4;"></span>used this run</span>
+              <span style="display: flex; align-items: center; gap: 6px;"><span style="width: 14px; height: 2px; background: #B4741B;"></span>your gate</span>
+            </div>
+          </div>
+          <div style="position: relative; width: 100%; aspect-ratio: 900 / 440; background: #FBFAF7; border: 1px solid #EFEBE1; border-radius: 12px; overflow: hidden;">
+            <svg viewBox="0 0 900 440" style="position: absolute; inset: 0; width: 100%; height: 100%;">
+              <sc-for list="{{ edges }}" as="e" hint-placeholder-count="12">
+                <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}" stroke="{{ e.stroke }}" stroke-width="{{ e.w }}" stroke-dasharray="{{ e.dash }}"></line>
+              </sc-for>
+            </svg>
+            <sc-for list="{{ nodes }}" as="n" hint-placeholder-count="9">
+              <div style="position: absolute; left: {{ n.left }}%; top: {{ n.top }}%; transform: translate(-50%, -50%); width: 17.5%; min-width: 132px; padding: 9px 11px; border-radius: 11px; border: 1px solid {{ n.border }}; background: {{ n.bg }}; box-shadow: {{ n.shadow }};">
+                <div style="display: flex; align-items: center; gap: 7px;">
+                  <span style="width: 7px; height: 7px; border-radius: 50%; background: {{ n.dot }}; flex: none;"></span>
+                  <span style="font-size: 12px; font-weight: 600; color: {{ n.fg }}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ n.name }}</span>
+                </div>
+                <div style="font-size: 11px; color: #7C877F; margin-top: 3px;">{{ n.state }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.3fr) 96px 104px; gap: 14px; padding: 11px 18px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+            <span>Agent</span><span>What it owns</span><span>Tools it may call</span><span>Calls today</span><span>Status</span>
+          </div>
+          <sc-for list="{{ roster }}" as="a" hint-placeholder-count="9">
+            <div style="display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1.5fr) minmax(0,1.3fr) 96px 104px; gap: 14px; padding: 13px 18px; border-top: 1px solid #EFEBE1; align-items: center;">
+              <div style="display: flex; align-items: center; gap: 9px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: {{ a.dot }}; flex: none;"></span>
+                <div>
+                  <div style="font-size: 13.5px; font-weight: 600;">{{ a.name }}</div>
+                  <div style="font-size: 11.5px; color: #7C877F; margin-top: 1px;">{{ a.kind }}</div>
+                </div>
+              </div>
+              <span style="font-size: 13px; color: #4A554E; line-height: 1.45;">{{ a.owns }}</span>
+              <span style="font-size: 12px; color: #7C877F; line-height: 1.45;">{{ a.tools }}</span>
+              <span style="font-size: 13.5px; font-weight: 600;">{{ a.calls }}</span>
+              <span style="font-size: 12.5px; font-weight: 500; color: {{ a.stateFg }};">{{ a.state }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRuns }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1180px;">
+        <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 20px;">
+          <div>
+            <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Runs</h1>
+            <p style="margin: 0; font-size: 14px; color: #4A554E;">Replay any job step by step: who was asked, what tool ran, what got written down, where it stopped for a human.</p>
+          </div>
+          <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12.5px; color: #7C877F;">{{ runMeta }}</span>
+            <button onClick="{{ togglePlay }}" style="padding: 9px 15px; border-radius: 10px; border: none; background: {{ playBg }}; color: {{ playFg }}; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="filter: brightness(1.06)">{{ playLabel }}</button>
+            <button onClick="{{ stepNext }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Next step</button>
+            <button onClick="{{ stepBack }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Retry step</button>
+            <button onClick="{{ resetRun }}" style="padding: 9px 12px; border-radius: 10px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #4A554E; font-size: 13px; cursor: pointer;" style-hover="border-color: #14603F; color: #14603F">Restart</button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;">
+          <sc-for list="{{ runTabs }}" as="r" hint-placeholder-count="4">
+            <button onClick="{{ r.pick }}" style="padding: 8px 13px; border-radius: 999px; border: 1px solid {{ r.border }}; background: {{ r.bg }}; color: {{ r.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #14603F">{{ r.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start;">
+          <div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <sc-for list="{{ steps }}" as="st" hint-placeholder-count="6">
+                <div onClick="{{ st.toggle }}" style="background: #FFFFFF; border: 1px solid {{ st.border }}; border-left: 3px solid {{ st.mark }}; border-radius: 12px; padding: 12px 14px; cursor: pointer; animation: fadeUp .22s ease both;" style-hover="border-color: #CFC8B8">
+                  <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 11.5px; color: #A19B8E; width: 52px;">{{ st.t }}</span>
+                    <span style="font-size: 11.5px; font-weight: 600; color: #14603F; width: 108px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ st.agent }}</span>
+                    <span style="font-size: 11px; padding: 3px 7px; border-radius: 6px; background: {{ st.kindBg }}; color: {{ st.kindFg }}; font-weight: 600;">{{ st.kind }}</span>
+                    <span style="font-size: 13px; color: #18211D; flex: 1;">{{ st.title }}</span>
+                    <span style="font-size: 11.5px; color: #A19B8E;">{{ st.meta }}</span>
+                  </div>
+                  <sc-if value="{{ st.open }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top: 10px; padding: 12px 14px; background: #FBFAF7; border: 1px solid #EFEBE1; border-radius: 10px; font-size: 12.5px; color: #4A554E; line-height: 1.7; white-space: pre-wrap;">{{ st.detail }}</div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ gateWaiting }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top: 10px; background: #FFFFFF; border: 1px solid #DCD3BE; border-radius: 12px; padding: 15px 16px;">
+                <div style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #B4741B; margin-bottom: 7px;">Stopped for a human</div>
+                <div style="font-size: 14.5px; font-weight: 600; margin-bottom: 5px;">{{ gateTitle }}</div>
+                <div style="font-size: 13px; color: #4A554E; line-height: 1.6; margin-bottom: 13px;">{{ gateBody }}</div>
+                <div style="display: flex; gap: 8px;">
+                  <button onClick="{{ approveGate }}" style="padding: 9px 15px; border-radius: 9px; border: none; background: #14603F; color: #F7F5F0; font-size: 13px; font-weight: 600; cursor: pointer;" style-hover="background: #0E4A30">Approve &amp; resume</button>
+                  <button onClick="{{ rejectGate }}" style="padding: 9px 14px; border-radius: 9px; border: 1px solid #E5E0D6; background: #FFFFFF; color: #A63A2E; font-size: 13px; cursor: pointer;" style-hover="border-color: #A63A2E">Reject</button>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}">
+              <div style="margin-top: 10px; background: #EAF1EC; border: 1px solid #CFE0D5; border-radius: 12px; padding: 14px 16px; font-size: 13px; color: #14603F; line-height: 1.6;">Run finished. Every handoff and write is saved, so this run can be replayed or resumed from any step.</div>
+            </sc-if>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 16px 17px;">
+              <h2 style="margin: 0 0 4px; font-size: 15px; font-weight: 600;">Handoffs between agents</h2>
+              <p style="margin: 0 0 12px; font-size: 12.5px; color: #7C877F;">The exact task each agent passed on.</p>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <sc-for list="{{ handoffs }}" as="h" hint-placeholder-count="2">
+                  <div style="border: 1px solid #EFEBE1; border-radius: 11px; overflow: hidden;">
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: #FBFAF7;">
+                      <span style="font-size: 12px; font-weight: 600;">{{ h.from }}</span>
+                      <span style="color: #A19B8E;">→</span>
+                      <span style="font-size: 12px; font-weight: 600;">{{ h.to }}</span>
+                      <span style="margin-left: auto; font-size: 11.5px; color: #A19B8E;">{{ h.t }}</span>
+                    </div>
+                    <pre style="margin: 0; padding: 11px 12px; font-size: 11.5px; line-height: 1.65; color: #4A554E; white-space: pre-wrap; font-family: ui-monospace, monospace;">{{ h.payload }}</pre>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ noHandoffs }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size: 12.5px; color: #7C877F;">No handoff yet in this run.</div>
+                </sc-if>
+              </div>
+            </div>
+
+            <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 10px; padding: 14px 17px; border-bottom: 1px solid #EFEBE1;">
+                <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Logs</h2>
+                <div style="margin-left: auto; display: flex; gap: 4px;">
+                  <sc-for list="{{ logFilters }}" as="f" hint-placeholder-count="4">
+                    <button onClick="{{ f.pick }}" style="padding: 5px 10px; border-radius: 7px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 11.5px; cursor: pointer;" style-hover="border-color: #14603F">{{ f.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <sc-for list="{{ logs }}" as="l" hint-placeholder-count="6">
+                <div style="display: grid; grid-template-columns: 54px 52px minmax(0,1fr); gap: 10px; padding: 9px 17px; border-bottom: 1px solid #F5F2EA; font-size: 11.5px; align-items: baseline; font-family: ui-monospace, monospace;">
+                  <span style="color: #A19B8E;">{{ l.t }}</span>
+                  <span style="color: {{ l.fg }}; font-weight: 600;">{{ l.level }}</span>
+                  <span style="color: #4A554E; line-height: 1.5;">{{ l.msg }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isBrain }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1120px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Shared memory</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">One knowledge base every agent reads and writes. It is why the reporting agent knows what the research agent found three weeks ago.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
+          <sc-for list="{{ stores }}" as="st" hint-placeholder-count="4">
+            <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;">
+              <div style="font-size: 11.5px; color: #7C877F;">{{ st.kind }}</div>
+              <div style="font-size: 14px; font-weight: 600; margin: 4px 0 6px;">{{ st.name }}</div>
+              <div style="font-family: 'Instrument Serif', serif; font-size: 24px;">{{ st.count }}</div>
+              <div style="font-size: 11.5px; color: #7C877F; margin-top: 2px;">{{ st.unit }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;">
+          <sc-for list="{{ memFilters }}" as="f" hint-placeholder-count="5">
+            <button onClick="{{ f.pick }}" style="padding: 7px 13px; border-radius: 999px; border: 1px solid {{ f.border }}; background: {{ f.bg }}; color: {{ f.fg }}; font-size: 12.5px; font-weight: 500; cursor: pointer;" style-hover="border-color: #14603F">{{ f.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+          <div style="display: grid; grid-template-columns: 168px 170px minmax(0,1fr) 128px 96px; gap: 14px; padding: 11px 18px; background: #FBFAF7; font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: #7C877F;">
+            <span>Store</span><span>Key</span><span>What is remembered</span><span>Written by</span><span>When</span>
+          </div>
+          <sc-for list="{{ records }}" as="r" hint-placeholder-count="8">
+            <div style="display: grid; grid-template-columns: 168px 170px minmax(0,1fr) 128px 96px; gap: 14px; padding: 12px 18px; border-top: 1px solid #EFEBE1; align-items: center;">
+              <span style="font-size: 11.5px; color: {{ r.storeFg }}; font-family: ui-monospace, monospace;">{{ r.store }}</span>
+              <span style="font-size: 11.5px; color: #7C877F; font-family: ui-monospace, monospace;">{{ r.key }}</span>
+              <span style="font-size: 13px; color: #18211D; line-height: 1.45;">{{ r.value }}</span>
+              <span style="font-size: 12px; color: #7C877F;">{{ r.by }}</span>
+              <span style="font-size: 11.5px; color: #A19B8E;">{{ r.when }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isUsage }}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 30px 36px; max-width: 1060px;">
+        <h1 style="margin: 0 0 5px; font-family: 'Instrument Serif', serif; font-size: 30px; font-weight: 400;">Usage &amp; cost</h1>
+        <p style="margin: 0 0 22px; font-size: 14px; color: #4A554E;">What running this workforce costs, agent by agent — and what breaks when a third-party service does.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 20px;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">Today</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$0.61</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">118k tokens · 4 runs</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">This month</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$11.20</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">≈ ৳1,344 · under $20 cap</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">Cost per decision</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">$0.15</div><div style="font-size: 12px; color: #7C877F; margin-top: 2px;">4 gates cleared today</div></div>
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 15px 16px;"><div style="font-size: 12px; color: #7C877F;">Failures caught</div><div style="font-family: 'Instrument Serif', serif; font-size: 26px; margin-top: 4px;">3</div><div style="font-size: 12px; color: #14603F; margin-top: 2px;">0 stopped a workflow</div></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start;">
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; padding: 18px;">
+            <h2 style="margin: 0 0 13px; font-size: 15px; font-weight: 600;">Where the tokens went today</h2>
+            <sc-for list="{{ costBars }}" as="c" hint-placeholder-count="6">
+              <div style="padding: 8px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 12.5px; color: #4A554E; margin-bottom: 4px;">
+                  <span>{{ c.name }}</span><span style="color: #7C877F;">{{ c.tok }} · {{ c.cost }}</span>
+                </div>
+                <div style="height: 6px; border-radius: 3px; background: #F1EEE6; overflow: hidden;"><div style="height: 100%; width: {{ c.pct }}%; background: {{ c.color }};"></div></div>
+              </div>
+            </sc-for>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #F1EEE6; font-size: 12.5px; color: #7C877F; line-height: 1.55;">Vision calls are billed per photo, which is why product checks cost more than replies. Routine replies are answered from memory, not fresh research.</div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E5E0D6; border-radius: 14px; overflow: hidden;">
+            <div style="padding: 15px 18px; border-bottom: 1px solid #EFEBE1;">
+              <h2 style="margin: 0; font-size: 15px; font-weight: 600;">Failures and what happened next</h2>
+            </div>
+            <sc-for list="{{ failures }}" as="f" hint-placeholder-count="3">
+              <div style="padding: 14px 18px; border-bottom: 1px solid #F5F2EA;">
+                <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 5px;">
+                  <span style="font-size: 11px; font-weight: 600; padding: 3px 7px; border-radius: 6px; background: {{ f.tagBg }}; color: {{ f.tagFg }};">{{ f.level }}</span>
+                  <span style="font-size: 13px; font-weight: 600;">{{ f.what }}</span>
+                  <span style="margin-left: auto; font-size: 11.5px; color: #A19B8E;">{{ f.t }}</span>
+                </div>
+                <div style="font-size: 12.5px; color: #4A554E; line-height: 1.6;">{{ f.fix }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;businessName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Shomvob Kitchen&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;},&quot;ownerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Rifat&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;}}">
+const NAV = [
+  ['today', 'Today', '◉'], ['inbox', 'Customers', '✉'], ['stock', 'Stock', '▦'],
+  ['marketing', 'Marketing', '◆'], ['money', 'Money', '৳'], ['grow', 'Grow', '↗'],
+  ['history', 'History', '◔'], ['settings', 'Settings', '⚙']
+];
+
+const DECISIONS = [
+  {
+    id: 'ads', tag: 'Marketing', by: 'Written by your marketing assistant', when: '6:10 am',
+    title: 'Three posts are ready for this week — shall I publish them?',
+    body: 'One Instagram post, one Facebook carousel and an 18-second video, all pointing at the 12-piece pack. Budget ৳350 a day for 6 km around Mirpur.',
+    facts: [['Daily spend', '৳350'], ['Expected reach', '4.2k/day'], ['Cost per order', 'under ৳41']],
+    yes: 'Publish all three', edit: 'Read the posts first', hint: 'Money starts moving only after this.',
+    doneText: 'Published to Facebook, Instagram and YouTube. First results by this evening.',
+    denyText: 'Held back. Your assistant will keep them ready and ask again tomorrow.'
+  },
+  {
+    id: 'price', tag: 'Money', by: 'Spotted by your pricing assistant', when: '8:02 am',
+    title: 'Oil went up 9% — raise the 12-piece pack to ৳228?',
+    body: 'Your cost per piece moved from ৳11.40 to ৳12.05. At ৳216 a pack you now keep 33% instead of 37%. Raising to ৳228 puts you back where you were and still sits under the ৳20-a-piece seller down the road.',
+    facts: [['Keep now', '33.1%'], ['After change', '36.9%'], ['Likely lost sales', 'about 3%']],
+    yes: 'Raise to ৳228', edit: 'Try another price', hint: 'Customers see this change.',
+    doneText: 'New price live everywhere, and your ad copy was updated to match.',
+    denyText: 'Price unchanged. Your assistant will watch the margin and warn you if it slips under 30%.'
+  },
+  {
+    id: 'stock', tag: 'Stock', by: 'Flagged by your stock assistant', when: '8:20 am',
+    title: 'Beef runs out Saturday — send a ৳30,060 order to Karwan Bazar Foods?',
+    body: '2,000 beef pieces to refill, plus 600 chicken as a first test since 14 customers asked for it. Delivery takes 2 days, so ordering today keeps you from a dry weekend.',
+    facts: [['Order cost', '৳30,060'], ['Already promised', '৳5,616'], ['Arrives', 'Thu 14 Aug']],
+    yes: 'Send the order', edit: 'Change quantity', hint: 'Supplier is paid on delivery.',
+    doneText: 'Order PO-9931 sent. Stock page will update itself when it arrives Thursday.',
+    denyText: 'Not ordered. Your assistant will remind you tomorrow morning — 3 days of stock left then.'
+  }
+];
+
+const OVERNIGHT = [
+  { text: 'Answered 38 of 47 messages — prices, delivery areas, reheating questions.', by: 'Customer assistant', t: '11:20 pm – 6:00 am' },
+  { text: 'Found 9 preorders hidden in chats and logged 312 pieces against Friday.', by: 'Customer assistant', t: '5:40 am' },
+  { text: 'Counted down stock after yesterday\'s 47 sales and raised the low-stock flag.', by: 'Stock assistant', t: '6:02 am' },
+  { text: 'Posted two Instagram stories from Sunday\'s kitchen photos.', by: 'Marketing assistant', t: '7:00 am' },
+  { text: 'Passed one delivery complaint from Pallabi to you — a refund needs your word.', by: 'Customer assistant', t: '4:44 am' }
+];
+
+const THREADS = [
+  { id: 't1', name: 'Nusrat Jahan', initials: 'NJ', channel: 'Messenger', t: '17:52', history: '4th order · joined June',
+    preview: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
+    message: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
+    state: 'Order found · needs your word on chicken', stateFg: '#B4741B', mark: '#14603F',
+    read: 'Understood as: 24 pieces for Friday, and a request for chicken.',
+    tags: [['Repeat buyer', '#EAF1EC', '#14603F'], ['Wants chicken', '#FBF1E1', '#B4741B']],
+    draft: 'Nusrat apu, 24 pcs Friday sokal e ready thakbe — ৳432, cash on delivery.\n\nChicken shingara ekhono nei, kintu apnar motoi onekei chaiche — samne shoptahe test batch ashche. Ami apnar naam list e rakhlam, first e apnake janabo.',
+    action: 'Adds 24 pcs to Friday and puts her on the chicken list.' },
+  { id: 't2', name: 'Shahana Begum', initials: 'SB', channel: 'Messenger', t: '16:44', history: '2nd order · Pallabi',
+    preview: 'Kal delivery ashe nai, 3 din hoye gelo. Pallabi te ki deliver koren na?',
+    message: 'Kal delivery ashe nai, 3 din hoye gelo. Pallabi te ki deliver koren na?',
+    state: 'Upset · refund needs you', stateFg: '#A63A2E', mark: '#A63A2E',
+    read: 'Understood as: a delivery that never arrived, third day waiting.',
+    tags: [['Complaint', '#F8E9E6', '#A63A2E'], ['Courier fault', '#F1EEE6', '#4A554E']],
+    draft: 'Shahana apu, amar dosh — courier apnar parcel Pallabi hub e atke rekhechilo. Aj bikel 5 tar age apnar ghore pouche jabe, ar delivery charge ta ami nichchi na.\n\nJodi aj o na pouchay, puro taka ferot deb.',
+    action: 'Waives ৳60 delivery. A refund above ৳500 would need your approval.' },
+  { id: 't3', name: 'Tanvir Hasan', initials: 'TH', channel: 'Instagram', t: '17:20', history: 'First time',
+    preview: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.',
+    message: 'Freezer theke fry korle ki crispy thake? Office e sobai khete chay, 50 pcs.',
+    state: 'Answered automatically · 50 pcs logged', stateFg: '#14603F', mark: '#C9C3B4',
+    read: 'Understood as: a reheating question plus a 50-piece office order.',
+    tags: [['New customer', '#EAF1EC', '#14603F'], ['Bulk', '#F1EEE6', '#4A554E']],
+    draft: 'Bhai, freezer theke direct 180°C te 6 minute — crispy thake, ager theke better. 50 pcs holo 4 ta 12-pc pack + 2 pcs extra, ami 50 pcs e ৳880 rakhlam.\n\nOffice address ta din, kal dupur er age pouche debo.',
+    action: 'Already sent at 17:21 — inside your autopilot rules.' },
+  { id: 't4', name: 'Rakib Ahmed', initials: 'RA', channel: 'Instagram', t: '15:58', history: 'Reseller enquiry',
+    preview: '30 pcs pack er dam koto? Ar wholesale hoy?',
+    message: '30 pcs pack er dam koto? Ar wholesale hoy?',
+    state: 'Answered automatically · reseller lead', stateFg: '#14603F', mark: '#C9C3B4',
+    read: 'Understood as: a wholesale enquiry, likely a reseller.',
+    tags: [['Wholesale', '#EAF1EC', '#14603F']],
+    draft: '30 pcs pack ৳480. Apni jodi regular niten — mashe 10 pack er beshi — tahole ৳450 e dite pari, agei order dile.\n\nApnar dokan ba area ta bolben?',
+    action: 'Discount offered is within your 10% limit.' },
+  { id: 't5', name: 'Farhana Kabir', initials: 'FK', channel: 'Instagram', t: '14:31', history: '6th order · best customer',
+    preview: 'Chicken shingara korle bolben please, ami regular nibo.',
+    message: 'Chicken shingara korle bolben please, ami regular nibo.',
+    state: 'Answered automatically · chicken list', stateFg: '#14603F', mark: '#C9C3B4',
+    read: 'Understood as: demand for a product you do not sell yet.',
+    tags: [['Best customer', '#EAF1EC', '#14603F'], ['Wants chicken', '#FBF1E1', '#B4741B']],
+    draft: 'Apu apnar jonno first e rakhbo — samne shoptahe 600 pcs chicken test batch ashche. Ami apnake age e message debo, ar first order e 10% off.',
+    action: 'Counted as 1 of 14 chicken requests this month.' },
+  { id: 't6', name: 'Imran Sheikh', initials: 'IS', channel: 'Messenger', t: '13:07', history: '3rd order',
+    preview: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.',
+    message: '12 pc pack 2 ta, ar veg er choto version thakle 1 ta.',
+    state: 'Answered automatically · 24 pcs logged', stateFg: '#14603F', mark: '#C9C3B4',
+    read: 'Understood as: 2 packs confirmed, 1 mini-veg request noted.',
+    tags: [['Repeat buyer', '#EAF1EC', '#14603F']],
+    draft: 'Imran bhai, 2 ta 12-pc pack ৳432 — kal sokal e pouche jabe.\n\nVeg er choto version ekhono nei, tobe 6 jon eta cheyeche. Hole apnake janabo.',
+    action: 'Sent at 13:08 — inside your autopilot rules.' }
+];
+
+const STOCK = [
+  { initial: 'B', thumbBg: '#EAF1EC', thumbFg: '#14603F', name: 'Beef shingara 58g', sub: 'Your best seller · ৳18 a piece', qty: '620 pcs', qtyColor: '#A63A2E', rate: '155/day', cover: 'Saturday', coverColor: '#A63A2E', todo: 'Reorder today — 2 days delivery' },
+  { initial: 'V', thumbBg: '#F1EEE6', thumbFg: '#4A554E', name: 'Veg samosa 50g', sub: 'Steady · ৳15 a piece', qty: '1,140 pcs', qtyColor: '#18211D', rate: '67/day', cover: 'in 17 days', coverColor: '#4A554E', todo: 'Nothing to do' },
+  { initial: 'C', thumbBg: '#FBF1E1', thumbFg: '#B4741B', name: 'Chicken shingara 58g', sub: 'Not made yet · 14 requests', qty: '—', qtyColor: '#A19B8E', rate: '—', cover: '—', coverColor: '#A19B8E', todo: 'Test 600 pieces with the next order' }
+];
+
+const CREATIVES = [
+  { id: 'c1', slot: 'suite-ad-ig', ph: 'Instagram photo', channel: 'Instagram', chanFg: '#A6377C', spec: 'square post',
+    copy: 'Bikeler adda, ar garam shingara. Freezer theke 6 minute — hater banano beef shingara, 12 pcs ৳216. Mirpur e aj e delivery.' },
+  { id: 'c2', slot: 'suite-ad-fb', ph: 'Facebook photo', channel: 'Facebook', chanFg: '#2B5C9B', spec: 'carousel, 3 cards',
+    copy: 'Ma\'r hater shingara, ekhon freezer-ready. 12 pcs ৳216 · 30 pcs ৳480. Ager theke order kore rakhun — dawat, chayer adda, shob e ready.' },
+  { id: 'c3', slot: 'suite-ad-yt', ph: 'Video cover', channel: 'YouTube', chanFg: '#A63A2E', spec: 'short, 18 seconds',
+    copy: 'Fold, freeze, fry — 18 second e apnar rannaghor. Shesh e 12 pcs ৳216 pack ta dekhano hobe, sathe order korar link.' }
+];
+
+const CAMPAIGNS = [
+  { name: 'Weekend pack push', sub: 'Started 8 Aug · 12-pc pack', where: 'Facebook, IG', spent: '৳1,750', orders: '38', state: 'Running well', stateFg: '#14603F' },
+  { name: 'Reseller wholesale ad', sub: 'Started 10 Aug · 30-pc pack', where: 'Facebook', spent: '৳700', orders: '6', state: 'Watching', stateFg: '#B4741B' }
+];
+
+const COST_ROWS = [
+  { k: 'Beef filling', v: '৳5.10', pct: 100, color: '#14603F' },
+  { k: 'Dough and spice', v: '৳2.30', pct: 45, color: '#14603F' },
+  { k: 'Oil (up 9% this week)', v: '৳2.25', pct: 44, color: '#B4741B' },
+  { k: 'Packaging', v: '৳1.20', pct: 24, color: '#14603F' },
+  { k: 'Your time and gas', v: '৳1.20', pct: 24, color: '#14603F' }
+];
+
+const PNL = [
+  { k: 'Money in', v: '৳48,240', note: '2,680 pieces sold · +14% on last week', weight: '600', keyColor: '#18211D', vColor: '#18211D' },
+  { k: 'Making cost', v: '−৳32,294', note: 'oil price rose midweek', weight: '400', keyColor: '#4A554E', vColor: '#4A554E' },
+  { k: 'Ads', v: '−৳2,450', note: '৳4.85 back for every ৳1', weight: '400', keyColor: '#4A554E', vColor: '#4A554E' },
+  { k: 'Delivery', v: '−৳1,140', note: '38 parcels, 2 redeliveries', weight: '400', keyColor: '#4A554E', vColor: '#4A554E' },
+  { k: 'What you kept', v: '৳12,356', note: '25.6% of money in', weight: '700', keyColor: '#18211D', vColor: '#14603F' }
+];
+
+const DEMANDS = [
+  { name: 'Chicken shingara', note: 'nobody within 4 km sells it', n: 14, pct: 100 },
+  { name: 'Mini veg samosa', note: 'office snack boxes', n: 6, pct: 43 },
+  { name: 'Frozen paratha', note: 'asked with breakfast orders', n: 3, pct: 21 }
+];
+
+const RIVALS = [
+  { name: 'Pallabi Frozen Foods', price: '৳22', note: 'veg only · 4.1k followers' },
+  { name: 'Ma\'r Hater Ranna', price: '৳20', note: 'beef · sold out 3 times this month' },
+  { name: 'Mirpur Snack House', price: '৳15', note: 'bulk only, 50 pcs minimum' },
+  { name: '11 smaller sellers', price: '৳16–28', note: 'mostly veg, irregular stock' }
+];
+
+const HISTORY = [
+  { id: 'h1', cat: 'Stock', text: 'Flagged beef shingara as low — 4 days left at current sales.', by: 'Stock assistant', t: '8:20 am', dot: '#B4741B',
+    why: 'You sold 155 pieces a day over the last two weeks and 620 are left, so Saturday is the last day with stock. Your supplier needs 2 days, and 312 pieces are already promised to customers, which is why this became a decision instead of a note.' },
+  { id: 'h2', cat: 'Money', text: 'Recalculated your cost per piece after the oil price rose.', by: 'Pricing assistant', t: '8:02 am', dot: '#14603F',
+    why: 'Soybean oil went up ৳9 a litre at your usual shop, which moves your cost from ৳11.40 to ৳12.05 a piece. At ৳216 a pack you keep 33.1% instead of 36.7%. Raising to ৳228 restores it; based on four weeks of your own orders, about 3% of buyers walk away at that price.' },
+  { id: 'h3', cat: 'Customers', text: 'Read 47 messages, answered 38, kept 9 for you.', by: 'Customer assistant', t: '6:00 am', dot: '#14603F',
+    why: 'Anything about price, delivery area or reheating is answered from your own past replies. Anything involving a refund, a discount over 10%, or a product you do not sell is left for you — those five are on your Today page.' },
+  { id: 'h4', cat: 'Customers', text: 'Found 9 preorders in chats and reserved 312 pieces for Friday.', by: 'Customer assistant', t: '5:40 am', dot: '#14603F',
+    why: 'Messages like "24 pcs lagbe Friday" are read as orders, matched to a customer, and held against Friday stock. Nobody is charged; you confirm at delivery as usual.' },
+  { id: 'h5', cat: 'Marketing', text: 'Wrote three posts for this week and left them for your approval.', by: 'Marketing assistant', t: '6:10 am', dot: '#B4741B',
+    why: 'Your best-performing posts this month led with the price and the 6-minute reheat line, so all three keep that. Publishing spends money, so it waits for you regardless of your autopilot setting.' },
+  { id: 'h6', cat: 'Delivery', text: 'Steadfast did not respond, so Thursday\'s pickup was booked with Pathao instead.', by: 'Delivery assistant', t: '8:15 am', dot: '#A63A2E',
+    why: 'Steadfast\'s booking service timed out twice. Rather than leave 38 parcels unbooked, your team moved to Pathao at the same rate — consignment PT-4471903, pickup Thursday 2 pm. Nothing was lost; you are told because the courier changed.' },
+  { id: 'h7', cat: 'Customers', text: 'Passed one delivery complaint from Pallabi to you.', by: 'Customer assistant', t: '4:44 am', dot: '#A63A2E',
+    why: 'Shahana Begum has waited three days. A reply is drafted that waives the ৳60 delivery charge, but a full refund is above the limit you set, so it needs your word.' },
+  { id: 'h8', cat: 'Marketing', text: 'Posted two Instagram stories from Sunday\'s kitchen photos.', by: 'Marketing assistant', t: '7:00 am', dot: '#14603F',
+    why: 'Stories cost nothing and sit inside your autopilot rules, so they went out without asking. Both used photos you uploaded on Sunday.' }
+];
+
+const PERMS = [
+  { id: 'p1', label: 'Answer common questions', note: 'Prices, delivery areas, how to reheat — using your past replies.', on: true },
+  { id: 'p2', label: 'Take preorders in chat', note: 'Reserve stock and confirm the amount. No payment is taken.', on: true },
+  { id: 'p3', label: 'Post free content', note: 'Stories and page posts. Paid ads always need your yes.', on: true },
+  { id: 'p4', label: 'Offer small discounts', note: 'Up to 10% for repeat and wholesale buyers.', on: true },
+  { id: 'p5', label: 'Reorder stock under ৳5,000', note: 'From suppliers you have used before.', on: false },
+  { id: 'p6', label: 'Change prices on its own', note: 'Not recommended — customers see this immediately.', on: false }
+];
+
+const CHANNELS = [
+  { name: 'Facebook page', state: 'Connected', ok: true },
+  { name: 'Instagram', state: 'Connected', ok: true },
+  { name: 'YouTube', state: 'Connected', ok: true },
+  { name: 'Pathao courier', state: 'Connected', ok: true },
+  { name: 'Steadfast courier', state: 'Not responding today', ok: false }
+];
+
+const AUTOPILOT = [
+  { id: 'ask', label: 'Ask me everything', note: 'Nothing happens without your tap. Good for the first week.' },
+  { id: 'balanced', label: 'Balanced', note: 'Replies and free posts go out. Money and prices wait for you.' },
+  { id: 'auto', label: 'Mostly on its own', note: 'Small spends and reorders happen. You get told, not asked.' }
+];
+
+const OWNER_NAV = NAV;
+const BUILDER_NAV = [
+  ['team', 'Workforce', '◎'], ['runs', 'Runs', '▷'], ['brain', 'Memory', '◫'], ['usage', 'Usage & cost', '$'],
+  ['history', 'History', '◔'], ['settings', 'Settings', '⚙']
+];
+
+const ROSTER = [
+  { id: 'supervisor', name: 'Supervisor', kind: 'router', owns: 'Reads the owner\'s request, picks the stage, plans the order of work, holds the gates.', tools: 'planner · state graph · checkpoints', calls: 14, state: 'working', busy: true },
+  { id: 'market', name: 'Market Research', kind: 'specialist', owns: 'Finds gaps and rival prices around the shop.', tools: 'web search · page & profile lookups', calls: 6, state: 'used this run' },
+  { id: 'vision', name: 'Product Vision', kind: 'specialist', owns: 'Turns a photo into a named product with a price band.', tools: 'vision model · web search', calls: 3, state: 'used this run' },
+  { id: 'pricing', name: 'Pricing & Cost', kind: 'specialist', owns: 'Costs, margins, break-even, price changes.', tools: 'python · cost tables (RAG)', calls: 9, state: 'used this run' },
+  { id: 'inventory', name: 'Inventory', kind: 'specialist', owns: 'Counts, photos, run rate, low-stock flags, purchase orders.', tools: 'database · photo store', calls: 11, state: 'used this run' },
+  { id: 'ads', name: 'Ad Creation', kind: 'specialist', owns: 'Writes and schedules posts and paid ads.', tools: 'Meta API · YouTube API · image gen', calls: 5, state: 'waiting on you', wait: true },
+  { id: 'engage', name: 'Customer Engagement', kind: 'specialist', owns: 'Reads every message, drafts replies, extracts orders and unmet demand.', tools: 'Messenger & IG API · sentiment', calls: 47, state: 'working', busy: true },
+  { id: 'delivery', name: 'Delivery', kind: 'specialist', owns: 'Books pickups, handles courier failures.', tools: 'Pathao API · Steadfast API', calls: 2, state: 'degraded', bad: true },
+  { id: 'report', name: 'Reporting', kind: 'specialist', owns: 'Weekly numbers, restock and pricing replans.', tools: 'RAG over memory · python', calls: 4, state: 'used this run' }
+];
+
+const NODE_POS = {
+  supervisor: [450, 220], vision: [450, 46], market: [150, 84], pricing: [750, 84],
+  inventory: [772, 220], ads: [750, 356], engage: [450, 394], delivery: [150, 356], report: [128, 220]
+};
+const GRAPH_EDGES = [
+  ['supervisor', 'vision'], ['supervisor', 'market'], ['supervisor', 'pricing'], ['supervisor', 'inventory'],
+  ['supervisor', 'ads'], ['supervisor', 'engage'], ['supervisor', 'delivery'], ['supervisor', 'report'],
+  ['market', 'pricing'], ['engage', 'inventory'], ['inventory', 'report'], ['ads', 'pricing']
+];
+
+const RUNS = [
+  { id: 'r1', label: 'Photo → is it worth selling?', meta: 'run 014 · 12 steps · $0.081',
+    gate: { title: 'Approve the plan for chicken shingara?', body: 'Nothing is sourced or spent until you approve. Rejecting sends the research back with your reason attached.' },
+    steps: [
+      { t: '09:41', a: 'Supervisor', k: 'plan', title: 'Understood as: is this product worth selling?', meta: '640 tok', detail: 'Input: one photo, caption "ei jinish ki bikri hobe?"\nStage chosen: product validation (confidence 0.88)\nPlan: vision → market research → pricing → reporting\nGate placed before any sourcing.' },
+      { t: '09:41', a: 'Product Vision', k: 'tool', title: 'Read the photo', meta: '1,180 tok', detail: 'Vision model on upload_0219.jpg\n→ hand-folded beef shingara, about 58 g, par-fried, freezer-ready (confidence 0.93)\nNext guess was onion pakora at 0.11, so this is a safe read.' },
+      { t: '09:41', a: 'Product Vision', k: 'memory', title: 'Saved a draft product to memory', meta: 'wrote 1 record', detail: 'catalog/prod_draft_014 · description also embedded so later agents can find it by meaning, not just by name.' },
+      { t: '09:41', a: 'Market Research', k: 'tool', title: 'Searched what rivals charge nearby', meta: '2,450 tok', detail: 'Web search across 34 results → 14 sellers within 4 km.\nMedian ৳20 a piece, range ৳15–28. Only 2 sell the beef version.' },
+      { t: '09:41', a: 'Market Research', k: 'handoff', title: 'Handed the price data to Pricing', meta: '320 tok',
+        h: { from: 'Market Research', to: 'Pricing & Cost', t: '09:41', payload: 'task: work out unit economics\nproduct: prod_draft_014\nrival prices: 22, 20, 15, 18, 24, 28, 16, 19, 20, 21\nmedian: ৳20 · demand trend: +18% this month\ncompetition: low on the beef version' } },
+      { t: '09:41', a: 'Pricing & Cost', k: 'tool', title: 'Ran the numbers in Python', meta: '1,420 tok', detail: 'Cost per piece: 5.10 + 2.30 + 1.60 + 1.20 + 1.20 = ৳11.40\nAt ৳18 you keep 36.7%. Break-even is 1,240 pieces a month.\nAt ৳16 that falls to 28.8%, at ৳20 it rises to 43%.' },
+      { t: '09:41', a: 'Pricing & Cost', k: 'error', title: 'Rival price service refused the request', meta: 'retried', level: 'ERROR', detail: 'The social API answered "too many requests". Waited 2s, then 4s, and the second try succeeded. The run was never interrupted and the owner was not bothered.' },
+      { t: '09:41', a: 'Reporting', k: 'think', title: 'Wrote the recommendation', meta: '3,180 tok', detail: 'Pulled the draft product, the rival prices and the last three pricing decisions out of memory.\nVerdict: worth selling. Two packs — 12 pieces at ৳216 and 30 at ৳480. First order 1,500 pieces, money back in about 3.5 weeks.\nConfidence noted as medium-high: thin data on how the beef version reacts to price.' },
+      { t: '09:41', a: 'Supervisor', k: 'gate', title: 'Stopped and asked the owner', meta: 'run paused', gate: true, detail: 'Saved the whole run so it can resume exactly here, then notified the owner in the app and on Messenger.' },
+      { t: '09:43', a: 'Supervisor', k: 'act', title: 'Owner approved · plan locked', meta: '240 tok', detail: 'Resumed from the saved point. Plan version 1 frozen so later reports compare against what was actually agreed.' },
+      { t: '09:43', a: 'Inventory', k: 'memory', title: 'Wrote the sourcing checklist', meta: 'wrote 1 record', detail: 'inventory/sourcing_014 · 1,500 pieces, three shortlisted suppliers, ৳17,100 budget. Waits for the owner to photograph stock on arrival.' }
+    ] },
+  { id: 'r2', label: 'Write and publish this week\'s ads', meta: 'run 021 · 10 steps · $0.076',
+    gate: { title: 'Publish three creatives and start spending ৳350/day?', body: 'Publishing is irreversible and spends money, so the graph always stops here regardless of the autopilot setting.' },
+    steps: [
+      { t: '11:02', a: 'Supervisor', k: 'plan', title: 'Understood as: run marketing for the week', meta: '590 tok', detail: 'Plan: reporting pulls context → ads writes copy → ads renders images → pricing checks the offer → gate → publish.' },
+      { t: '11:02', a: 'Reporting', k: 'memory', title: 'Recovered the approved plan from memory', meta: '1,640 tok', detail: 'Read plan_014, the catalog entry and past customer chats. Recovered the price, the pack sizes and the owner\'s tone: warm, Banglish, home-kitchen.' },
+      { t: '11:02', a: 'Ad Creation', k: 'think', title: 'Wrote three posts', meta: '4,120 tok', detail: 'One Instagram square, one Facebook carousel, one 18-second Short. All three lead with the price and the six-minute reheat line, which performed best last month.' },
+      { t: '11:02', a: 'Ad Creation', k: 'tool', title: 'Rendered the images', meta: '$0.04', detail: 'Three assets at 1:1, 1.91:1 and 9:16, stored so the owner can swap in a real kitchen photo.' },
+      { t: '11:02', a: 'Ad Creation', k: 'handoff', title: 'Asked Pricing to sanity-check the offer', meta: '300 tok',
+        h: { from: 'Ad Creation', to: 'Pricing & Cost', t: '11:02', payload: 'task: check the offer still makes money\noffer: 12-piece pack at ৳216\nad spend: ৳350 a day\nquestion: what is the most we can pay per order?' } },
+      { t: '11:02', a: 'Pricing & Cost', k: 'tool', title: 'Worked out the ceiling per order', meta: '980 tok', detail: 'A pack leaves ৳79.20 after ingredients. Spending more than ৳43.56 to win one order eats the profit, so the target was set at ৳41.' },
+      { t: '11:02', a: 'Supervisor', k: 'gate', title: 'Stopped for approval before spending', meta: 'run paused', gate: true, detail: 'Reason recorded: irreversible and spends budget.' },
+      { t: '11:06', a: 'Ad Creation', k: 'act', title: 'Published to Facebook and Instagram', meta: '260 tok', detail: 'Posted through the Meta adapter (simulated in this build) — campaign live with the ৳41 target.' },
+      { t: '11:06', a: 'Ad Creation', k: 'act', title: 'Uploaded the Short to YouTube', meta: '210 tok', detail: 'Unlisted first, public after five minutes so the owner can pull it back.' },
+      { t: '11:06', a: 'Ad Creation', k: 'memory', title: 'Saved the campaign', meta: 'wrote 1 record', detail: 'campaigns/cmp_4412 · the engagement agent now watches the comments on these posts.' }
+    ] },
+  { id: 'r3', label: 'Read today\'s messages, plan a restock', meta: 'run 036 · 12 steps · $0.062',
+    gate: { title: 'Send a ৳30,060 purchase order?', body: 'Above the owner\'s ৳5,000 automatic limit, so it becomes a decision instead of an action.' },
+    steps: [
+      { t: '18:20', a: 'Supervisor', k: 'plan', title: 'Nightly job started', meta: '420 tok', detail: 'Plan: read messages → judge mood → pull out orders → check stock → cost the restock → write the plan → gate.' },
+      { t: '18:20', a: 'Customer Engagement', k: 'tool', title: 'Fetched 47 messages and comments', meta: '2,870 tok', detail: '31 Messenger threads and 16 comments on the live campaign.' },
+      { t: '18:20', a: 'Customer Engagement', k: 'think', title: 'Judged mood and intent', meta: '3,320 tok', detail: '68% happy, 21% neutral, 11% upset. The upset ones are all one thing: three delivery delays in Pallabi.\nIntents: 9 orders, 12 price questions, 20 requests for something not sold, 3 complaints.' },
+      { t: '18:20', a: 'Customer Engagement', k: 'think', title: 'Pulled 312 pieces of orders out of chat', meta: '1,980 tok', detail: 'Nine orders worth ৳5,616. Unmet demand counted: chicken shingara 14, mini veg samosa 6, paratha 3.' },
+      { t: '18:20', a: 'Customer Engagement', k: 'memory', title: 'Saved orders and demand signals', meta: 'wrote 2 records', detail: 'orders/preorders_0811 plus 47 conversations embedded, so next week\'s report can cite today\'s complaints.' },
+      { t: '18:20', a: 'Customer Engagement', k: 'handoff', title: 'Asked Inventory whether stock covers it', meta: '290 tok',
+        h: { from: 'Customer Engagement', to: 'Inventory', t: '18:20', payload: 'task: check cover\npromised: 312 pieces of beef shingara\nnot in catalog but asked for: chicken shingara ×14, mini veg samosa ×6' } },
+      { t: '18:20', a: 'Inventory', k: 'tool', title: 'Counted stock and raised the flag', meta: '760 tok', detail: '620 beef pieces left against 155 sold a day → four days of cover → low-stock flag. Chicken is not in the catalog at all.' },
+      { t: '18:20', a: 'Inventory', k: 'error', title: 'Photo store did not answer in time', meta: 'warning', level: 'WARN', detail: 'A stock photo took longer than five seconds to load. Quantities come from the database, so counting continued and the photo loads later. Logged as a warning, not shown to the owner.' },
+      { t: '18:20', a: 'Pricing & Cost', k: 'tool', title: 'Costed the order and the pilot', meta: '1,120 tok', detail: '2,000 beef at ৳11.40 is ৳22,800. 600 chicken at ৳12.10 is ৳7,260. At ৳19 the chicken keeps 36.3% and pays back in 11 days.' },
+      { t: '18:20', a: 'Reporting', k: 'think', title: 'Wrote the restock plan', meta: '2,740 tok', detail: 'Order now: the supplier takes two days and cover runs out in four. The 312 promised pieces already fund a quarter of the order.' },
+      { t: '18:20', a: 'Supervisor', k: 'gate', title: 'Stopped for approval — spend above limit', meta: 'run paused', gate: true, detail: 'Owner limit is ৳5,000 without asking; this is ৳30,060.' },
+      { t: '18:31', a: 'Inventory', k: 'act', title: 'Order sent, replies queued', meta: '520 tok', detail: 'PO-9931 to Karwan Bazar Foods, arriving Thursday. Nine order confirmations drafted for the owner to glance at.' }
+    ] },
+  { id: 'r4', label: 'Weekly report, reprice, book delivery', meta: 'run 042 · 9 steps · $0.066',
+    gate: { title: 'Raise the 12-piece pack to ৳228?', body: 'Customers see this immediately, so it is never automatic.' },
+    steps: [
+      { t: '08:00', a: 'Supervisor', k: 'plan', title: 'Monday job started', meta: '480 tok', detail: 'Plan: read the week from memory → recheck costs → write a revised plan → gate → book the delivery.' },
+      { t: '08:00', a: 'Reporting', k: 'memory', title: 'Read the whole week out of memory', meta: '5,240 tok', detail: 'Orders, the live campaign, 203 conversation chunks and the pricing history. Revenue ৳48,240, up 14%. Cost per order ৳37.' },
+      { t: '08:00', a: 'Pricing & Cost', k: 'tool', title: 'Re-based the cost after oil rose', meta: '1,380 tok', detail: 'Oil up ৳9 a litre → cost per piece ৳12.05. At ৳216 a pack the owner keeps 33.1%. To get back to 36.9% the price needs to be ৳19 a piece, or ৳228 a pack.' },
+      { t: '08:00', a: 'Reporting', k: 'think', title: 'Wrote the revised plan', meta: '3,620 tok', detail: 'Raise retail, hold wholesale at ৳480 to keep resellers. Four weeks of the owner\'s own orders suggest about 3% of buyers walk away. A smaller 10-piece pack was modelled and rejected — it reads as worse value.' },
+      { t: '08:00', a: 'Supervisor', k: 'gate', title: 'Stopped for approval — customers see this', meta: 'run paused', gate: true, detail: 'Price changes are always a gate, even on the most permissive autopilot setting.' },
+      { t: '08:14', a: 'Pricing & Cost', k: 'memory', title: 'Saved price version 3', meta: 'wrote 1 record', detail: 'pricing_history/price_v3 · the ads agent was told to refresh the copy that quotes the old price.' },
+      { t: '08:14', a: 'Delivery', k: 'error', title: 'Steadfast never answered', meta: 'failed over', level: 'ERROR', detail: 'Two attempts, both timed out after ten seconds. Rather than leave 38 parcels unbooked, the agent moved down its fallback list to Pathao at the same rate.' },
+      { t: '08:15', a: 'Delivery', k: 'act', title: 'Booked Pathao instead', meta: '410 tok', detail: 'Pickup Thursday 2 pm, 38 parcels, ৳9,120 collected on delivery. The owner is told because the courier changed, not because anything failed.' },
+      { t: '08:15', a: 'Reporting', k: 'memory', title: 'Archived the week', meta: 'wrote 1 record', detail: 'reports/week_32 · summary embedded so next month can compare like for like.' }
+    ] }
+];
+
+const KIND_STYLE = {
+  plan: ['plan', '#F1EEE6', '#4A554E'], tool: ['tool', '#EAF1EC', '#14603F'], think: ['reason', '#EDEAF6', '#5B4B9B'],
+  memory: ['memory', '#E8F1F2', '#1F6470'], handoff: ['handoff', '#FBF1E1', '#B4741B'],
+  error: ['failure', '#F8E9E6', '#A63A2E'], gate: ['gate', '#FBF1E1', '#B4741B'], act: ['action', '#EAF1EC', '#14603F']
+};
+
+const MEM_RECORDS = [
+  { store: 'business_profile', key: 'shomvob_kitchen', value: 'Home kitchen, Mirpur 11 · owner Rifat Ara · sells in BDT · two helpers', by: 'Supervisor', when: '02 Aug', cat: 'Business' },
+  { store: 'catalog', key: 'prod_014', value: 'Beef shingara 58g · ৳18 a piece · 12 and 30-piece packs', by: 'Product Vision', when: '05 Aug', cat: 'Business' },
+  { store: 'catalog', key: 'prod_009', value: 'Veg samosa 50g · ৳15 a piece', by: 'Product Vision', when: '02 Aug', cat: 'Business' },
+  { store: 'pricing_history', key: 'price_v2', value: '12-piece pack ৳216 · kept 36.7% · in force from 06 Aug', by: 'Pricing & Cost', when: '06 Aug', cat: 'Money' },
+  { store: 'pricing_history', key: 'cost_baseline', value: 'Cost per piece ৳12.05 after oil rose ৳9 a litre', by: 'Pricing & Cost', when: '11 Aug', cat: 'Money' },
+  { store: 'orders', key: 'preorders_0811', value: '9 promises · 312 pieces · ৳5,616 held against Friday', by: 'Customer Engagement', when: '11 Aug', cat: 'Customers' },
+  { store: 'conversations', key: '203 embeddings', value: 'Every customer message 2–11 Aug, searchable by meaning', by: 'Customer Engagement', when: '11 Aug', cat: 'Customers' },
+  { store: 'conversations', key: 'unmet_demand', value: 'chicken shingara ×14 · mini veg samosa ×6 · paratha ×3', by: 'Customer Engagement', when: '11 Aug', cat: 'Customers' },
+  { store: 'inventory', key: 'stock_0812', value: 'Beef 620 pcs · veg 1,140 pcs · run rate 155/day · low-stock flag on', by: 'Inventory', when: 'today', cat: 'Stock' },
+  { store: 'campaigns', key: 'cmp_4412', value: '3 creatives live · ৳350 a day · ৳41 cost-per-order ceiling', by: 'Ad Creation', when: '08 Aug', cat: 'Marketing' },
+  { store: 'reports', key: 'week_31', value: 'Revenue ৳42,310 · 2,190 pieces · cost per order ৳44', by: 'Reporting', when: '04 Aug', cat: 'Money' },
+  { store: 'graph_state', key: 'run_042', value: 'Paused at the price gate — resumable from step 5', by: 'Supervisor', when: 'today', cat: 'Business' }
+];
+
+const COST_BARS = [
+  { name: 'Customer Engagement', tok: '38,400', cost: '$0.19', pct: 100, color: '#14603F' },
+  { name: 'Reporting', tok: '27,100', cost: '$0.16', pct: 71, color: '#14603F' },
+  { name: 'Market Research', tok: '19,800', cost: '$0.11', pct: 52, color: '#14603F' },
+  { name: 'Product Vision', tok: '12,600', cost: '$0.08', pct: 33, color: '#B4741B' },
+  { name: 'Pricing & Cost', tok: '11,900', cost: '$0.05', pct: 31, color: '#14603F' },
+  { name: 'Ad Creation', tok: '8,200', cost: '$0.02', pct: 21, color: '#14603F' }
+];
+
+const FAILURES = [
+  { level: 'Failure', what: 'Steadfast courier never answered', t: '8:15 am', tagBg: '#F8E9E6', tagFg: '#A63A2E', fix: 'Two attempts timed out. The delivery agent moved to the next courier on its list, Pathao, at the same rate. The owner was told the courier changed; the pickup still happened.' },
+  { level: 'Failure', what: 'Rival price service rate-limited us', t: '9:41 am', tagBg: '#F8E9E6', tagFg: '#A63A2E', fix: 'Backed off 2 seconds, then 4, and the retry worked. Nothing surfaced to the owner because nothing was lost.' },
+  { level: 'Warning', what: 'Photo store slow to respond', t: '6:20 pm', tagBg: '#FBF1E1', tagFg: '#B4741B', fix: 'Stock counting reads from the database, so it continued without the photo and loaded it afterwards.' }
+];
+
+class Component extends DCLogic {
+  state = {
+    page: 'today', decided: {}, thread: 't1', sent: { t3: '17:21', t4: '15:59', t5: '14:32', t6: '13:08' },
+    creatives: {}, po: null, price: null, filter: 'Everything', openHistory: null, autopilot: 'balanced',
+    perms: PERMS.reduce((o, p) => { o[p.id] = p.on; return o; }, {}), ask: '',
+    role: 'owner', run: 'r1', cursor: 3, playing: true, openStep: null, logLevel: 'All', gates: {}, memCat: 'Everything'
+  };
+
+  componentDidMount() { this.schedule(); }
+  componentDidUpdate() { this.schedule(); }
+  componentWillUnmount() { clearTimeout(this.timer); }
+
+  schedule() {
+    clearTimeout(this.timer);
+    const s = this.state;
+    if (s.role !== 'builder' || !s.playing || this.gateBlocking()) return;
+    const run = RUNS.find(r => r.id === s.run);
+    if (s.cursor >= run.steps.length) return;
+    this.timer = setTimeout(() => this.advance(), 900);
+  }
+
+  advance() {
+    const run = RUNS.find(r => r.id === this.state.run);
+    this.setState(st => {
+      const next = run.steps[st.cursor];
+      if (!next) return { playing: false };
+      if (next.gate) return { cursor: st.cursor + 1, playing: false };
+      return { cursor: st.cursor + 1 };
+    });
+  }
+
+  gateBlocking() {
+    const s = this.state, run = RUNS.find(r => r.id === s.run);
+    for (let i = 0; i < s.cursor; i++) if (run.steps[i].gate) return !s.gates[s.run];
+    return false;
+  }
+
+  setRole(role) {
+    this.setState({ role: role, page: role === 'builder' ? 'team' : 'today' });
+  }
+
+  go(page) { this.setState({ page: page }); }
+
+  decide(id, choice) {
+    const d = Object.assign({}, this.state.decided); d[id] = choice;
+    const patch = { decided: d };
+    if (id === 'stock') patch.po = choice === 'yes' ? 'sent' : 'held';
+    if (id === 'price') patch.price = choice === 'yes' ? 'raised' : 'kept';
+    if (id === 'ads' && choice === 'yes') patch.creatives = { c1: 'live', c2: 'live', c3: 'live' };
+    this.setState(patch);
+  }
+
+  renderVals() {
+    const s = this.state;
+    const open = DECISIONS.filter(d => !s.decided[d.id]);
+    const thread = THREADS.find(t => t.id === s.thread) || THREADS[0];
+    const raised = s.price === 'raised';
+    const run = RUNS.find(r => r.id === s.run) || RUNS[0];
+    const shown = run.steps.slice(0, s.cursor);
+    const gateReached = shown.some(x => x.gate);
+    const gateWaiting = gateReached && !s.gates[s.run];
+    const runDone = s.cursor >= run.steps.length && !gateWaiting;
+    const busyNow = s.playing && !gateWaiting && !runDone;
+    const lastAgent = shown.length ? shown[shown.length - 1].a : '';
+    const counts = { today: open.length, inbox: THREADS.filter(t => !s.sent[t.id]).length, stock: s.po ? 0 : 1, marketing: CREATIVES.filter(c => !s.creatives[c.id]).length, money: s.price ? 0 : 1, grow: 0, history: 0, settings: 0, team: 0, runs: gateWaiting ? 1 : 0, brain: 0, usage: 0 };
+    const autopilotLabel = (AUTOPILOT.find(a => a.id === s.autopilot) || AUTOPILOT[1]).label;
+
+    return {
+      businessName: this.props.businessName ?? 'Shomvob Kitchen',
+      ownerName: this.props.ownerName ?? 'Rifat',
+      autopilotLabel: autopilotLabel,
+      teamSummary: '8 assistants · 3 working now, 5 waiting for their turn. Last check 4 minutes ago.',
+      goSettings: () => this.go('settings'), goActivity: () => this.go('history'),
+      goGrow: () => this.go('grow'), goStock: () => this.go('stock'),
+
+      nav: (s.role === 'builder' ? BUILDER_NAV : OWNER_NAV).map(([id, label, icon]) => ({
+        label: label, icon: icon, pick: () => this.go(id),
+        bg: s.page === id ? '#EAF1EC' : 'transparent',
+        fg: s.page === id ? '#14603F' : '#4A554E',
+        weight: s.page === id ? '600' : '500',
+        badge: counts[id] || '', badgeShow: counts[id] ? 'flex' : 'none',
+        badgeBg: id === 'today' ? '#B4741B' : '#E5E0D6',
+        badgeFg: id === 'today' ? '#FFFFFF' : '#4A554E'
+      })),
+
+      isToday: s.page === 'today', isInbox: s.page === 'inbox', isStock: s.page === 'stock',
+      isMarketing: s.page === 'marketing', isMoney: s.page === 'money', isGrow: s.page === 'grow',
+      isHistory: s.page === 'history', isSettings: s.page === 'settings',
+
+      dayLine: open.length
+        ? 'Your team worked through the night and handled 38 messages on its own. ' + open.length + (open.length === 1 ? ' thing needs' : ' things need') + ' your decision — about five minutes of your morning.'
+        : 'Everything is handled. Your team is watching the inbox, the stock and the ads, and will only interrupt you if money or a promise is at stake.',
+      pendingLine: open.length ? open.length + ' waiting · oldest at 6:10 am' : 'nothing waiting',
+      allClear: open.length === 0,
+
+      marginNow: raised ? '36.9%' : '33.1%',
+      marginNote: raised ? 'back to normal after the price change' : 'down from 37% — oil got dearer',
+      marginNoteColor: raised ? '#14603F' : '#B4741B',
+      keepPerPiece: raised ? '৳6.95' : '৳5.95',
+      packPrice: raised ? '৳228' : '৳216',
+
+      decisions: DECISIONS.map(d => {
+        const choice = s.decided[d.id];
+        return {
+          tag: d.tag, by: d.by, when: d.when, title: d.title, body: d.body,
+          yes: d.yes, edit: d.edit, hint: d.hint,
+          facts: d.facts.map(f => ({ k: f[0], v: f[1], color: '#18211D' })),
+          border: choice ? '#E5E0D6' : '#DCD3BE',
+          tagBg: d.tag === 'Money' ? '#EAF1EC' : d.tag === 'Stock' ? '#FBF1E1' : '#F1EEE6',
+          tagFg: d.tag === 'Money' ? '#14603F' : d.tag === 'Stock' ? '#B4741B' : '#4A554E',
+          open: !choice, closed: !!choice,
+          doneText: choice === 'yes' ? d.doneText : d.denyText,
+          doneIcon: choice === 'yes' ? '✓' : '◦',
+          doneBg: choice === 'yes' ? '#EAF1EC' : '#F1EEE6',
+          doneFg: choice === 'yes' ? '#14603F' : '#4A554E',
+          approve: () => this.decide(d.id, 'yes'),
+          deny: () => this.decide(d.id, 'no'),
+          tweak: () => this.go(d.id === 'ads' ? 'marketing' : d.id === 'price' ? 'money' : 'stock'),
+          undo: () => { const c = Object.assign({}, s.decided); delete c[d.id]; this.setState({ decided: c, po: d.id === 'stock' ? null : s.po, price: d.id === 'price' ? null : s.price, creatives: d.id === 'ads' ? {} : s.creatives }); }
+        };
+      }),
+
+      overnight: OVERNIGHT,
+      prompts: [
+        { label: 'Should I sell chicken shingara?', pick: () => this.go('grow') },
+        { label: 'Am I making money this week?', pick: () => this.go('money') },
+        { label: 'Who is unhappy with me?', pick: () => this.go('inbox') }
+      ],
+      askText: s.ask, onAsk: e => this.setState({ ask: e.target.value }),
+
+      threads: THREADS.map(t => ({
+        name: t.name, channel: t.channel, t: t.t, preview: t.preview, pick: () => this.setState({ thread: t.id }),
+        state: s.sent[t.id] ? 'Answered ' + s.sent[t.id] : t.state,
+        stateFg: s.sent[t.id] ? '#14603F' : t.stateFg,
+        mark: s.sent[t.id] ? '#C9C3B4' : t.mark,
+        bg: s.thread === t.id ? '#F7F5F0' : '#FFFFFF'
+      })),
+      thread: {
+        name: thread.name, initials: thread.initials, channel: thread.channel, history: thread.history,
+        message: thread.message, read: thread.read, draft: thread.draft, action: thread.action,
+        tags: thread.tags.map(t => ({ label: t[0], bg: t[1], fg: t[2] })),
+        unsent: !s.sent[thread.id], sent: !!s.sent[thread.id], sentAt: s.sent[thread.id] || '',
+        send: () => { const x = Object.assign({}, s.sent); x[thread.id] = 'just now'; this.setState({ sent: x }); }
+      },
+
+      stock: STOCK,
+      poOpen: !s.po, poDone: !!s.po,
+      poBorder: s.po ? '#E5E0D6' : '#DCD3BE',
+      approvePo: () => this.decide('stock', 'yes'),
+
+      creatives: CREATIVES.map(c => {
+        const st = s.creatives[c.id];
+        return {
+          slot: c.slot, ph: c.ph, channel: c.channel, chanFg: c.chanFg, spec: c.spec, copy: c.copy,
+          border: st ? '#E5E0D6' : '#DCD3BE',
+          pending: !st, settled: !!st,
+          doneText: st === 'live' ? 'Published · watching results' : 'Skipped for this week',
+          doneBg: st === 'live' ? '#EAF1EC' : '#F1EEE6',
+          doneFg: st === 'live' ? '#14603F' : '#4A554E',
+          approve: () => { const x = Object.assign({}, s.creatives); x[c.id] = 'live'; this.setState({ creatives: x }); },
+          skip: () => { const x = Object.assign({}, s.creatives); x[c.id] = 'skip'; this.setState({ creatives: x }); }
+        };
+      }),
+      campaigns: CAMPAIGNS,
+
+      costRows: COST_ROWS.map(r => (r.k.indexOf('Oil') === 0 && !raised) ? r : r),
+      pnl: PNL,
+      priceOpen: !s.price, priceSettled: !!s.price,
+      priceBorder: s.price ? '#E5E0D6' : '#DCD3BE',
+      priceTag: raised ? 'Price updated' : s.price ? 'Watching' : 'Suggested change',
+      priceTagBg: raised ? '#EAF1EC' : '#FBF1E1',
+      priceTagFg: raised ? '#14603F' : '#B4741B',
+      priceHeadline: raised ? '12-piece pack is now ৳228' : 'Raise the 12-piece pack from ৳216 to ৳228',
+      priceBody: raised
+        ? 'Live on your page, in your ads, and in the replies your team sends. Wholesale stayed at ৳480 to keep resellers on side, and your margin is back to where it was in July.'
+        : 'Oil rose ৳9 a litre, so each piece now costs you ৳12.05 instead of ৳11.40. ৳19 a piece (৳228 a pack) restores what you keep and still undercuts the ৳20 seller nearby. Wholesale stays at ৳480 to protect the reseller relationship.',
+      priceDoneText: raised
+        ? 'Price changed everywhere, and this week\'s ad copy was rewritten to match.'
+        : 'Kept at ৳216. Your team will warn you if what you keep drops below 30%.',
+      priceDoneBg: raised ? '#EAF1EC' : '#F1EEE6',
+      priceDoneFg: raised ? '#14603F' : '#4A554E',
+      applyPrice: () => this.decide('price', 'yes'),
+      keepPrice: () => this.decide('price', 'no'),
+
+      demands: DEMANDS, rivals: RIVALS,
+
+      historyFilters: ['Everything', 'Customers', 'Stock', 'Money', 'Marketing', 'Delivery'].map(f => ({
+        label: f, pick: () => this.setState({ filter: f }),
+        bg: s.filter === f ? '#EAF1EC' : '#FFFFFF',
+        border: s.filter === f ? '#14603F' : '#E5E0D6',
+        fg: s.filter === f ? '#14603F' : '#4A554E'
+      })),
+      history: HISTORY.filter(h => s.filter === 'Everything' || h.cat === s.filter).map(h => ({
+        text: h.text, by: h.by, t: h.t, why: h.why, dot: h.dot,
+        open: s.openHistory === h.id, bg: s.openHistory === h.id ? '#FBFAF7' : '#FFFFFF',
+        toggle: () => this.setState({ openHistory: s.openHistory === h.id ? null : h.id })
+      })),
+
+      autopilotOptions: AUTOPILOT.map(a => ({
+        label: a.label, note: a.note, pick: () => this.setState({ autopilot: a.id }),
+        bg: s.autopilot === a.id ? '#EAF1EC' : '#FBFAF7',
+        border: s.autopilot === a.id ? '#14603F' : '#E5E0D6',
+        fg: s.autopilot === a.id ? '#14603F' : '#18211D'
+      })),
+      permissions: PERMS.map(p => ({
+        label: p.label, note: p.note,
+        trackBg: s.perms[p.id] ? '#14603F' : '#DDD8CC',
+        knobLeft: s.perms[p.id] ? 23 : 3,
+        toggle: () => { const x = Object.assign({}, s.perms); x[p.id] = !x[p.id]; this.setState({ perms: x }); }
+      })),
+      channels: CHANNELS.map(c => ({
+        name: c.name, state: c.state, dot: c.ok ? '#14603F' : '#A63A2E', fg: c.ok ? '#7C877F' : '#A63A2E'
+      })),
+
+      roles: [['owner', 'Owner'], ['builder', 'Operator']].map(([id, label]) => ({
+        label: label, pick: () => this.setRole(id),
+        bg: s.role === id ? '#FFFFFF' : 'transparent',
+        fg: s.role === id ? '#14603F' : '#7C877F',
+        weight: s.role === id ? '600' : '500',
+        shadow: s.role === id ? '0 1px 2px rgba(24,33,29,.08)' : 'none'
+      })),
+      footTitle: s.role === 'builder' ? (gateWaiting ? 'Run paused at a gate' : busyNow ? 'Run in progress' : 'Workforce idle') : 'Your AI team is working',
+      footBody: s.role === 'builder'
+        ? run.label + ' · step ' + shown.length + ' of ' + run.steps.length + ' · one supervisor, 8 specialists'
+        : '8 assistants · 3 working now, 5 waiting for their turn. Last check 4 minutes ago.',
+      footButton: s.role === 'builder' ? 'Open the run' : 'Autopilot: ' + autopilotLabel,
+      footAction: () => this.go(s.role === 'builder' ? 'runs' : 'settings'),
+
+      isTeam: s.page === 'team', isRuns: s.page === 'runs', isBrain: s.page === 'brain', isUsage: s.page === 'usage',
+      goRuns: () => this.go('runs'),
+      graphCaption: gateWaiting ? 'paused at a human gate' : busyNow ? lastAgent + ' is working' : 'all specialists idle',
+
+      roster: ROSTER.map(a => ({
+        name: a.name, kind: a.kind, owns: a.owns, tools: a.tools, calls: a.calls, state: a.state,
+        dot: a.bad ? '#A63A2E' : a.wait ? '#B4741B' : a.busy ? '#14603F' : '#9EB3A4',
+        stateFg: a.bad ? '#A63A2E' : a.wait ? '#B4741B' : a.busy ? '#14603F' : '#7C877F'
+      })),
+      nodes: ROSTER.map(a => {
+        const p = NODE_POS[a.id], hot = busyNow && a.name === lastAgent, touched = shown.some(x => x.a === a.name);
+        return {
+          name: a.name, left: (p[0] / 900) * 100, top: (p[1] / 440) * 100,
+          state: hot ? 'working now' : touched ? 'used this run' : 'idle',
+          dot: hot ? '#14603F' : touched ? '#9EB3A4' : '#DDD8CC',
+          fg: touched || hot ? '#18211D' : '#7C877F',
+          bg: hot ? '#EAF1EC' : '#FFFFFF',
+          border: hot ? '#14603F' : touched ? '#CFE0D5' : '#E5E0D6',
+          shadow: hot ? '0 2px 10px rgba(20,96,63,.14)' : '0 1px 2px rgba(24,33,29,.04)'
+        };
+      }),
+      edges: GRAPH_EDGES.map(([f, t]) => {
+        const p1 = NODE_POS[f], p2 = NODE_POS[t];
+        const fn = ROSTER.find(a => a.id === f).name, tn = ROSTER.find(a => a.id === t).name;
+        const hot = busyNow && (fn === lastAgent || tn === lastAgent);
+        const gateEdge = f === 'supervisor' && (t === 'ads' || t === 'delivery');
+        return { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1], stroke: hot ? '#14603F' : gateEdge ? '#B4741B' : '#E1DCD1', w: hot ? 2 : 1.2, dash: gateEdge ? '5 5' : '0' };
+      }),
+
+      runMeta: run.meta,
+      runTabs: RUNS.map(r => ({
+        label: r.label, pick: () => this.setState({ run: r.id, cursor: 2, playing: true, openStep: null }),
+        bg: s.run === r.id ? '#EAF1EC' : '#FFFFFF',
+        border: s.run === r.id ? '#14603F' : '#E5E0D6',
+        fg: s.run === r.id ? '#14603F' : '#4A554E'
+      })),
+      playLabel: gateWaiting ? 'Waiting for you' : busyNow ? 'Pause' : runDone ? 'Replay' : 'Resume',
+      playBg: gateWaiting ? '#FBF1E1' : busyNow ? '#F1EEE6' : '#14603F',
+      playFg: gateWaiting ? '#B4741B' : busyNow ? '#4A554E' : '#F7F5F0',
+      togglePlay: () => {
+        if (gateWaiting) return;
+        if (runDone) { this.setState({ cursor: 2, playing: true, gates: {} }); return; }
+        this.setState({ playing: !s.playing });
+      },
+      stepNext: () => { if (gateWaiting || runDone) return; this.setState({ playing: false }); this.advance(); },
+      stepBack: () => this.setState({ cursor: Math.max(1, s.cursor - 1), playing: false }),
+      resetRun: () => this.setState({ cursor: 1, playing: false, gates: {}, openStep: null }),
+
+      steps: shown.map((st, i) => {
+        const k = KIND_STYLE[st.k] || KIND_STYLE.tool;
+        return {
+          t: st.t, agent: st.a, title: st.title, meta: st.meta || '',
+          kind: k[0], kindBg: k[1], kindFg: k[2],
+          detail: st.detail || (st.h ? st.h.payload : ''),
+          open: s.openStep === i,
+          mark: st.k === 'error' ? '#A63A2E' : st.gate ? '#B4741B' : '#14603F',
+          border: st.k === 'error' ? '#F0DAD6' : st.gate ? '#EBDCC2' : '#E5E0D6',
+          toggle: () => this.setState({ openStep: s.openStep === i ? null : i })
+        };
+      }).reverse(),
+      gateWaiting: gateWaiting, runDone: runDone,
+      gateTitle: run.gate.title, gateBody: run.gate.body,
+      approveGate: () => { const g = Object.assign({}, s.gates); g[s.run] = 'yes'; this.setState({ gates: g, playing: true }); },
+      rejectGate: () => { const g = Object.assign({}, s.gates); g[s.run] = 'no'; this.setState({ gates: g, playing: false }); },
+
+      handoffs: shown.filter(x => x.h).map(x => x.h).reverse(),
+      noHandoffs: shown.filter(x => x.h).length === 0,
+
+      logFilters: ['All', 'Info', 'Warn', 'Error'].map(l => ({
+        label: l, pick: () => this.setState({ logLevel: l }),
+        bg: s.logLevel === l ? '#EAF1EC' : '#FFFFFF',
+        border: s.logLevel === l ? '#14603F' : '#E5E0D6',
+        fg: s.logLevel === l ? '#14603F' : '#4A554E'
+      })),
+      logs: shown.map(st => {
+        const lvl = st.level === 'ERROR' ? 'Error' : st.level === 'WARN' ? 'Warn' : 'Info';
+        return { t: st.t, level: lvl, msg: st.a.toLowerCase().replace(/[^a-z]+/g, '_') + ' · ' + st.title, fg: lvl === 'Error' ? '#A63A2E' : lvl === 'Warn' ? '#B4741B' : '#7C877F' };
+      }).filter(l => s.logLevel === 'All' || l.level === s.logLevel).reverse(),
+
+      stores: [
+        { kind: 'structured', name: 'Business database', count: '9', unit: 'tables · orders, stock, prices' },
+        { kind: 'vector', name: 'Conversation memory', count: '1,482', unit: 'searchable chunks' },
+        { kind: 'files', name: 'Photo store', count: '37', unit: 'product and stock photos' },
+        { kind: 'run state', name: 'Saved runs', count: '4', unit: 'resumable from any step' }
+      ],
+      memFilters: ['Everything', 'Business', 'Customers', 'Stock', 'Money', 'Marketing'].map(f => ({
+        label: f, pick: () => this.setState({ memCat: f }),
+        bg: s.memCat === f ? '#EAF1EC' : '#FFFFFF',
+        border: s.memCat === f ? '#14603F' : '#E5E0D6',
+        fg: s.memCat === f ? '#14603F' : '#4A554E'
+      })),
+      records: MEM_RECORDS.filter(r => s.memCat === 'Everything' || r.cat === s.memCat).map(r => ({
+        store: r.store, key: r.key, value: r.value, by: r.by, when: r.when,
+        storeFg: r.store === 'conversations' ? '#5B4B9B' : '#1F6470'
+      })),
+
+      costBars: COST_BARS, failures: FAILURES
+    };
+  }
+}
+
+</script>
+</body>
+</html>

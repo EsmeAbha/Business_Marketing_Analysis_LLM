@@ -1,0 +1,44 @@
+# Lucida's palette, handed to Streamlit's own theming engine.
+#
+# ui/theme.py restyles the chrome with CSS, but widgets Streamlit paints itself
+# (sliders, checkboxes, the file-uploader drop zone, chart defaults) read these
+# values instead. Setting both keeps the two in agreement.
+
+[theme]
+base = "light"
+primaryColor = "#14603F"
+backgroundColor = "#F7F5F0"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#18211D"
+
+# Registering the faces here rather than relying only on the @import in
+# ui/theme.py: this way Streamlit applies them to the widgets it paints
+# internally, which CSS selectors don't reliably reach.
+font = "Plus Jakarta Sans, system-ui, sans-serif"
+headingFont = "Plus Jakarta Sans, system-ui, sans-serif"
+codeFont = "ui-monospace, Cascadia Code, Menlo, monospace"
+
+# Plus Jakarta Sans ships as a variable font — one file covers 200–800.
+[[theme.fontFaces]]
+family = "Plus Jakarta Sans"
+url = "https://fonts.gstatic.com/s/plusjakartasans/v12/LDIoaomQNQcsA88c7O9yZ4KMCoOg4Ko20yw.woff2"
+weight = "200 800"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Instrument Serif"
+url = "https://fonts.gstatic.com/s/instrumentserif/v5/jizBRFtNs2ka5fXjeivQ4LroWlx-6zUTjg.woff2"
+weight = "400"
+style = "normal"
+
+[[theme.fontFaces]]
+family = "Instrument Serif"
+url = "https://fonts.gstatic.com/s/instrumentserif/v5/jizHRFtNs2ka5fXjeivQ4LroWlx-6zAjjH7M.woff2"
+weight = "400"
+style = "italic"
+
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false
