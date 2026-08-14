@@ -35,6 +35,7 @@ SANS = ("'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', "
         "system-ui, sans-serif")
 
 FONT_LINK = (
+    '<link rel="icon" href="/favicon.svg" type="image/svg+xml">'
     '<link rel="preconnect" href="https://fonts.googleapis.com">'
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
     '<link href="https://fonts.googleapis.com/css2?'
@@ -100,7 +101,10 @@ button, input, textarea, select {{ font-family:inherit; }}
 .body {{ padding:22px 32px 32px; }}
 
 .card {{ background:{SURFACE}; border:1px solid {BORDER}; border-radius:16px;
-  padding:20px 22px; box-shadow:0 1px 2px rgba(0,0,0,.04); }}
+  padding:20px 22px; box-shadow:0 1px 2px rgba(0,0,0,.04); min-width:0; }}
+/* A redirect URI or an access token has no spaces in it, and on a phone an
+   unbreakable string is what pushes a card past its own edge. */
+.card code, .card pre {{ overflow-wrap:anywhere; word-break:break-word; }}
 .btn {{ padding:11px 18px; border-radius:11px; border:none; background:{ACCENT};
   color:#fff; font-size:14.5px; font-weight:600; letter-spacing:-.01em;
   cursor:pointer; transition:background .15s, transform .06s; }}

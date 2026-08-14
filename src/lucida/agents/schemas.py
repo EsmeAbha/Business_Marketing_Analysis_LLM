@@ -139,6 +139,13 @@ class AnalysedMessage(BaseModel):
     customer: str
     channel: str
     message: str
+    # The id it was given. Matching a draft back to its row by message text
+    # failed whenever the model tidied the wording, which left real customers
+    # with no reply prepared; echoing the id is exact.
+    id: int | None = Field(
+        default=None,
+        description="The `id` of the message being analysed, copied exactly "
+                    "from the input.")
     sentiment: str = Field(description="positive | neutral | negative")
     intent: str = Field(description="preorder | question | complaint | unmet_demand | praise | other")
     requested_item: str = Field(default="", description="Product asked for but not offered, if any.")

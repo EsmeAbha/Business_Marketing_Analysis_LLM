@@ -100,27 +100,44 @@ class EngagementAgent(BaseAgent):
 {self.as_json(messages, limit=8000)}
 === END MESSAGES ===
 
-Analyse every message above. Anything a customer asks for that is not in the product
-list is unmet demand — capture it in `requested_item` and `unmet_demand`."""
+Analyse every message above. Copy each message's `id` into the `id` field of your
+analysis, unchanged — that is how a draft reply gets attached to the right customer.
+Anything a customer asks for that is not in the product list is unmet demand — capture
+it in `requested_item` and `unmet_demand`."""
 
         result = self.ask(state, EngagementResult, SYSTEM, prompt)
 
-        # The agent's own reply drafts are what the Customers page offers the
-        # owner to send. Matched back by message text: the model may reorder
-        # or merge what it was given, so position is not reliable.
-        # One text can map to several rows: the same question often arrives
-        # on Messenger and Instagram both. Every unanswered copy gets the
-        # draft, rather than only whichever the dict happened to keep last.
+        # The drafts are what the Customers page offers the owner to send, so
+        # every one has to land on the right row. Three ways of finding it,
+        # in order of how much they can be trusted:
+        #   1. the id the model was given and asked to echo back;
+        #   2. the message text, normalised — the model often tidies wording,
+        #      punctuation or spacing while meaning the same message;
+        #   3. nothing. A draft that cannot be placed is dropped rather than
+        #      guessed onto a customer it might not answer.
+        # One text can map to several rows: the same question often arrives on
+        # Messenger and Instagram both, and every unanswered copy gets it.
+        def _key(text: str) -> str:
+            plain = " ".join(str(text or "").lower().split())
+            return "".join(c for c in plain if c.isalnum() or c.isspace())
+
+        by_id = {r["id"]: [r["id"]] for r in rows}
         by_text: dict[str, list[int]] = {}
         for r in rows:
-            by_text.setdefault((r.get("message") or "").strip(), []).append(r["id"])
+            by_text.setdefault(_key(r.get("message")), []).append(r["id"])
 
-        drafted = 0
+        drafted, unplaced = 0, 0
         for m in result.analysed:
             reply_text = (m.suggested_reply or "").strip()
             if not reply_text:
                 continue
-            for row_id in by_text.get((m.message or "").strip(), []):
+            targets = by_id.get(getattr(m, "id", None) or -1) \
+                or by_text.get(_key(m.message), [])
+            if not targets:
+                unplaced += 1
+                self.log.info("a draft reply matched no message; dropped it")
+                continue
+            for row_id in targets:
                 memory.db.execute(
                     "UPDATE social_messages SET draft_reply=?, sentiment=?, "
                     "intent=?, requested_item=? WHERE id=? AND replied=0",
@@ -183,6 +200,10 @@ list is unmet demand — capture it in `requested_item` and `unmet_demand`."""
             summary += f" ⚠️ {len(result.urgent_issues)} urgent issue(s) need a reply today."
         if drafted:
             summary += f" ✍️ {drafted} reply/replies drafted for you to send."
+        if unplaced:
+            summary += (f" ({unplaced} draft(s) could not be matched to a "
+                        f"message and were discarded rather than sent to the "
+                        f"wrong customer.)")
         if simulated:
             summary += " (Inbox came from the SIMULATED adapter.)"
 
