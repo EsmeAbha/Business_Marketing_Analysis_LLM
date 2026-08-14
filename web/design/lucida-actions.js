@@ -149,7 +149,75 @@
     });
   }
 
+  /* ---- photo upload ------------------------------------------------------
+   * The design's "Add stock with a photo" block has an <image-slot> and a
+   * "Log it" button with no binding — it was never wired to anything. The
+   * slot's shadow root is open, so its file input can be observed directly
+   * rather than re-implementing the picker.
+   *
+   * Sending a photo is what reaches the Product Vision agent, which is
+   * otherwise unreachable from this front-end.
+   */
+  var picked = null;
+
+  function wirePhoto() {
+    var slot = document.getElementById('suite-stock-upload');
+    if (!slot || slot.__lucidaWired) return;
+
+    var input = slot.shadowRoot && slot.shadowRoot.querySelector('input[type="file"]');
+    if (!input) return;
+    slot.__lucidaWired = true;
+
+    input.addEventListener('change', function () {
+      picked = input.files && input.files[0];
+      if (picked) toast('Photo ready — press "Log it" to send it to your team.');
+    });
+
+    // The button and the quantity field are the two siblings of the slot's
+    // container; both are unbound in the design.
+    var block = slot.closest('div').parentElement;
+    var btn = block && block.querySelector('button');
+    var qty = block && block.querySelector('input');
+    if (!btn || btn.__lucidaWired) return;
+    btn.__lucidaWired = true;
+
+    btn.addEventListener('click', function () {
+      if (!picked) {
+        toast('Choose a photo first — click the drop area above.', 'error');
+        return;
+      }
+      if (window.LUCIDA && window.LUCIDA.hasLlm === false) {
+        toast('No API key. Add GROQ_API_KEY to .env, then restart.', 'error');
+        return;
+      }
+      var form = new FormData();
+      form.append('photo', picked);
+      form.append('quantity', (qty && qty.value) || '');
+      overlay('Your team is looking at the photo…');
+      fetch('/api/upload', { method: 'POST', body: form })
+        .then(function (res) {
+          return res.json().then(function (d) {
+            if (!res.ok) throw new Error(d.error || ('HTTP ' + res.status));
+            return d;
+          });
+        })
+        .then(function (d) {
+          if (d.answer) answerPanel(d.answer);
+          else window.location.reload();
+        })
+        .catch(function (err) { toast(String(err.message || err), 'error'); });
+    });
+  }
+
+  // The design re-renders on every navigation, so re-attach when the Stock
+  // page mounts rather than only once at boot.
+  document.addEventListener('DOMContentLoaded', wirePhoto);
+  setInterval(wirePhoto, 900);
+
   window.LucidaActions = {
+    wirePhoto: wirePhoto,
+    photoReady: function () { return !!picked; },
+
     /** Send the owner's question to the workforce. */
     ask: function (text) {
       text = (text || '').trim();

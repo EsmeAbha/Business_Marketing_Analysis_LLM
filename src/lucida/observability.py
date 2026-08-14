@@ -188,6 +188,33 @@ class EventBus:
     def as_dicts(self, session_id: str | None = None) -> list[dict[str, Any]]:
         return [asdict(e) for e in self.recent(session_id)]
 
+    def sessions(self, limit: int = 20) -> list[dict[str, Any]]:
+        """Every run the trace remembers, newest first.
+
+        Reads the durable table rather than the in-process buffer, so a UI
+        started after a run still lists it — and so a separate web process
+        sees runs the Streamlit process recorded, and vice versa.
+        """
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT session_id, COUNT(*) AS steps, MIN(ts) AS started, "
+                "       MAX(ts) AS ended, "
+                "       SUM(CASE WHEN level='error' THEN 1 ELSE 0 END) AS errors "
+                "FROM trace_events GROUP BY session_id "
+                "ORDER BY MAX(ts) DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [
+            {
+                "session_id": r[0],
+                "steps": r[1],
+                "started": r[2],
+                "ended": r[3],
+                "errors": r[4],
+            }
+            for r in rows
+        ]
+
 
 bus = EventBus()
 

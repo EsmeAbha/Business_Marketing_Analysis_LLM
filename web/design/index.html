@@ -1003,13 +1003,13 @@ const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns && window.LUCIDA.cam
   { name: 'Reseller wholesale ad', sub: 'Started 10 Aug · 30-pc pack', where: 'Facebook', spent: '৳700', orders: '6', state: 'Watching', stateFg: '#B4741B' }
 ]);
 
-const COST_ROWS = (window.LUCIDA && window.LUCIDA.costRows && window.LUCIDA.costRows.length ? window.LUCIDA.costRows : [
+const COST_ROWS = [
   { k: 'Beef filling', v: '৳5.10', pct: 100, color: '#14603F' },
   { k: 'Dough and spice', v: '৳2.30', pct: 45, color: '#14603F' },
   { k: 'Oil (up 9% this week)', v: '৳2.25', pct: 44, color: '#B4741B' },
   { k: 'Packaging', v: '৳1.20', pct: 24, color: '#14603F' },
   { k: 'Your time and gas', v: '৳1.20', pct: 24, color: '#14603F' }
-]);
+];
 
 const PNL = (window.LUCIDA && window.LUCIDA.pnl && window.LUCIDA.pnl.length ? window.LUCIDA.pnl : [
   { k: 'Money in', v: '৳48,240', note: '2,680 pieces sold · +14% on last week', weight: '600', keyColor: '#18211D', vColor: '#18211D' },
@@ -1102,7 +1102,7 @@ const GRAPH_EDGES = [
   ['market', 'pricing'], ['engage', 'inventory'], ['inventory', 'report'], ['ads', 'pricing']
 ];
 
-const RUNS = [
+const RUNS = (window.LUCIDA && window.LUCIDA.runs && window.LUCIDA.runs.length ? window.LUCIDA.runs : [
   { id: 'r1', label: 'Photo → is it worth selling?', meta: 'run 014 · 12 steps · $0.081',
     gate: { title: 'Approve the plan for chicken shingara?', body: 'Nothing is sourced or spent until you approve. Rejecting sends the research back with your reason attached.' },
     steps: [
@@ -1164,7 +1164,7 @@ const RUNS = [
       { t: '08:15', a: 'Delivery', k: 'act', title: 'Booked Pathao instead', meta: '410 tok', detail: 'Pickup Thursday 2 pm, 38 parcels, ৳9,120 collected on delivery. The owner is told because the courier changed, not because anything failed.' },
       { t: '08:15', a: 'Reporting', k: 'memory', title: 'Archived the week', meta: 'wrote 1 record', detail: 'reports/week_32 · summary embedded so next month can compare like for like.' }
     ] }
-];
+]);
 
 const KIND_STYLE = {
   plan: ['plan', '#F1EEE6', '#4A554E'], tool: ['tool', '#EAF1EC', '#14603F'], think: ['reason', '#EDEAF6', '#5B4B9B'],
@@ -1216,15 +1216,16 @@ class Component extends DCLogic {
 
   schedule() {
     clearTimeout(this.timer);
+    if (!RUNS.length) return;
     const s = this.state;
     if (s.role !== 'builder' || !s.playing || this.gateBlocking()) return;
-    const run = RUNS.find(r => r.id === s.run);
+    const run = RUNS.find(r => r.id === s.run) || RUNS[0];
     if (s.cursor >= run.steps.length) return;
     this.timer = setTimeout(() => this.advance(), 900);
   }
 
   advance() {
-    const run = RUNS.find(r => r.id === this.state.run);
+    const run = RUNS.find(r => r.id === this.state.run) || RUNS[0];
     this.setState(st => {
       const next = run.steps[st.cursor];
       if (!next) return { playing: false };
@@ -1234,7 +1235,7 @@ class Component extends DCLogic {
   }
 
   gateBlocking() {
-    const s = this.state, run = RUNS.find(r => r.id === s.run);
+    const s = this.state, run = RUNS.find(r => r.id === s.run) || RUNS[0];
     for (let i = 0; i < s.cursor; i++) if (run.steps[i].gate) return !s.gates[s.run];
     return false;
   }

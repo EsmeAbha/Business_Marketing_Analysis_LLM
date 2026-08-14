@@ -202,6 +202,29 @@ so it is always unambiguous which parts are calling real APIs.
 > bundle. `truststore` (in `requirements.txt`) is injected in
 > [`config.py`](src/lucida/config.py) to make Python use the OS store instead.
 
+### Where the data lives
+
+By default the shop's memory is a **local SQLite file** in `data/` — no
+account, no network, and free in the ordinary sense of the word.
+
+If you want that memory off this machine — shared between the two front-ends,
+or surviving a redeploy — point Lucida at a free
+[Turso](https://turso.tech) database (libSQL). Its free tier covers 500
+databases and 9 GB, which is far more than this app will ever use:
+
+```bash
+turso db create lucida
+turso db show lucida --url        # -> AIW_DATABASE_URL
+turso db tokens create lucida     # -> AIW_DATABASE_AUTH_TOKEN
+```
+
+Put both in `.env` and restart. **No schema or query changes** — libSQL speaks
+SQLite's dialect, so the same `CREATE TABLE` statements and the same SQL run
+against either backend. Leave the variables blank to stay on the local file.
+
+Which backend is active is reported by the audit line
+`memory: backend in use`.
+
 ### Tests
 
 A component suite covers the deterministic machinery — code sandbox (including its

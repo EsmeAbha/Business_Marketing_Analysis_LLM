@@ -15,7 +15,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator
 
-from ..config import DB_PATH
+from ..config import DB_PATH, settings
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS business_profile (
@@ -165,7 +165,31 @@ class Database:
             conn.executescript(SCHEMA)
 
     @contextmanager
-    def connect(self) -> Iterator[sqlite3.Connection]:
+    def connect(self) -> Iterator[Any]:
+        """A connection to whichever backend is configured.
+
+        Local SQLite by default — no account, no network. If
+        `AIW_DATABASE_URL` names a libSQL/Turso database, that is used
+        instead: libSQL speaks SQLite's dialect, so the schema and every
+        query below are identical either way.
+        """
+        if settings.uses_remote_db:
+            import libsql  # imported lazily so the local path needs no extra dep
+
+            conn = libsql.connect(
+                database=self._path,
+                sync_url=settings.database_url,
+                auth_token=settings.database_auth_token,
+            )
+            try:
+                conn.sync()          # pull anything written elsewhere
+                yield conn
+                conn.commit()
+                conn.sync()          # push what we just wrote
+            finally:
+                conn.close()
+            return
+
         conn = sqlite3.connect(self._path, timeout=30, check_same_thread=False)
         conn.row_factory = sqlite3.Row
         try:
@@ -177,8 +201,16 @@ class Database:
     # --- generic helpers ---
 
     def query(self, sql: str, params: tuple = ()) -> list[dict[str, Any]]:
+        # Rows are built from cursor.description rather than a row_factory:
+        # sqlite3.Row supports dict(), but libSQL returns plain tuples, and
+        # this shape works for both without branching at every call site.
         with self._lock, self.connect() as conn:
-            return [dict(r) for r in conn.execute(sql, params).fetchall()]
+            cur = conn.execute(sql, params)
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            columns = [d[0] for d in cur.description]
+            return [dict(zip(columns, row)) for row in rows]
 
     def execute(self, sql: str, params: tuple = ()) -> int:
         with self._lock, self.connect() as conn:
