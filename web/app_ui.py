@@ -44,7 +44,8 @@ FONT_LINK = (
 NAV = [
     ("/", "Chat", "Ask your team anything"),
     ("/studio", "Ad studio", "Make posters and ad copy"),
-    ("/connect", "Connect", "Messenger, Instagram, Facebook, YouTube"),
+    ("/delivery", "Delivery", "Weigh it, price it, book the courier"),
+    ("/connect", "Connect", "Channels and couriers"),
     ("/board", "Dashboard", "Stock, money, customers, runs"),
 ]
 
@@ -998,6 +999,207 @@ def studio_page(account: dict, provider: str, channels: dict,
 
 
 
+
+# ---------------------------------------------------------------------------
+# Delivery
+# ---------------------------------------------------------------------------
+
+DELIVERY_CSS = f"""
+.dgrid {{ display:grid; gap:16px; max-width:980px;
+  grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); align-items:start; }}
+.two {{ display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr));
+  gap:12px; }}
+.quote {{ border:1px solid {BORDER}; border-radius:16px; padding:20px;
+  background:{RAIL}; }}
+.qline {{ display:flex; justify-content:space-between; align-items:baseline;
+  padding:9px 0; border-bottom:1px solid {BORDER}; font-size:14px; gap:12px; }}
+.qline:last-of-type {{ border-bottom:none; }}
+.qline b {{ font-weight:600; }}
+.qtotal {{ display:flex; justify-content:space-between; align-items:baseline;
+  margin-top:12px; padding-top:14px; border-top:2px solid {INK};
+  font-size:17px; font-weight:700; gap:12px; }}
+.qwait {{ color:{MUTED}; font-size:13.5px; line-height:1.6; }}
+.warnbox {{ background:{AMBER_TINT}; color:{AMBER}; border:1px solid #FDE68A;
+  border-radius:12px; padding:11px 14px; font-size:13px; margin-bottom:14px; }}
+.zones {{ width:100%; border-collapse:collapse; font-size:13px;
+  margin-top:8px; }}
+.zones th {{ text-align:left; font-weight:500; color:{MUTED};
+  font-size:11.5px; text-transform:uppercase; letter-spacing:.04em;
+  padding:0 10px 7px 0; }}
+.zones td {{ padding:7px 10px 7px 0; border-top:1px solid {BORDER}; }}
+.zones td:last-child, .zones th:last-child {{ text-align:right; padding-right:0; }}
+"""
+
+DELIVERY_JS = """
+const $ = (id) => document.getElementById(id);
+const money = (n, cur) => cur + ' ' + Number(n).toLocaleString(undefined,
+  { maximumFractionDigits: 0 });
+
+async function priceIt() {
+  const body = {
+    product: $('dproduct').value, quantity: +$('dqty').value || 1,
+    area: $('darea').value, city: $('dcity').value,
+    cod: $('dcod').checked,
+  };
+  $('qbox').innerHTML = '<div class="qwait">Working it out…</div>';
+  const r = await fetch('/api/delivery/quote', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const q = await r.json();
+  if (!q.known) {
+    $('qbox').innerHTML = '<div class="qwait"><b>Cannot price this yet.</b><br>'
+      + (q.problems || []).map((p) => '· ' + p).join('<br>')
+      + '<br><br>Weight comes from your catalogue. Tell your team what a piece '
+      + 'weighs and this fills in.</div>';
+    $('bookbtn').disabled = true;
+    return;
+  }
+  const c = q.currency;
+  $('qbox').innerHTML =
+    '<div class="qline"><span>Parcel weight</span><b>' + q.weight_g + ' g'
+      + (q.billable_kg ? ' · ' + q.billable_kg + ' extra kg billed' : '') + '</b></div>'
+    + '<div class="qline"><span>Zone</span><b>' + q.zone + '</b></div>'
+    + '<div class="qline"><span>Goods</span><b>' + money(q.goods, c) + '</b></div>'
+    + '<div class="qline"><span>Delivery</span><b>' + money(q.delivery, c) + '</b></div>'
+    + (q.cod_fee ? '<div class="qline"><span>Cash-on-delivery fee</span><b>'
+        + money(q.cod_fee, c) + '</b></div>' : '')
+    + '<div class="qtotal"><span>Customer pays</span><span>'
+      + money(q.total, c) + '</span></div>';
+  $('bookbtn').disabled = false;
+  window.__cod = q.total;
+}
+
+async function bookIt() {
+  const btn = $('bookbtn');
+  btn.disabled = true; btn.textContent = 'Booking…';
+  const r = await fetch('/api/delivery/book', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customer: $('dcustomer').value, phone: $('dphone').value,
+      address: $('daddress').value, product: $('dproduct').value,
+      cod_amount: $('dcod').checked ? (window.__cod || 0) : 0,
+      note: $('dnote').value,
+    }) });
+  const out = await r.json();
+  btn.textContent = 'Book the courier';
+  btn.disabled = false;
+  $('bookout').innerHTML = out.ok
+    ? '<div class="warnbox" style="background:#FBEBEB;color:#7B1E22;'
+      + 'border-color:#F0D6D6">Booked with ' + out.provider
+      + (out.consignment ? ' · consignment ' + out.consignment : '')
+      + (out.simulated ? ' — simulated, because no courier is connected yet.' : '.')
+      + '</div>'
+    : '<div class="warnbox">' + (out.error || 'The courier refused the booking.')
+      + '</div>';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('pricebtn').addEventListener('click', priceIt);
+  $('bookbtn').addEventListener('click', bookIt);
+});
+"""
+
+
+def delivery_page(account: dict, products: list[dict], zones: list[dict],
+                  courier: str = "", note: str = "") -> str:
+    """Weigh a parcel, price it honestly, and hand it to a real courier."""
+    head = (
+        "<div class='head'><h1>Delivery</h1>"
+        "<p>What a parcel weighs decides what it costs. Pick what is going, "
+        "say where, and the charge comes from your courier's own rates.</p>"
+        "</div>"
+    )
+
+    unweighed = [p for p in products if not (p.get("weight_g") or 0)]
+    warn = ""
+    if unweighed:
+        warn = (f"<div class='warnbox'>{len(unweighed)} of your "
+                f"{len(products)} products have no weight recorded, so they "
+                f"cannot be priced. Tell your team what they weigh.</div>")
+    if not courier:
+        warn += ("<div class='warnbox'>No courier connected, so a booking is "
+                 "simulated and nothing is really collected. Connect "
+                 "Steadfast or Pathao to make it real.</div>")
+
+    def _option(p: dict) -> str:
+        grams = int(p.get("weight_g") or 0)
+        # The weight is in the label because it is the thing that decides the
+        # price, and because a zero is how the owner learns which product
+        # still needs weighing.
+        weight = f" — {grams} g" if grams else " — no weight recorded"
+        return (f"<option value='{e(p['name'])}'>"
+                f"{e(p['name'])}{weight}</option>")
+
+    options = "".join(_option(p) for p in products) or (
+        "<option value=''>Nothing in your catalogue yet</option>")
+
+    rows = "".join(
+        f"<tr><td>{e(z.get('name'))}</td>"
+        f"<td>{int(z.get('base_weight_g') or 0)} g</td>"
+        f"<td>{e(account.get('currency') or 'BDT')} "
+        f"{float(z.get('base_charge') or 0):,.0f}</td>"
+        f"<td>+{float(z.get('per_kg_extra') or 0):,.0f}/kg</td></tr>"
+        for z in zones
+    )
+
+    body = (
+        f"<div class='body'>{warn}"
+        f"<div class='dgrid'>"
+
+        f"<div class='card'>"
+        f"<h3 style='margin:0 0 14px;font-size:15px'>What is going where</h3>"
+        f"<div class='field'><label for='dproduct'>Product</label>"
+        f"<select id='dproduct'>{options}</select></div>"
+        f"<div class='two'>"
+        f"<div class='field'><label for='dqty'>How many</label>"
+        f"<input id='dqty' type='number' min='1' value='1'></div>"
+        f"<div class='field'><label for='dcity'>City</label>"
+        f"<input id='dcity' placeholder='Dhaka'></div>"
+        f"</div>"
+        f"<div class='field'><label for='darea'>Area</label>"
+        f"<input id='darea' placeholder='Gulshan'></div>"
+        f"<label style='display:flex;align-items:center;gap:8px;font-weight:400'>"
+        f"<input id='dcod' type='checkbox' checked style='width:auto'>"
+        f"Cash on delivery</label>"
+        f"<button class='btn' id='pricebtn' style='margin-top:14px'>"
+        f"Work out the charge</button>"
+        f"</div>"
+
+        f"<div class='quote' id='qbox'>"
+        f"<div class='qwait'>Pick a product and a destination, and the charge "
+        f"appears here — weight, zone, delivery and the cash-on-delivery fee, "
+        f"each shown separately so you can see where it comes from.</div>"
+        f"</div>"
+
+        f"<div class='card'>"
+        f"<h3 style='margin:0 0 4px;font-size:15px'>Who is receiving it</h3>"
+        f"<p class='muted' style='margin:0 0 14px'>Only needed when you book.</p>"
+        f"<div class='field'><label for='dcustomer'>Name</label>"
+        f"<input id='dcustomer' placeholder='Customer name'></div>"
+        f"<div class='field'><label for='dphone'>Phone</label>"
+        f"<input id='dphone' placeholder='01XXXXXXXXX'></div>"
+        f"<div class='field'><label for='daddress'>Full address</label>"
+        f"<textarea id='daddress' rows='2' placeholder='House, road, area'>"
+        f"</textarea></div>"
+        f"<div class='field'><label for='dnote'>Note for the rider</label>"
+        f"<input id='dnote' placeholder='Optional'></div>"
+        f"<button class='btn' id='bookbtn' disabled>Book the courier</button>"
+        f"<div id='bookout' style='margin-top:12px'></div>"
+        f"</div>"
+
+        f"<div class='card'>"
+        f"<h3 style='margin:0 0 4px;font-size:15px'>Your courier rates</h3>"
+        f"<p class='muted' style='margin:0 0 6px'>These are what the charge is "
+        f"worked out from. Part of a kilo over the base bills as a whole "
+        f"kilo — that is how couriers charge, not a rounding choice.</p>"
+        f"<table class='zones'><tr><th>Zone</th><th>Base weight</th>"
+        f"<th>Base</th><th>Each extra kg</th></tr>{rows}</table>"
+        f"</div>"
+
+        f"</div></div>"
+    )
+    return shell("Delivery", account, "/delivery", head, body,
+                 DELIVERY_CSS, DELIVERY_JS)
+
 # ---------------------------------------------------------------------------
 # Connect
 # ---------------------------------------------------------------------------
@@ -1063,6 +1265,13 @@ NEEDS = {
     "instagram": ("Page access token", "Instagram Business account id",
                   "The token is the Facebook Page's. The id is the Instagram "
                   "Business account linked to that Page, not the handle."),
+    "steadfast": ("API key", "Secret key",
+                  "Both come from the API page of your Steadfast merchant "
+                  "portal. They are checked against your account balance "
+                  "before they are saved."),
+    "pathao": ("Client id", "Client secret",
+               "Both come from Developer API in the Pathao Merchant panel. "
+               "A token is issued to prove they work before they are saved."),
     "youtube": ("OAuth refresh token", "",
                 "An API key cannot upload — the upload happens as you, not "
                 "as the app, so it has to be a refresh token."),
@@ -1133,6 +1342,8 @@ def connect_page(account: dict, channels: dict, image_provider: str,
         "instagram": ("#7B1E22", "IG", "Read DMs, post ads, reply to comments."),
         "facebook": ("#1877F2", "f", "Post ads and reply to comments."),
         "youtube": ("#FF0000", "▶", "Publish videos you supply."),
+        "steadfast": ("#0F766E", "SF", "Book parcels and collect cash on delivery."),
+        "pathao": ("#E11D48", "P", "Book parcels across Bangladesh."),
     }
     setup = {
         "messenger": ["Create a Meta app and add your Facebook Page to it",
@@ -1148,6 +1359,14 @@ def connect_page(account: dict, channels: dict, image_provider: str,
         "facebook": ["Same Meta app and Page as Messenger",
                      "<code>pages_manage_posts</code> covers publishing",
                      "Connecting either one connects both"],
+        "steadfast": ["Sign in to the Steadfast merchant portal",
+                      "Open <code>API</code> and copy the key and secret",
+                      "Press Connect — the keys are checked against your "
+                      "account balance before anything is saved"],
+        "pathao": ["Open the Pathao Merchant panel",
+                   "Under <code>Developer API</code>, copy the client id and "
+                   "client secret",
+                   "Press Connect — a token is issued to prove they work"],
         "youtube": ["Enable YouTube Data API v3 in Google Cloud",
                     "Create an OAuth client and authorise "
                     "<code>youtube.upload</code>",

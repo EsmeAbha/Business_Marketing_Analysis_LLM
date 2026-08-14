@@ -37,6 +37,8 @@ logger = get_logger("tools.connections")
 
 GRAPH = "https://graph.facebook.com/v21.0"
 GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
+STEADFAST_BASE = "https://portal.packzy.com/api/v1"
+PATHAO_BASE = "https://api-hermes.pathao.com"
 YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
 TIMEOUT = 30
 
@@ -45,7 +47,11 @@ TIMEOUT = 30
 # shown apart because the owner thinks of them apart, and because the App
 # Review permissions differ.
 META_PLATFORMS = ("messenger", "facebook", "instagram")
-PLATFORMS = META_PLATFORMS + ("youtube",)
+# The couriers the shop can actually book with in Bangladesh. They take a key
+# pair rather than an OAuth round trip, so the owner pastes what their courier
+# dashboard gave them and it is checked on the spot.
+COURIERS = ("steadfast", "pathao")
+PLATFORMS = META_PLATFORMS + ("youtube",) + COURIERS
 
 
 @dataclass
@@ -131,6 +137,10 @@ def credentials(db, platform: str) -> tuple[str, str]:
         ident = (settings.meta_ig_user_id if platform == "instagram"
                  else settings.meta_page_id)
         return settings.meta_access_token, ident
+    if platform == "steadfast":
+        return settings.steadfast_api_key, settings.steadfast_secret_key
+    if platform == "pathao":
+        return settings.pathao_client_id, settings.pathao_client_secret
     return settings.youtube_refresh_token, ""
 
 
@@ -140,6 +150,14 @@ def connected(db, platform: str) -> bool:
         cid, _ = google_app()
         return bool(token and cid)
     return bool(token and ident)
+
+
+def courier_ready(db=None) -> str:
+    """Which courier this shop can book with, or "" for none."""
+    for name in COURIERS:
+        if connected(db, name):
+            return name
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -227,7 +245,55 @@ def verify_youtube(refresh_token: str) -> Verified:
         return Verified(False, error=str(exc))
 
 
+def verify_steadfast(api_key: str, secret: str) -> Verified:
+    """Ask Steadfast for the account balance — the cheapest authenticated call."""
+    if not (api_key and secret):
+        return Verified(False, error="Both the API key and the secret key are needed.")
+    try:
+        with httpx.Client(timeout=TIMEOUT) as c:
+            r = c.get(f"{STEADFAST_BASE}/get_balance", headers={
+                "Api-Key": api_key, "Secret-Key": secret,
+                "Content-Type": "application/json"})
+        if r.status_code != 200:
+            return Verified(False, error=(
+                f"Steadfast refused those keys ({r.status_code}). Check them "
+                "in your Steadfast portal under API."))
+        data = r.json()
+        bal = data.get("current_balance")
+        return Verified(True,
+                        f"Steadfast{f' · balance {bal}' if bal is not None else ''}",
+                        "steadfast")
+    except Exception as exc:  # noqa: BLE001
+        return Verified(False, error=str(exc))
+
+
+def verify_pathao(client_id: str, client_secret: str) -> Verified:
+    """Issue a Pathao token. If it comes back, the credentials work."""
+    if not (client_id and client_secret):
+        return Verified(False, error="Both the client id and the secret are needed.")
+    try:
+        with httpx.Client(timeout=TIMEOUT) as c:
+            r = c.post(f"{PATHAO_BASE}/aladdin/api/v1/issue-token", json={
+                "client_id": client_id, "client_secret": client_secret,
+                "grant_type": "client_credentials"})
+        if r.status_code != 200:
+            return Verified(False, error=(
+                f"Pathao refused those credentials ({r.status_code}). They "
+                "come from the Merchant panel under Developer API."))
+        if not r.json().get("access_token"):
+            return Verified(False, error="Pathao returned no token.")
+        return Verified(True, "Pathao merchant account", "pathao")
+    except Exception as exc:  # noqa: BLE001
+        return Verified(False, error=str(exc))
+
+
 def verify(platform: str, token: str, ident: str = "") -> Verified:
+    if platform == "steadfast":
+        # The pair travels as (token, ident) like every other platform, so the
+        # form, the route and the storage need no special case.
+        return verify_steadfast(token, ident)
+    if platform == "pathao":
+        return verify_pathao(token, ident)
     if platform == "instagram":
         return verify_instagram(token, ident)
     if platform == "youtube":

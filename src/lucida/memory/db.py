@@ -16,6 +16,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator
 
 from ..config import DB_PATH, settings
+from ..observability import get_logger
+
+logger = get_logger("memory.db")
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS business_profile (
@@ -491,6 +494,31 @@ class Database:
 
     # --- products & inventory ---
 
+    # Names a model reaches for when it has nothing: none of them is a product
+    # the shop can sell, and every one of them ends up on the owner's stock
+    # list looking like a real line item.
+    PLACEHOLDER_NAMES = frozenset({
+        "", "unknown", "unknown product", "product", "products", "n/a", "na",
+        "none", "item", "unnamed", "untitled", "your product", "the product",
+        "unweighed thing", "sample", "test", "example",
+    })
+
+    @staticmethod
+    def product_key(name: str) -> str:
+        """What makes two product names the same product.
+
+        Case, punctuation and a trailing parenthetical are noise: an agent
+        writing "Scented candles (eco-friendly, small-batch)" twice with
+        different wording should not create two lines of stock.
+        """
+        text = " ".join(str(name or "").split()).lower()
+        if "(" in text:
+            text = text.split("(")[0].strip()
+        # Punctuation becomes a space rather than vanishing, so
+        # "mosquito-repellent" and "mosquito repellent" fold together.
+        keep = "".join(c if (c.isalnum() or c.isspace()) else " " for c in text)
+        return " ".join(keep.split())
+
     def upsert_product(
         self,
         name: str,
@@ -500,8 +528,29 @@ class Database:
         sell_price: float | None = None,
         photo_path: str = "",
         source_agent: str = "",
-    ) -> int:
-        existing = self.query("SELECT id FROM products WHERE name=?", (name,))
+        create: bool = True,
+    ) -> int | None:
+        """Record a product, or update one already recorded.
+
+        Returns None rather than creating a row when the name is a
+        placeholder, or when `create` is False and the shop has never
+        mentioned this product. `create=False` is what an agent making a
+        *suggestion* passes: recommending a candle line is not the same as
+        the shop selling one, and the catalogue is the second thing.
+        """
+        clean = " ".join(str(name or "").split())[:120]
+        key = self.product_key(clean)
+        if not key or key in self.PLACEHOLDER_NAMES or len(key) < 3:
+            logger.info("ignored a placeholder product name: %r", name)
+            return None
+
+        existing = [
+            r for r in self.query("SELECT id, name FROM products")
+            if self.product_key(r["name"]) == key
+        ]
+        if not existing and not create:
+            logger.info("not adding %r to the catalogue: only a suggestion", clean)
+            return None
         if existing:
             pid = existing[0]["id"]
             self.execute(
@@ -518,7 +567,7 @@ class Database:
                 source_agent, created_at)
                VALUES (?,?,?,?,?,?,?,?)""",
             (
-                name,
+                clean,
                 category,
                 description,
                 unit_cost,

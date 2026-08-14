@@ -91,6 +91,10 @@
 /* END USAGE */
 
 (() => {
+  // Lucida serves pictures from the shop's own media directory, so the
+  // editor's sidecar does not exist here. Asking for it produced a 404
+  // on every dashboard load. LUCIDA_NO_SIDECAR skips the fetch.
+  const LUCIDA_NO_SIDECAR = true;
   const STATE_FILE = '.image-slots.state.json';
 
   // Unsplash terms require visible attribution wherever their photos
@@ -171,6 +175,10 @@
 
   function load() {
     if (loadP) return loadP;
+    // Lucida has no sidecar to read: pictures come from the shop's own media
+    // directory, injected as real <img> sources. Asking anyway produced a 404
+    // on every dashboard load.
+    if (LUCIDA_NO_SIDECAR) return (loadP = Promise.resolve(null));
     loadP = fetch(STATE_FILE)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
