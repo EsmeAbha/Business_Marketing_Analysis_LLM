@@ -41,6 +41,11 @@ IMAGEN = (
     "imagen-3.0-generate-002:predict"
 )
 
+# How long the owner's description should be. Measured in words because that
+# is what the owner is writing, and what the UI counts back to them.
+DETAIL_MIN_WORDS = 8
+DETAIL_MAX_WORDS = 25
+
 # Sizes that suit where the artwork actually goes.
 PRESETS = {
     "square": (1024, 1024),      # Instagram / Facebook feed
@@ -99,6 +104,18 @@ def build_prompt(
     words — which is why "no text" is stated three ways. They shape the copy
     instead, where they belong.
     """
+    # A description has a useful range. Under it the model fills the gaps
+    # generically; over it the later words stop getting attention, so the
+    # setting the owner cared about is exactly the part dropped. The UI shows
+    # a gauge, and this is the backstop for anything reaching the API directly.
+    product = " ".join(str(product).split())[:120]
+    words = str(detail).split()
+    if len(words) > DETAIL_MAX_WORDS:
+        detail = " ".join(words[:DETAIL_MAX_WORDS])
+        logger.info("trimmed the description to %d words", DETAIL_MAX_WORDS)
+    else:
+        detail = " ".join(words)
+
     bits = [
         f"{product}, product photograph",
         f"the {product} fills the frame and is the only subject",

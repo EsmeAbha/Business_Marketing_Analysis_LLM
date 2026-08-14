@@ -403,6 +403,11 @@ input[type=range] {{ width:100%; padding:0; accent-color:{ACCENT};
   border:2px solid transparent; }}
 .sw.on {{ border-color:{INK}; }}
 .copy {{ white-space:pre-wrap; font-size:13.5px; line-height:1.65; }}
+.gauge {{ margin-top:7px; font-size:11.5px; color:{MUTED}; line-height:1.5; }}
+.bar {{ height:3px; border-radius:2px; background:{SUNKEN}; overflow:hidden;
+  margin-bottom:5px; }}
+.bar span {{ display:block; height:100%; width:0; border-radius:2px;
+  background:{MUTED}; transition:width .18s, background .18s; }}
 .tag {{ font-size:11px; font-weight:600; letter-spacing:.05em;
   text-transform:uppercase; padding:3px 8px; border-radius:6px;
   background:{ACCENT_TINT}; color:{ACCENT}; }}
@@ -557,6 +562,38 @@ async function generate(newSeed) {
   } catch (err) { msg(String(err), true); }
   btn.disabled = false; again.disabled = false; btn.textContent = 'Draw it';
 }
+// How long a description should be, in words. Below the floor the model
+// fills the gaps with whatever is generic; above the ceiling the later words
+// stop getting attention, so the setting you cared about is the part dropped.
+const WORDS_MIN = 8, WORDS_GOOD = 14, WORDS_MAX = 25;
+const detail = document.getElementById('detail');
+const gfill = document.getElementById('gfill');
+const gtext = document.getElementById('gtext');
+
+function gauge() {
+  const words = detail.value.trim().split(/\s+/).filter(Boolean).length;
+  const pct = Math.min(100, (words / WORDS_MAX) * 100);
+  gfill.style.width = pct + '%';
+  if (!words) {
+    gfill.style.background = '#71717A';
+    gtext.textContent = 'Add 8-25 words. Too few and it invents the rest; ' +
+      'too many and the end gets ignored.';
+  } else if (words < WORDS_MIN) {
+    gfill.style.background = '#A16207';
+    gtext.textContent = words + ' words — a bit thin. Say the colour, the ' +
+      'material and what it sits on.';
+  } else if (words <= WORDS_MAX) {
+    gfill.style.background = '#7B1E22';
+    gtext.textContent = words + ' words — good length for a clear picture.';
+  } else {
+    gfill.style.background = '#A16207';
+    gtext.textContent = words + ' words — past 25 the last ones stop ' +
+      'counting. Trim it to the details that matter most.';
+  }
+}
+detail.addEventListener('input', gauge);
+gauge();
+
 document.getElementById('go').onclick = () => generate(true);
 document.getElementById('again').onclick = () => generate(true);
 
@@ -722,10 +759,15 @@ def studio_page(account: dict, provider: str, channels: dict) -> str:
         f"<div class='panel'><h3>What to draw</h3>"
         f"<div class='field'><label for='product'>Product</label>"
         f"<input id='product' placeholder='handmade resin coasters'></div>"
-        f"<div class='field'><label for='detail'>Describe it "
-        f"<span class='muted'>— colour, material, setting</span></label>"
-        f"<textarea id='detail' rows='3' placeholder='deep teal with gold "
-        f"flecks, square, on a light oak table'></textarea></div>"
+        f"<div class='field'><label for='detail'>Describe it"
+        f"<span class='muted' style='font-weight:400'> — colour, material, "
+        f"shape, what it sits on</span></label>"
+        f"<textarea id='detail' rows='3' maxlength='200' "
+        f"placeholder='deep teal with gold flecks, square, on a light oak "
+        f"table'></textarea>"
+        f"<div class='gauge'><div class='bar'><span id='gfill'></span></div>"
+        f"<span id='gtext'>Add 8-25 words. Too few and it invents the rest; "
+        f"too many and the end gets ignored.</span></div></div>"
         f"<div class='field'><label for='style'>Look</label><select id='style'>"
         f"<option value='clean studio lighting, soft shadow, plain background'>"
         f"Clean studio</option>"
