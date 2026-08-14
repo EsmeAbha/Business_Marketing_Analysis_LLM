@@ -135,6 +135,14 @@ class Settings:
     meta_page_id: str = field(default_factory=lambda: _env("META_PAGE_ID"))
     meta_ig_user_id: str = field(default_factory=lambda: _env("META_IG_USER_ID"))
     youtube_api_key: str = field(default_factory=lambda: _env("YOUTUBE_API_KEY"))
+    # Uploading a video happens as a channel owner, not as an app, so an API
+    # key cannot do it — these three are what an upload actually needs.
+    youtube_client_id: str = field(
+        default_factory=lambda: _env("YOUTUBE_CLIENT_ID"))
+    youtube_client_secret: str = field(
+        default_factory=lambda: _env("YOUTUBE_CLIENT_SECRET"))
+    youtube_refresh_token: str = field(
+        default_factory=lambda: _env("YOUTUBE_REFRESH_TOKEN"))
 
     # --- Courier ---
     pathao_client_id: str = field(default_factory=lambda: _env("PATHAO_CLIENT_ID"))
