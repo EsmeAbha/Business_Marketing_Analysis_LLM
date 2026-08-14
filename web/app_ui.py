@@ -1003,44 +1003,49 @@ def studio_page(account: dict, provider: str, channels: dict,
 # ---------------------------------------------------------------------------
 
 CONNECT_CSS = f"""
-.rows {{ display:flex; flex-direction:column; gap:12px; max-width:820px;
-  width:100%; }}
-/* Three columns, the same three on every card: mark, what it is, what you can
-   do about it. A grid rather than a flex row because the middle column has to
-   be allowed to shrink — minmax(0,1fr) is what stops a long line of setup
-   steps pushing the whole page sideways — and because the buttons and the
-   status pills then land on the same edge without either being measured. */
-.row {{ display:grid; grid-template-columns:42px minmax(0,1fr) 172px;
-  align-items:start; gap:14px; padding:18px 20px; border:1px solid {BORDER};
-  border-radius:16px; background:{SURFACE}; }}
-/* The mark belongs beside the name it marks. Centring it vertically made it
-   drift to the middle of the tall cards, level with nothing. */
+/* The four platforms as tiles. auto-fit with a minimum means the column count
+   follows the window instead of being declared: two up on a laptop, one on a
+   phone, three on a wide monitor, with no breakpoint to maintain. */
+.tiles {{ display:grid; gap:14px; max-width:980px; width:100%;
+  grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); }}
+.tile {{ display:flex; flex-direction:column; min-width:0; padding:20px;
+  border:1px solid {BORDER}; border-radius:16px; background:{SURFACE}; }}
+.tile .top {{ display:grid; grid-template-columns:42px minmax(0,1fr);
+  gap:12px; align-items:start; }}
 .icon {{ width:42px; height:42px; border-radius:11px; display:grid;
   place-items:center; font-size:17px; font-weight:700; color:#fff; }}
-/* The button stays centred, so it sits opposite the weight of the card
-   rather than clinging to the first line. */
-.act {{ align-self:center; }}
-.rowtext {{ min-width:0; }}
-.row h3 {{ margin:0 0 2px; font-size:15px; font-weight:600;
+.tile h3 {{ margin:0 0 2px; font-size:15px; font-weight:600;
   letter-spacing:-.01em; }}
-.row p {{ margin:0; font-size:13px; color:{MUTED}; line-height:1.5; }}
-.steps {{ margin:6px 0 0; padding-left:18px; font-size:12.5px; color:{MUTED};
+.tile p {{ margin:0; font-size:13px; color:{MUTED}; line-height:1.5; }}
+.steps {{ margin:12px 0 0; padding-left:18px; font-size:12.5px; color:{MUTED};
   line-height:1.65; }}
 .steps code {{ background:{SUNKEN}; padding:1px 5px; border-radius:4px;
   font-size:11.5px; overflow-wrap:anywhere; }}
-.act {{ display:flex; justify-content:flex-end; min-width:0; }}
-.act .btn {{ width:100%; text-align:center; display:inline-block;
-  font-size:13.5px; padding:10px 12px; }}
-.act form {{ width:100%; margin:0; }}
-.note {{ max-width:820px; margin:0 0 16px; padding:12px 16px;
+/* Pushed to the bottom, so the status and the button sit on one line across
+   every tile in the row however much setup text is above them. */
+.foot {{ margin-top:auto; padding-top:16px; display:flex; align-items:center;
+  justify-content:space-between; gap:12px; }}
+.foot form {{ margin:0; }}
+.foot .btn {{ font-size:13.5px; padding:10px 16px; white-space:nowrap; }}
+
+/* The three that need no connecting are half-height and sit below, three up:
+   they are a readout, not a decision. */
+.facts {{ display:grid; gap:14px; max-width:980px; width:100%; margin-top:14px;
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }}
+.fact {{ display:grid; grid-template-columns:36px minmax(0,1fr); gap:11px;
+  align-items:start; padding:16px 18px; border:1px solid {BORDER};
+  border-radius:16px; background:{RAIL}; }}
+.fact .icon {{ width:36px; height:36px; border-radius:10px; font-size:13px; }}
+.fact h3 {{ margin:0 0 2px; font-size:13.5px; font-weight:600; }}
+.fact p {{ margin:0 0 7px; font-size:12.5px; color:{MUTED}; line-height:1.5; }}
+
+.note {{ max-width:980px; margin:0 0 16px; padding:12px 16px;
   border-radius:12px; background:{ACCENT_TINT}; color:{ACCENT};
   font-size:13.5px; font-weight:500; border:1px solid #F3D4D6; }}
 .note.bad {{ background:{DANGER_TINT}; color:{DANGER}; border-color:#FBC5C5; }}
-@media (max-width: 720px) {{
-  /* The mark keeps its own column; the text and the button stack under it. */
-  .row {{ grid-template-columns:42px minmax(0,1fr); }}
-  .act {{ grid-column:2; justify-content:flex-start; }}
-  .act .btn {{ width:auto; }}
+@media (max-width: 420px) {{
+  .foot {{ flex-direction:column; align-items:stretch; }}
+  .foot .btn {{ width:100%; }}
 }}
 """
 
@@ -1174,32 +1179,34 @@ def connect_page(account: dict, channels: dict, image_provider: str,
                      else "Connect")
             action = (f"<a class='btn' href='/connect/{key}'>{e(label)}</a>")
         rows += (
-            f"<div class='row'>"
+            f"<div class='tile'>"
+            f"<div class='top'>"
             f"<div class='icon' style='background:{colour}'>{mark}</div>"
-            f"<div class='rowtext'><h3>{e(key.title())}</h3>"
-            f"<p>{e(what)}</p>{steps}"
-            f"<span class='pill {'ok' if connected else 'warn'}' "
-            f"style='margin-top:8px'>{e(state)}</span></div>"
-            f"<div class='act'>{action}</div></div>"
+            f"<div><h3>{e(key.title())}</h3><p>{e(what)}</p></div>"
+            f"</div>{steps}"
+            f"<div class='foot'>"
+            f"<span class='pill {'ok' if connected else 'warn'}'>"
+            f"{e(state)}</span>{action}</div></div>"
         )
 
     extras = (
-        f"<div class='row'><div class='icon' style='background:{ACCENT}'>AI</div>"
-        f"<div class='rowtext'><h3>Ad artwork</h3><p>{e(image_provider)}</p></div>"
-        f"<div class='act'><span class='pill ok'>Working</span></div></div>"
-        f"<div class='row'><div class='icon' style='background:#3F3F46'>DB</div>"
-        f"<div class='rowtext'><h3>Where your shop is stored</h3>"
-        f"<p>{e(db_backend)}</p></div>"
-        f"<div class='act'><span class='pill ok'>Working</span></div></div>"
-        f"<div class='row'><div class='icon' style='background:#3F3F46'>AI</div>"
-        f"<div class='rowtext'><h3>Your team's model</h3>"
-        f"<p>{'Connected and answering' if has_llm else 'No API key set'}</p></div>"
-        f"<div class='act'><span class='pill {'ok' if has_llm else 'bad'}'>"
+        f"<div class='fact'><div class='icon' style='background:{ACCENT}'>AI</div>"
+        f"<div><h3>Ad artwork</h3><p>{e(image_provider)}</p>"
+        f"<span class='pill ok'>Working</span></div></div>"
+        f"<div class='fact'><div class='icon' style='background:#3F3F46'>DB</div>"
+        f"<div><h3>Where your shop is stored</h3><p>{e(db_backend)}</p>"
+        f"<span class='pill ok'>Working</span></div></div>"
+        f"<div class='fact'><div class='icon' style='background:#3F3F46'>AI</div>"
+        f"<div><h3>Your team's model</h3>"
+        f"<p>{'Connected and answering' if has_llm else 'No API key set'}</p>"
+        f"<span class='pill {'ok' if has_llm else 'bad'}'>"
         f"{'Working' if has_llm else 'Missing'}</span></div></div>"
     )
 
-    body = (f"<div class='body'>{banner}<div class='rows'>{rows}{extras}</div>"
-            f"<p class='muted' style='margin-top:18px;max-width:820px'>"
+    body = (f"<div class='body'>{banner}"
+            f"<div class='tiles'>{rows}</div>"
+            f"<div class='facts'>{extras}</div>"
+            f"<p class='muted' style='margin-top:18px;max-width:980px'>"
             f"Until a platform is connected, your team works against a "
             f"stand-in inbox so you can see the flow — every result is "
             f"labelled as such, and nothing is written to your records as "
