@@ -25,6 +25,7 @@ from lucida.config import settings
 from lucida.graph import agent_roster
 from lucida.memory import memory
 from lucida.observability import bus
+from lucida.tools import fx
 
 # The design's palette, referenced by the shapes below.
 INK = "#17120F"
@@ -82,13 +83,17 @@ def _initials(name: str) -> str:
 def stock() -> list[dict]:
     """Design columns: qty, run-rate, days-of-cover, what-to-do.
 
-    Run-rate and cover need a sales feed Lucida has no source for, so both are
-    dashed. Quantity, price and the low-stock flag are real.
+    Run-rate and cover are computed from logged sales. Until any exist they
+    are dashed with a note saying why — the design's version showed a
+    confident "4 days" that came from its fixture.
     """
     rows = []
     for item in memory.inventory():
         low = bool(item.get("low_stock"))
         qty = int(item.get("quantity") or 0)
+        name = str(item.get("name") or "")
+        rate = memory.run_rate(name)
+        cover = memory.days_of_cover(name, qty)
         price = item.get("sell_price")
         sub_bits = []
         if price:
@@ -103,9 +108,12 @@ def stock() -> list[dict]:
             "sub": " · ".join(sub_bits) or "No price set yet",
             "qty": f"{qty:,} pcs",
             "qtyColor": RED if low else INK,
-            "rate": DASH,          # no sales feed
-            "cover": DASH,         # cannot be derived without a run rate
-            "coverColor": FAINT,
+            "rate": f"{rate:.0f}/day" if rate else DASH,
+            "cover": f"in {cover:.0f} days" if cover is not None else DASH,
+            "coverColor": (
+                RED if (cover is not None and cover <= 3)
+                else (AMBER if (cover is not None and cover <= 7) else BODY_FG)
+            ) if cover is not None else FAINT,
             "todo": (
                 f"Reorder — at or below {item.get('reorder_level', 0)}"
                 if low else "Nothing to do"
@@ -666,6 +674,108 @@ def decisions(pending: dict[str, Any] | None) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
+def kpis() -> dict[str, str]:
+    """The four headline tiles, from what the shop actually recorded.
+
+    Every one of these was a literal in the design. They are real now, and
+    where the shop has no basis for a figure it shows an em dash and says what
+    is missing — an invented number on the first screen is the one thing that
+    would make the whole dashboard untrustworthy.
+    """
+    today = memory.sales_since(1)
+    week = memory.sales_since(7)
+    preorders = memory.preorders()
+    units = sum(int(p.get("quantity") or 0) for p in preorders)
+    customers = len({p.get("customer") for p in preorders if p.get("customer")})
+
+    # Sales today, and how it compares with the daily average of the week.
+    if today["known"]:
+        sales = _cur(today["revenue"])
+        n = today["orders"]
+        note = f"{n} order{'s' if n != 1 else ''} today"
+        if week["orders"] > today["orders"]:
+            avg = week["revenue"] / 7.0
+            if avg:
+                delta = ((today["revenue"] - avg) / avg) * 100
+                note += f" · {delta:+.0f}% vs the week's average"
+    else:
+        sales, note = DASH, "no sales logged yet"
+
+    # Days of cover for whichever item runs out first.
+    cover, cover_note = DASH, "needs sales history"
+    soonest = None
+    for item in memory.inventory():
+        days = memory.days_of_cover(str(item.get("name")),
+                                    int(item.get("quantity") or 0))
+        if days is not None and (soonest is None or days < soonest[0]):
+            soonest = (days, item.get("name"))
+    if soonest:
+        cover = f"{soonest[0]:.0f} days"
+        cover_note = f"{soonest[1]} runs out first"
+    elif memory.inventory():
+        cover_note = "log some sales to see this"
+
+    return {
+        "salesToday": sales,
+        "salesTodayNote": note,
+        "preorderUnits": f"{units:,} pcs" if units else DASH,
+        "preorderNote": (
+            f"{len(preorders)} promise{'s' if len(preorders) != 1 else ''}"
+            + (f" · {customers} customer{'s' if customers != 1 else ''}"
+               if customers else "")
+            if preorders else "none yet"
+        ),
+        "coverDays": cover,
+        "coverNote": cover_note,
+    }
+
+
+def reorder() -> dict[str, str]:
+    """What the Stock page's reorder panel can honestly say.
+
+    The design's version names a supplier, a delivery date and a payback
+    period. None of that exists here, so this reports the one thing the shop
+    does know: which items have fallen to their reorder level.
+    """
+    low = memory.low_stock()
+    if not low:
+        stocked = len(memory.inventory())
+        return {
+            "basis": f"{stocked} item(s) tracked" if stocked
+                     else "no stock recorded yet",
+            "title": "Nothing needs reordering",
+            "sent": "Recorded. Your stock page updates when it arrives.",
+            "body": ("Every item is above the reorder level you set."
+                     if stocked else
+                     "No stock has been recorded yet. Add a photo of what "
+                     "arrived on this page and your team will log it."),
+        }
+    names = ", ".join(str(i.get("name")) for i in low[:3])
+    worth = sum(
+        float(i.get("unit_cost") or 0) * max(0, int(i.get("reorder_level") or 0))
+        for i in low
+    )
+    covers = [
+        (str(i.get("name")), memory.days_of_cover(str(i.get("name")),
+                                                  int(i.get("quantity") or 0)))
+        for i in low
+    ]
+    soon = [f"{n} runs out in about {d:.0f} days"
+            for n, d in covers if d is not None]
+    return {
+        "basis": f"{len(low)} item(s) at or below the level you set",
+        "title": (f"Reorder {names}"
+                  + (f" — about {_cur(worth)} at cost" if worth else "")),
+        "sent": "Recorded. Your stock page updates when it arrives.",
+        "body": (
+            ("; ".join(soon) + ". " if soon else "")
+            + "Based on the reorder levels you set"
+            + (" and the sales you have logged." if soon
+               else ". Log some sales and this will predict when you run out.")
+        ),
+    }
+
+
 def is_first_run() -> bool:
     """True while this shop's memory is still empty.
 
@@ -676,13 +786,16 @@ def is_first_run() -> bool:
     """
     s = memory.stats()
     return not any((s["products"], s["conversations"], s["campaigns"],
-                    s["preorders"], s["reports"]))
+                    s["preorders"], s["reports"], memory.orders(1)))
 
 
 def snapshot(session_id: str, pending: dict[str, Any] | None = None) -> dict:
     """Everything the design needs, keyed to the constants it declares."""
     return {
         "firstRun": is_first_run(),
+        "kpi": kpis(),
+        "reorder": reorder(),
+        "fx": fx.snapshot(settings.currency),
         "businessName": (memory.profile() or {}).get("business_name") or "Lucida",
         "ownerName": (memory.profile() or {}).get("owner_name") or "",
         "location": settings.location,

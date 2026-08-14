@@ -112,6 +112,23 @@ class SharedMemory:
     def low_stock(self) -> list[dict[str, Any]]:
         return self.db.low_stock()
 
+    # --- sales ---
+
+    def record_order(self, **fields: Any) -> int:
+        return self.db.record_order(**fields)
+
+    def orders(self, limit: int = 200) -> list[dict[str, Any]]:
+        return self.db.orders(limit)
+
+    def sales_since(self, days: int = 1) -> dict[str, Any]:
+        return self.db.sales_since(days)
+
+    def run_rate(self, product_name: str, days: int = 14) -> float | None:
+        return self.db.run_rate(product_name, days)
+
+    def days_of_cover(self, product_name: str, quantity: int) -> float | None:
+        return self.db.days_of_cover(product_name, quantity)
+
     def products(self) -> list[dict[str, Any]]:
         return self.db.query("SELECT * FROM products ORDER BY name")
 

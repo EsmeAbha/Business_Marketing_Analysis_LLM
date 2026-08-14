@@ -205,6 +205,118 @@ HANDLERS = [
         "photo of what you sell, and they fill in with yours.'\n"
         "        : open.length",
     ),
+    # The four headline tiles were written as literals — the demo shop's
+    # takings, preorders and days of cover. Bound to real figures instead.
+    # Each shows an em dash when the shop has no basis for it, rather than a
+    # borrowed number.
+    (
+        ">৳6,480</div>",
+        ">{{ salesToday }}</div>",
+    ),
+    (
+        ">24 orders · +12% vs last Tue</div>",
+        ">{{ salesTodayNote }}</div>",
+    ),
+    (
+        ">312 pcs</div>",
+        ">{{ preorderUnits }}</div>",
+    ),
+    (
+        ">৳5,616 · 9 customers</div>",
+        ">{{ preorderNote }}</div>",
+    ),
+    (
+        ">4 days</div>",
+        ">{{ coverDays }}</div>",
+    ),
+    (
+        ">Beef shingara running low</div>",
+        ">{{ coverNote }}</div>",
+    ),
+    (
+        "      shopLocation: (window.LUCIDA && window.LUCIDA.location)\n"
+        "        || 'Add your area in Settings',",
+        "      shopLocation: (window.LUCIDA && window.LUCIDA.location)\n"
+        "        || 'Add your area in Settings',\n"
+        "      salesToday: K().salesToday, salesTodayNote: K().salesTodayNote,\n"
+        "      preorderUnits: K().preorderUnits, preorderNote: K().preorderNote,\n"
+        "      coverDays: K().coverDays, coverNote: K().coverNote,",
+    ),
+    # One helper so the six bindings above read from the same place, with a
+    # dashed fallback when the server sent nothing.
+    #
+    # EMPTY_THREAD / EMPTY_RUN exist because the design assumed its own
+    # fixtures were always present: `THREADS.find(...) || THREADS[0]` is
+    # undefined once a real shop with no customers sends an empty array, and
+    # the very next line reads `.name` off it. These give the selection a
+    # harmless shape so the page renders empty instead of throwing.
+    (
+        "\nconst NAV = [",
+        "\nfunction K() {\n"
+        "  return (window.LUCIDA && window.LUCIDA.kpi) || {\n"
+        "    salesToday: '\\u2014', salesTodayNote: 'no sales logged yet',\n"
+        "    preorderUnits: '\\u2014', preorderNote: 'none yet',\n"
+        "    coverDays: '\\u2014', coverNote: 'needs sales history'\n"
+        "  };\n"
+        "}\n"
+        "const EMPTY_THREAD = { id: '', name: 'No messages yet', initials: '\\u2014',\n"
+        "  channel: '', t: '', history: '', preview: '', message: '',\n"
+        "  state: 'Your team has not read any customer messages yet.',\n"
+        "  stateFg: '#8A7563', mark: '#8A7563', read: '', tags: [],\n"
+        "  draft: '', action: '', send: () => {}, sent: false, sentAt: '',\n"
+        "  unsent: true };\n"
+        "const EMPTY_RUN = { id: '', label: 'No runs yet',\n"
+        "  meta: 'Ask your team something and the run appears here.',\n"
+        "  gate: { title: '', body: '' }, steps: [] };\n"
+        "\nconst NAV = [",
+    ),
+    (
+        "const thread = THREADS.find(t => t.id === s.thread) || THREADS[0];",
+        "const thread = THREADS.find(t => t.id === s.thread) || THREADS[0]"
+        " || EMPTY_THREAD;",
+    ),
+    (
+        "const run = RUNS.find(r => r.id === s.run) || RUNS[0];\n",
+        "const run = RUNS.find(r => r.id === s.run) || RUNS[0] || EMPTY_RUN;\n",
+    ),
+    # The Stock page's reorder panel is a worked example for the demo shop —
+    # a named supplier, a delivery date, a cost, all invented. Bound to what
+    # this shop can actually say: which items are at or below their reorder
+    # level, and what replacing them is worth at cost.
+    (
+        "based on 4 weeks of sales + 312 pcs already promised",
+        "{{ reorderBasis }}",
+    ),
+    (
+        ">Order 2,000 beef shingara and pilot 600 chicken<",
+        ">{{ reorderTitle }}<",
+    ),
+    (
+        'Karwan Bazar Foods delivers in 2 days — that lands before your beef runs out on Saturday. The chicken pilot answers 14 customers who asked for it this month; if it sells at ৳19 you keep ৳6.90 a piece.',
+        "{{ reorderBody }}",
+    ),
+    (
+        ">Order sent to Karwan Bazar Foods · ref PO-9931. Delivery expected Thu 14 Aug, and your stock page will update itself when it arrives.<",
+        ">{{ reorderSent }}<",
+    ),
+    (
+        "      salesToday: K().salesToday, salesTodayNote: K().salesTodayNote,",
+        "      reorderBasis: R().basis, reorderTitle: R().title,\n"
+        "      reorderBody: R().body,\n"
+        "      salesToday: K().salesToday, salesTodayNote: K().salesTodayNote,",
+    ),
+    (
+        "const EMPTY_THREAD = {",
+        "function R() {\n"
+        "  return (window.LUCIDA && window.LUCIDA.reorder) || {\n"
+        "    basis: 'nothing to base this on yet',\n"
+        "    title: 'Nothing needs reordering',\n"
+        "    body: 'Your stock is above the levels you set, or none has been "
+        "recorded yet.'\n"
+        "  };\n"
+        "}\n"
+        "const EMPTY_THREAD = {",
+    ),
 ]
 
 
@@ -254,9 +366,17 @@ def patch(src: str) -> tuple[str, list[str], list[str]]:
         open_at = m.end()
         close_at = _match_bracket(src, open_at)
         literal = src[open_at:close_at]
+        # An empty array from the server wins over the design's literal.
+        #
+        # This used to fall back to the sample data whenever a key was empty,
+        # which kept the layout intact but showed a new owner someone else's
+        # sales, stock and customers as though they were their own. Presence
+        # of the key is the test now: the server sends every key on every
+        # render, so an empty one means "this shop genuinely has none", and
+        # the design's own empty states handle it.
         replacement = (
-            f"const {const} = (window.LUCIDA && window.LUCIDA.{key} "
-            f"&& window.LUCIDA.{key}.length ? window.LUCIDA.{key} : {literal})"
+            f"const {const} = (window.LUCIDA && window.LUCIDA.{key} !== undefined"
+            f" ? window.LUCIDA.{key} : {literal})"
         )
         src = src[: m.start()] + replacement + src[close_at:]
         done.append(const)
@@ -274,6 +394,14 @@ def patch(src: str) -> tuple[str, list[str], list[str]]:
             continue
         src = src.replace(needle, replacement, 1)
         done.append(f"handler:{needle.strip().split('(')[0].split(':')[0][:30]}")
+
+    # Every RUNS[0] fallback needs the empty-run shape behind it, and there
+    # are four call sites — a single-shot replace would leave three throwing.
+    guarded = src.count("|| RUNS[0]") - src.count("|| RUNS[0] || EMPTY_RUN")
+    if guarded > 0:
+        src = src.replace("|| RUNS[0] || EMPTY_RUN", "|| RUNS[0]")
+        src = src.replace("|| RUNS[0]", "|| RUNS[0] || EMPTY_RUN")
+        done.append(f"empty-run-guard:{src.count('EMPTY_RUN') - 1}")
 
     # Case-insensitively, because the bundle mixes #14603F and #14603f.
     recoloured = 0
@@ -314,7 +442,9 @@ def main() -> int:
     patched, done, missed = patch(backup.read_text(encoding="utf-8"))
     INDEX.write_text(patched, encoding="utf-8")
 
-    print(f"patched {len(done)} hooks: {', '.join(done)}")
+    # The Windows console is cp1252; hook labels can carry a taka sign.
+    summary = ", ".join(done).encode("ascii", "replace").decode("ascii")
+    print(f"patched {len(done)} hooks: {summary}")
     if missed:
         print(f"NOT FOUND (left as-is): {', '.join(missed)}", file=sys.stderr)
     return 0

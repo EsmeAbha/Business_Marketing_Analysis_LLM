@@ -114,18 +114,18 @@ window.LUCIDA = window.LUCIDA || {};
         <div style="display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 26px;">
           <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
             <div style="font-size: 12px; color: #8A7563;">Sales today</div>
-            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">৳6,480</div>
-            <div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">24 orders · +12% vs last Tue</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">{{ salesToday }}</div>
+            <div style="font-size: 12px; color: #7B1E22; margin-top: 2px;">{{ salesTodayNote }}</div>
           </div>
           <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
             <div style="font-size: 12px; color: #8A7563;">Preorders waiting</div>
-            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">312 pcs</div>
-            <div style="font-size: 12px; color: #8A7563; margin-top: 2px;">৳5,616 · 9 customers</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px;">{{ preorderUnits }}</div>
+            <div style="font-size: 12px; color: #8A7563; margin-top: 2px;">{{ preorderNote }}</div>
           </div>
           <div style="background: #FDFAF4; border: 1px solid #F0DFC2; border-radius: 14px; padding: 15px 16px;">
             <div style="font-size: 12px; color: #8A7563;">Stock will last</div>
-            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px; color: #B4741B;">4 days</div>
-            <div style="font-size: 12px; color: #B4741B; margin-top: 2px;">Beef shingara running low</div>
+            <div style="font-family: 'Instrument Serif', serif; font-size: 27px; margin-top: 4px; color: #B4741B;">{{ coverDays }}</div>
+            <div style="font-size: 12px; color: #B4741B; margin-top: 2px;">{{ coverNote }}</div>
           </div>
           <div style="background: #FDFAF4; border: 1px solid #DDCDB4; border-radius: 14px; padding: 15px 16px;">
             <div style="font-size: 12px; color: #8A7563;">Profit per pack</div>
@@ -330,10 +330,10 @@ window.LUCIDA = window.LUCIDA || {};
           <div style="background: #FDFAF4; border: 1px solid {{ poBorder }}; border-radius: 14px; padding: 18px;">
             <div style="display: flex; align-items: center; gap: 9px; margin-bottom: 9px;">
               <span style="font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #B4741B; background: #FBF1E1; padding: 3px 8px; border-radius: 6px;">Reorder suggested</span>
-              <span style="font-size: 12px; color: #8A7563;">based on 4 weeks of sales + 312 pcs already promised</span>
+              <span style="font-size: 12px; color: #8A7563;">{{ reorderBasis }}</span>
             </div>
-            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Order 2,000 beef shingara and pilot 600 chicken</div>
-            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A3728; line-height: 1.6;">Karwan Bazar Foods delivers in 2 days — that lands before your beef runs out on Saturday. The chicken pilot answers 14 customers who asked for it this month; if it sells at ৳19 you keep ৳6.90 a piece.</p>
+            <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">{{ reorderTitle }}</div>
+            <p style="margin: 0 0 14px; font-size: 13.5px; color: #4A3728; line-height: 1.6;">{{ reorderBody }}</p>
             <div style="display: flex; gap: 22px; padding: 13px 15px; background: #F4EADA; border-radius: 11px; margin-bottom: 15px;">
               <div><div style="font-size: 11.5px; color: #8A7563;">Total cost</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px;">৳30,060</div></div>
               <div><div style="font-size: 11.5px; color: #8A7563;">Already promised</div><div style="font-size: 15px; font-weight: 600; margin-top: 2px; color: #7B1E22;">৳5,616</div></div>
@@ -348,7 +348,7 @@ window.LUCIDA = window.LUCIDA || {};
               </div>
             </sc-if>
             <sc-if value="{{ poDone }}" hint-placeholder-val="{{ false }}">
-              <div style="padding: 12px 14px; border-radius: 10px; background: #F3E2E1; color: #7B1E22; font-size: 13.5px; line-height: 1.55;">Order sent to Karwan Bazar Foods · ref PO-9931. Delivery expected Thu 14 Aug, and your stock page will update itself when it arrives.</div>
+              <div style="padding: 12px 14px; border-radius: 10px; background: #F3E2E1; color: #7B1E22; font-size: 13.5px; line-height: 1.55;">{{ reorderSent }}</div>
             </sc-if>
           </div>
 
@@ -889,13 +889,37 @@ window.LUCIDA = window.LUCIDA || {};
 
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;businessName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Shomvob Kitchen&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;},&quot;ownerName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Rifat&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Business&quot;}}">
+function K() {
+  return (window.LUCIDA && window.LUCIDA.kpi) || {
+    salesToday: '\u2014', salesTodayNote: 'no sales logged yet',
+    preorderUnits: '\u2014', preorderNote: 'none yet',
+    coverDays: '\u2014', coverNote: 'needs sales history'
+  };
+}
+function R() {
+  return (window.LUCIDA && window.LUCIDA.reorder) || {
+    basis: 'nothing to base this on yet',
+    title: 'Nothing needs reordering',
+    body: 'Your stock is above the levels you set, or none has been recorded yet.'
+  };
+}
+const EMPTY_THREAD = { id: '', name: 'No messages yet', initials: '\u2014',
+  channel: '', t: '', history: '', preview: '', message: '',
+  state: 'Your team has not read any customer messages yet.',
+  stateFg: '#8A7563', mark: '#8A7563', read: '', tags: [],
+  draft: '', action: '', send: () => {}, sent: false, sentAt: '',
+  unsent: true };
+const EMPTY_RUN = { id: '', label: 'No runs yet',
+  meta: 'Ask your team something and the run appears here.',
+  gate: { title: '', body: '' }, steps: [] };
+
 const NAV = [
   ['today', 'Today', '◉'], ['inbox', 'Customers', '✉'], ['stock', 'Stock', '▦'],
   ['marketing', 'Marketing', '◆'], ['money', 'Money', '৳'], ['grow', 'Grow', '↗'],
   ['history', 'History', '◔'], ['settings', 'Settings', '⚙']
 ];
 
-const DECISIONS = (window.LUCIDA && window.LUCIDA.decisions && window.LUCIDA.decisions.length ? window.LUCIDA.decisions : [
+const DECISIONS = (window.LUCIDA && window.LUCIDA.decisions !== undefined ? window.LUCIDA.decisions : [
   {
     id: 'ads', tag: 'Marketing', by: 'Written by your marketing assistant', when: '6:10 am',
     title: 'Three posts are ready for this week — shall I publish them?',
@@ -925,7 +949,7 @@ const DECISIONS = (window.LUCIDA && window.LUCIDA.decisions && window.LUCIDA.dec
   }
 ]);
 
-const OVERNIGHT = (window.LUCIDA && window.LUCIDA.overnight && window.LUCIDA.overnight.length ? window.LUCIDA.overnight : [
+const OVERNIGHT = (window.LUCIDA && window.LUCIDA.overnight !== undefined ? window.LUCIDA.overnight : [
   { text: 'Answered 38 of 47 messages — prices, delivery areas, reheating questions.', by: 'Customer assistant', t: '11:20 pm – 6:00 am' },
   { text: 'Found 9 preorders hidden in chats and logged 312 pieces against Friday.', by: 'Customer assistant', t: '5:40 am' },
   { text: 'Counted down stock after yesterday\'s 47 sales and raised the low-stock flag.', by: 'Stock assistant', t: '6:02 am' },
@@ -933,7 +957,7 @@ const OVERNIGHT = (window.LUCIDA && window.LUCIDA.overnight && window.LUCIDA.ove
   { text: 'Passed one delivery complaint from Pallabi to you — a refund needs your word.', by: 'Customer assistant', t: '4:44 am' }
 ]);
 
-const THREADS = (window.LUCIDA && window.LUCIDA.threads && window.LUCIDA.threads.length ? window.LUCIDA.threads : [
+const THREADS = (window.LUCIDA && window.LUCIDA.threads !== undefined ? window.LUCIDA.threads : [
   { id: 't1', name: 'Nusrat Jahan', initials: 'NJ', channel: 'Messenger', t: '17:52', history: '4th order · joined June',
     preview: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
     message: 'Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache? Beef amar shoshur khan na.',
@@ -984,7 +1008,7 @@ const THREADS = (window.LUCIDA && window.LUCIDA.threads && window.LUCIDA.threads
     action: 'Sent at 13:08 — inside your autopilot rules.' }
 ]);
 
-const STOCK = (window.LUCIDA && window.LUCIDA.stock && window.LUCIDA.stock.length ? window.LUCIDA.stock : [
+const STOCK = (window.LUCIDA && window.LUCIDA.stock !== undefined ? window.LUCIDA.stock : [
   { initial: 'B', thumbBg: '#F3E2E1', thumbFg: '#7B1E22', name: 'Beef shingara 58g', sub: 'Your best seller · ৳18 a piece', qty: '620 pcs', qtyColor: '#A63A2E', rate: '155/day', cover: 'Saturday', coverColor: '#A63A2E', todo: 'Reorder today — 2 days delivery' },
   { initial: 'V', thumbBg: '#EFE2CE', thumbFg: '#4A3728', name: 'Veg samosa 50g', sub: 'Steady · ৳15 a piece', qty: '1,140 pcs', qtyColor: '#17120F', rate: '67/day', cover: 'in 17 days', coverColor: '#4A3728', todo: 'Nothing to do' },
   { initial: 'C', thumbBg: '#FBF1E1', thumbFg: '#B4741B', name: 'Chicken shingara 58g', sub: 'Not made yet · 14 requests', qty: '—', qtyColor: '#A89680', rate: '—', cover: '—', coverColor: '#A89680', todo: 'Test 600 pieces with the next order' }
@@ -999,7 +1023,7 @@ const CREATIVES = [
     copy: 'Fold, freeze, fry — 18 second e apnar rannaghor. Shesh e 12 pcs ৳216 pack ta dekhano hobe, sathe order korar link.' }
 ];
 
-const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns && window.LUCIDA.campaigns.length ? window.LUCIDA.campaigns : [
+const CAMPAIGNS = (window.LUCIDA && window.LUCIDA.campaigns !== undefined ? window.LUCIDA.campaigns : [
   { name: 'Weekend pack push', sub: 'Started 8 Aug · 12-pc pack', where: 'Facebook, IG', spent: '৳1,750', orders: '38', state: 'Running well', stateFg: '#7B1E22' },
   { name: 'Reseller wholesale ad', sub: 'Started 10 Aug · 30-pc pack', where: 'Facebook', spent: '৳700', orders: '6', state: 'Watching', stateFg: '#B4741B' }
 ]);
@@ -1012,7 +1036,7 @@ const COST_ROWS = [
   { k: 'Your time and gas', v: '৳1.20', pct: 24, color: '#7B1E22' }
 ];
 
-const PNL = (window.LUCIDA && window.LUCIDA.pnl && window.LUCIDA.pnl.length ? window.LUCIDA.pnl : [
+const PNL = (window.LUCIDA && window.LUCIDA.pnl !== undefined ? window.LUCIDA.pnl : [
   { k: 'Money in', v: '৳48,240', note: '2,680 pieces sold · +14% on last week', weight: '600', keyColor: '#17120F', vColor: '#17120F' },
   { k: 'Making cost', v: '−৳32,294', note: 'oil price rose midweek', weight: '400', keyColor: '#4A3728', vColor: '#4A3728' },
   { k: 'Ads', v: '−৳2,450', note: '৳4.85 back for every ৳1', weight: '400', keyColor: '#4A3728', vColor: '#4A3728' },
@@ -1020,7 +1044,7 @@ const PNL = (window.LUCIDA && window.LUCIDA.pnl && window.LUCIDA.pnl.length ? wi
   { k: 'What you kept', v: '৳12,356', note: '25.6% of money in', weight: '700', keyColor: '#17120F', vColor: '#7B1E22' }
 ]);
 
-const DEMANDS = (window.LUCIDA && window.LUCIDA.demands && window.LUCIDA.demands.length ? window.LUCIDA.demands : [
+const DEMANDS = (window.LUCIDA && window.LUCIDA.demands !== undefined ? window.LUCIDA.demands : [
   { name: 'Chicken shingara', note: 'nobody within 4 km sells it', n: 14, pct: 100 },
   { name: 'Mini veg samosa', note: 'office snack boxes', n: 6, pct: 43 },
   { name: 'Frozen paratha', note: 'asked with breakfast orders', n: 3, pct: 21 }
@@ -1033,7 +1057,7 @@ const RIVALS = [
   { name: '11 smaller sellers', price: '৳16–28', note: 'mostly veg, irregular stock' }
 ];
 
-const HISTORY = (window.LUCIDA && window.LUCIDA.history && window.LUCIDA.history.length ? window.LUCIDA.history : [
+const HISTORY = (window.LUCIDA && window.LUCIDA.history !== undefined ? window.LUCIDA.history : [
   { id: 'h1', cat: 'Stock', text: 'Flagged beef shingara as low — 4 days left at current sales.', by: 'Stock assistant', t: '8:20 am', dot: '#B4741B',
     why: 'You sold 155 pieces a day over the last two weeks and 620 are left, so Saturday is the last day with stock. Your supplier needs 2 days, and 312 pieces are already promised to customers, which is why this became a decision instead of a note.' },
   { id: 'h2', cat: 'Money', text: 'Recalculated your cost per piece after the oil price rose.', by: 'Pricing assistant', t: '8:02 am', dot: '#7B1E22',
@@ -1061,7 +1085,7 @@ const PERMS = [
   { id: 'p6', label: 'Change prices on its own', note: 'Not recommended — customers see this immediately.', on: false }
 ];
 
-const CHANNELS = (window.LUCIDA && window.LUCIDA.channels && window.LUCIDA.channels.length ? window.LUCIDA.channels : [
+const CHANNELS = (window.LUCIDA && window.LUCIDA.channels !== undefined ? window.LUCIDA.channels : [
   { name: 'Facebook page', state: 'Connected', ok: true },
   { name: 'Instagram', state: 'Connected', ok: true },
   { name: 'YouTube', state: 'Connected', ok: true },
@@ -1081,7 +1105,7 @@ const BUILDER_NAV = [
   ['history', 'History', '◔'], ['settings', 'Settings', '⚙']
 ];
 
-const ROSTER = (window.LUCIDA && window.LUCIDA.roster && window.LUCIDA.roster.length ? window.LUCIDA.roster : [
+const ROSTER = (window.LUCIDA && window.LUCIDA.roster !== undefined ? window.LUCIDA.roster : [
   { id: 'supervisor', name: 'Supervisor', kind: 'router', owns: 'Reads the owner\'s request, picks the stage, plans the order of work, holds the gates.', tools: 'planner · state graph · checkpoints', calls: 14, state: 'working', busy: true },
   { id: 'market', name: 'Market Research', kind: 'specialist', owns: 'Finds gaps and rival prices around the shop.', tools: 'web search · page & profile lookups', calls: 6, state: 'used this run' },
   { id: 'vision', name: 'Product Vision', kind: 'specialist', owns: 'Turns a photo into a named product with a price band.', tools: 'vision model · web search', calls: 3, state: 'used this run' },
@@ -1103,7 +1127,7 @@ const GRAPH_EDGES = [
   ['market', 'pricing'], ['engage', 'inventory'], ['inventory', 'report'], ['ads', 'pricing']
 ];
 
-const RUNS = (window.LUCIDA && window.LUCIDA.runs && window.LUCIDA.runs.length ? window.LUCIDA.runs : [
+const RUNS = (window.LUCIDA && window.LUCIDA.runs !== undefined ? window.LUCIDA.runs : [
   { id: 'r1', label: 'Photo → is it worth selling?', meta: 'run 014 · 12 steps · $0.081',
     gate: { title: 'Approve the plan for chicken shingara?', body: 'Nothing is sourced or spent until you approve. Rejecting sends the research back with your reason attached.' },
     steps: [
@@ -1173,7 +1197,7 @@ const KIND_STYLE = {
   error: ['failure', '#F8E9E6', '#A63A2E'], gate: ['gate', '#FBF1E1', '#B4741B'], act: ['action', '#F3E2E1', '#7B1E22']
 };
 
-const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords && window.LUCIDA.memRecords.length ? window.LUCIDA.memRecords : [
+const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords !== undefined ? window.LUCIDA.memRecords : [
   { store: 'business_profile', key: 'shomvob_kitchen', value: 'Home kitchen, Mirpur 11 · owner Rifat Ara · sells in BDT · two helpers', by: 'Supervisor', when: '02 Aug', cat: 'Business' },
   { store: 'catalog', key: 'prod_014', value: 'Beef shingara 58g · ৳18 a piece · 12 and 30-piece packs', by: 'Product Vision', when: '05 Aug', cat: 'Business' },
   { store: 'catalog', key: 'prod_009', value: 'Veg samosa 50g · ৳15 a piece', by: 'Product Vision', when: '02 Aug', cat: 'Business' },
@@ -1188,7 +1212,7 @@ const MEM_RECORDS = (window.LUCIDA && window.LUCIDA.memRecords && window.LUCIDA.
   { store: 'graph_state', key: 'run_042', value: 'Paused at the price gate — resumable from step 5', by: 'Supervisor', when: 'today', cat: 'Business' }
 ]);
 
-const COST_BARS = (window.LUCIDA && window.LUCIDA.costBars && window.LUCIDA.costBars.length ? window.LUCIDA.costBars : [
+const COST_BARS = (window.LUCIDA && window.LUCIDA.costBars !== undefined ? window.LUCIDA.costBars : [
   { name: 'Customer Engagement', tok: '38,400', cost: '$0.19', pct: 100, color: '#7B1E22' },
   { name: 'Reporting', tok: '27,100', cost: '$0.16', pct: 71, color: '#7B1E22' },
   { name: 'Market Research', tok: '19,800', cost: '$0.11', pct: 52, color: '#7B1E22' },
@@ -1197,7 +1221,7 @@ const COST_BARS = (window.LUCIDA && window.LUCIDA.costBars && window.LUCIDA.cost
   { name: 'Ad Creation', tok: '8,200', cost: '$0.02', pct: 21, color: '#7B1E22' }
 ]);
 
-const FAILURES = (window.LUCIDA && window.LUCIDA.failures && window.LUCIDA.failures.length ? window.LUCIDA.failures : [
+const FAILURES = (window.LUCIDA && window.LUCIDA.failures !== undefined ? window.LUCIDA.failures : [
   { level: 'Failure', what: 'Steadfast courier never answered', t: '8:15 am', tagBg: '#F8E9E6', tagFg: '#A63A2E', fix: 'Two attempts timed out. The delivery agent moved to the next courier on its list, Pathao, at the same rate. The owner was told the courier changed; the pickup still happened.' },
   { level: 'Failure', what: 'Rival price service rate-limited us', t: '9:41 am', tagBg: '#F8E9E6', tagFg: '#A63A2E', fix: 'Backed off 2 seconds, then 4, and the retry worked. Nothing surfaced to the owner because nothing was lost.' },
   { level: 'Warning', what: 'Photo store slow to respond', t: '6:20 pm', tagBg: '#FBF1E1', tagFg: '#B4741B', fix: 'Stock counting reads from the database, so it continued without the photo and loaded it afterwards.' }
@@ -1220,13 +1244,13 @@ class Component extends DCLogic {
     if (!RUNS.length) return;
     const s = this.state;
     if (s.role !== 'builder' || !s.playing || this.gateBlocking()) return;
-    const run = RUNS.find(r => r.id === s.run) || RUNS[0];
+    const run = RUNS.find(r => r.id === s.run) || RUNS[0] || EMPTY_RUN;
     if (s.cursor >= run.steps.length) return;
     this.timer = setTimeout(() => this.advance(), 900);
   }
 
   advance() {
-    const run = RUNS.find(r => r.id === this.state.run) || RUNS[0];
+    const run = RUNS.find(r => r.id === this.state.run) || RUNS[0] || EMPTY_RUN;
     this.setState(st => {
       const next = run.steps[st.cursor];
       if (!next) return { playing: false };
@@ -1236,7 +1260,7 @@ class Component extends DCLogic {
   }
 
   gateBlocking() {
-    const s = this.state, run = RUNS.find(r => r.id === s.run) || RUNS[0];
+    const s = this.state, run = RUNS.find(r => r.id === s.run) || RUNS[0] || EMPTY_RUN;
     for (let i = 0; i < s.cursor; i++) if (run.steps[i].gate) return !s.gates[s.run];
     return false;
   }
@@ -1260,9 +1284,9 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state;
     const open = DECISIONS.filter(d => !s.decided[d.id]);
-    const thread = THREADS.find(t => t.id === s.thread) || THREADS[0];
+    const thread = THREADS.find(t => t.id === s.thread) || THREADS[0] || EMPTY_THREAD;
     const raised = s.price === 'raised';
-    const run = RUNS.find(r => r.id === s.run) || RUNS[0];
+    const run = RUNS.find(r => r.id === s.run) || RUNS[0] || EMPTY_RUN;
     const shown = run.steps.slice(0, s.cursor);
     const gateReached = shown.some(x => x.gate);
     const gateWaiting = gateReached && !s.gates[s.run];
@@ -1280,6 +1304,11 @@ class Component extends DCLogic {
       goSettings: () => this.go('settings'), goActivity: () => this.go('history'),
       shopLocation: (window.LUCIDA && window.LUCIDA.location)
         || 'Add your area in Settings',
+      reorderBasis: R().basis, reorderTitle: R().title,
+      reorderBody: R().body,
+      salesToday: K().salesToday, salesTodayNote: K().salesTodayNote,
+      preorderUnits: K().preorderUnits, preorderNote: K().preorderNote,
+      coverDays: K().coverDays, coverNote: K().coverNote,
       goGrow: () => window.LucidaActions.ask(this.state.ask), goStock: () => this.go('stock'),
 
       nav: (s.role === 'builder' ? BUILDER_NAV : OWNER_NAV).map(([id, label, icon]) => ({
