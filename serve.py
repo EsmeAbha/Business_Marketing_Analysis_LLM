@@ -461,10 +461,16 @@ async def api_studio_generate(request):
     offer = str(body.get("offer") or "").strip()
     audience = str(body.get("audience") or "").strip()
     style = str(body.get("style") or "").strip()
+    detail = str(body.get("detail") or "").strip()
     preset = str(body.get("preset") or "square")
+    try:
+        seed = int(body.get("seed")) if body.get("seed") is not None else None
+    except (TypeError, ValueError):
+        seed = None
 
     art = await asyncio.to_thread(
-        imagegen.generate_for_product, product, preset, style, offer, audience)
+        imagegen.generate_for_product, product, preset, style, offer,
+        audience, detail, seed)
 
     copy_html = ""
     if settings.has_llm:
@@ -510,6 +516,46 @@ def _write_ad_copy(product: str, offer: str, audience: str) -> str:
     reply = get_llm(settings.model or "", 500).invoke(ask)
     text = str(getattr(reply, "content", reply))
     return app_ui.e(text).replace("\n", "<br>")
+
+
+async def api_studio_upload(request):
+    """Take the owner's own product photo into the editor.
+
+    Their photograph of real stock is better than any generated picture, so
+    this is the preferred path — the drawing tool exists for owners who have
+    nothing to photograph yet.
+    """
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+
+    form = await request.form()
+    upload = form.get("photo")
+    if upload is None or not getattr(upload, "filename", ""):
+        return JSONResponse({"error": "no photo attached"}, status_code=400)
+
+    suffix = Path(str(upload.filename)).suffix.lower()
+    if suffix not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        return JSONResponse({"error": "use a JPG, PNG or WEBP"},
+                            status_code=400)
+
+    raw = await upload.read()
+    if len(raw) > 12 * 1024 * 1024:
+        return JSONResponse({"error": "that photo is over 12 MB"},
+                            status_code=400)
+
+    imagegen.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+    name = f"own-{account['id']}-{secrets.token_hex(4)}{suffix}"
+    (imagegen.MEDIA_DIR / name).write_bytes(raw)
+
+    memory.db.execute(
+        """INSERT INTO media_assets (kind, source, path, width, height, bytes,
+                                     created_at)
+           VALUES ('product_photo','uploaded',?,0,0,?,datetime('now'))""",
+        (str(imagegen.MEDIA_DIR / name), len(raw)),
+    )
+    logger.info("studio: own photo uploaded (%d bytes)", len(raw))
+    return JSONResponse({"image": f"/media/{name}", "source": "uploaded"})
 
 
 async def media(request):
@@ -894,6 +940,8 @@ app = Starlette(
         Route("/board", board),
         Route("/media/{name}", media),
         Route("/api/studio/generate", api_studio_generate,
+              methods=["POST"]),
+        Route("/api/studio/upload", api_studio_upload,
               methods=["POST"]),
         Route("/login", login, methods=["GET", "POST"]),
         Route("/signup", signup, methods=["GET", "POST"]),
