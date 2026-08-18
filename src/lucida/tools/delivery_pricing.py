@@ -20,6 +20,8 @@ Three rules that are easy to get wrong and expensive to get wrong:
 from __future__ import annotations
 
 import math
+
+import httpx
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -182,6 +184,107 @@ def quote(
 
     q.total_charge = q.goods_total + q.delivery_charge + q.cod_fee
     return q
+
+
+# Pathao's city and zone lists are long and effectively static, so they are
+# fetched once per process rather than on every quote.
+_PLACES: dict[str, Any] = {}
+
+
+def pathao_place(db, city_name: str, zone_name: str = ""
+                 ) -> tuple[int, int, str]:
+    """Pathao's (city_id, zone_id) for a typed address, or (0, 0, why not).
+
+    Matched on name because that is what the owner types. A city that cannot
+    be matched is reported rather than guessed: the wrong zone is the wrong
+    price, and the customer is the one who finds out.
+    """
+    from . import connections
+    key, secret, user, pw, sandbox = connections.pathao_credentials(db)
+    if not (key and user):
+        return 0, 0, "Pathao is not connected"
+    token, err = connections.pathao_token(key, secret, user, pw, sandbox)
+    if err:
+        return 0, 0, err
+
+    if "cities" not in _PLACES:
+        data, err = connections.pathao_get(
+            "/aladdin/api/v1/city-list", token, sandbox)
+        if err:
+            return 0, 0, err
+        _PLACES["cities"] = (data.get("data") or {}).get("data") or []
+
+    want = " ".join(str(city_name or "").split()).lower()
+    city = next((c for c in _PLACES["cities"]
+                 if str(c["city_name"]).strip().lower() == want), None)
+    if city is None:
+        city = next((c for c in _PLACES["cities"]
+                     if want and want in str(c["city_name"]).strip().lower()),
+                    None)
+    if city is None:
+        return 0, 0, f"Pathao does not list a city called \u201c{city_name}\u201d"
+    city_id = int(city["city_id"])
+
+    cache_key = f"zones-{city_id}"
+    if cache_key not in _PLACES:
+        data, err = connections.pathao_get(
+            f"/aladdin/api/v1/cities/{city_id}/zone-list", token, sandbox)
+        if err:
+            return city_id, 0, err
+        _PLACES[cache_key] = (data.get("data") or {}).get("data") or []
+
+    zones_here = _PLACES[cache_key]
+    zwant = " ".join(str(zone_name or "").split()).lower()
+    zone = None
+    if zwant:
+        zone = next((z for z in zones_here
+                     if str(z["zone_name"]).strip().lower() == zwant), None)
+        if zone is None:
+            zone = next((z for z in zones_here
+                         if zwant in str(z["zone_name"]).strip().lower()), None)
+    if zone is None:
+        return city_id, 0, (
+            f"Pathao does not list an area called \u201c{zone_name}\u201d in "
+            f"{city['city_name']}" if zwant else "no area given")
+    return city_id, int(zone["zone_id"]), ""
+
+
+def pathao_quote(db, weight_g: int, city_id: int, zone_id: int
+                 ) -> tuple[float, float, str]:
+    """Pathao's own price for this parcel: (delivery, cod_fee, why not).
+
+    Worth a network call because it is the actual charge rather than an
+    estimate from a rate card that may be out of date — and because the
+    cash-on-delivery percentage comes back with it.
+    """
+    from . import connections
+    extra = connections.extras(db, "pathao")
+    if not extra.get("store_id"):
+        return 0.0, 0.0, "Pathao is not connected"
+
+    key, secret, user, pw, sandbox = connections.pathao_credentials(db)
+    token, err = connections.pathao_token(key, secret, user, pw, sandbox)
+    if err:
+        return 0.0, 0.0, err
+
+    weight = min(10.0, max(0.5, round(weight_g / 1000, 2)))
+    try:
+        with httpx.Client(timeout=25) as c:
+            r = c.post(
+                f"{connections.pathao_base(sandbox)}"
+                f"/aladdin/api/v1/merchant/price-plan",
+                headers={"Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                json={"store_id": extra["store_id"], "item_type": 2,
+                      "delivery_type": 48, "item_weight": weight,
+                      "recipient_city": city_id, "recipient_zone": zone_id})
+        if r.status_code != 200:
+            return 0.0, 0.0, f"Pathao returned {r.status_code}"
+        d = r.json().get("data") or {}
+        return (float(d.get("final_price") or d.get("price") or 0),
+                float(d.get("cod_percentage") or 0), "")
+    except Exception as exc:  # noqa: BLE001
+        return 0.0, 0.0, str(exc)
 
 
 def zones(db) -> list[dict[str, Any]]:

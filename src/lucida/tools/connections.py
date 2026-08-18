@@ -23,6 +23,7 @@ later, in front of a customer.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -39,6 +40,9 @@ GRAPH = "https://graph.facebook.com/v21.0"
 GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 STEADFAST_BASE = "https://portal.packzy.com/api/v1"
 PATHAO_BASE = "https://api-hermes.pathao.com"
+# Pathao's sandbox takes the published test credentials and books nothing
+# real, which is the only safe way to try the flow end to end.
+PATHAO_SANDBOX = "https://courier-api-sandbox.pathao.com"
 YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
 TIMEOUT = 30
 
@@ -108,15 +112,27 @@ def saved(db, platform: str) -> dict[str, Any] | None:
 
 
 def save(db, platform: str, external_id: str, display_name: str,
-         token: str, expires: str = "") -> None:
+         token: str, expires: str = "", extra: dict | None = None) -> None:
     """One live connection per platform — reconnecting replaces the old one."""
     db.execute("DELETE FROM social_accounts WHERE platform=?", (platform,))
     db.execute(
         "INSERT INTO social_accounts (platform, external_id, display_name, "
-        "access_token, token_expires, connected, created_at) "
-        "VALUES (?,?,?,?,?,1,?)",
-        (platform, external_id, display_name, token, expires, _now()))
+        "access_token, token_expires, connected, created_at, extra) "
+        "VALUES (?,?,?,?,?,1,?,?)",
+        (platform, external_id, display_name, token, expires, _now(),
+         json.dumps(extra or {})))
     logger.info("connected %s as %s", platform, display_name)
+
+
+def extras(db, platform: str) -> dict:
+    """The credentials that do not fit in (token, id) — Pathao's, mostly."""
+    row = saved(db, platform) if db is not None else None
+    if row and row.get("extra"):
+        try:
+            return json.loads(row["extra"])
+        except (TypeError, ValueError):
+            return {}
+    return {}
 
 
 def forget(db, platform: str) -> None:
@@ -143,6 +159,15 @@ def credentials(db, platform: str) -> tuple[str, str]:
         return settings.pathao_client_id, settings.pathao_client_secret
     return settings.youtube_refresh_token, ""
 
+
+
+def pathao_credentials(db) -> tuple[str, str, str, str, bool]:
+    """(client_id, client_secret, username, password, sandbox) for this shop."""
+    extra = extras(db, "pathao")
+    client_id, ident = credentials(db, "pathao")
+    secret = str(extra.get("client_secret") or "") or ident
+    return (client_id, secret, str(extra.get("username") or ""),
+            str(extra.get("password") or ""), bool(extra.get("sandbox")))
 
 def connected(db, platform: str) -> bool:
     token, ident = credentials(db, platform)
@@ -267,33 +292,107 @@ def verify_steadfast(api_key: str, secret: str) -> Verified:
         return Verified(False, error=str(exc))
 
 
-def verify_pathao(client_id: str, client_secret: str) -> Verified:
-    """Issue a Pathao token. If it comes back, the credentials work."""
-    if not (client_id and client_secret):
-        return Verified(False, error="Both the client id and the secret are needed.")
+def pathao_base(sandbox: bool = False) -> str:
+    return PATHAO_SANDBOX if sandbox else PATHAO_BASE
+
+
+def pathao_token(client_id: str, client_secret: str, username: str,
+                 password: str, sandbox: bool = False) -> tuple[str, str]:
+    """A Pathao access token, or ('', why not).
+
+    `grant_type=password`, not client_credentials: the client pair identifies
+    the integration, the login identifies the merchant, and Pathao wants
+    both. Sending only the pair returns "The user credentials were incorrect",
+    which reads like a wrong key and is really a missing login.
+    """
     try:
         with httpx.Client(timeout=TIMEOUT) as c:
-            r = c.post(f"{PATHAO_BASE}/aladdin/api/v1/issue-token", json={
-                "client_id": client_id, "client_secret": client_secret,
-                "grant_type": "client_credentials"})
+            r = c.post(f"{pathao_base(sandbox)}/aladdin/api/v1/issue-token",
+                       json={"client_id": client_id,
+                             "client_secret": client_secret,
+                             "grant_type": "password",
+                             "username": username, "password": password})
         if r.status_code != 200:
-            return Verified(False, error=(
-                f"Pathao refused those credentials ({r.status_code}). They "
-                "come from the Merchant panel under Developer API."))
-        if not r.json().get("access_token"):
-            return Verified(False, error="Pathao returned no token.")
-        return Verified(True, "Pathao merchant account", "pathao")
+            detail = ""
+            try:
+                detail = r.json().get("message") or ""
+            except Exception:  # noqa: BLE001
+                detail = r.text[:120]
+            return "", f"Pathao refused those credentials: {detail}"
+        token = r.json().get("access_token") or ""
+        return (token, "") if token else ("", "Pathao returned no token.")
     except Exception as exc:  # noqa: BLE001
-        return Verified(False, error=str(exc))
+        return "", str(exc)
 
 
-def verify(platform: str, token: str, ident: str = "") -> Verified:
+def pathao_get(path: str, token: str, sandbox: bool = False) -> tuple[dict, str]:
+    try:
+        with httpx.Client(timeout=TIMEOUT) as c:
+            r = c.get(f"{pathao_base(sandbox)}{path}",
+                      headers={"Authorization": f"Bearer {token}",
+                               "Content-Type": "application/json"})
+        if r.status_code != 200:
+            return {}, f"Pathao returned {r.status_code}"
+        return r.json(), ""
+    except Exception as exc:  # noqa: BLE001
+        return {}, str(exc)
+
+
+def verify_pathao(client_id: str, client_secret: str, username: str = "",
+                  password: str = "", sandbox: bool = False) -> Verified:
+    """Issue a token, then read the merchant's stores.
+
+    The store matters as much as the token: a Pathao order will not be
+    accepted without the id of the store it is collected from, so a
+    connection that cannot name one is not finished.
+    """
+    if not (client_id and client_secret):
+        return Verified(False, error="Both the client id and the secret are needed.")
+    if not (username and password):
+        return Verified(False, error=(
+            "Pathao also needs the email and password you sign in to the "
+            "Merchant panel with — the client pair alone cannot issue a token."))
+
+    token, err = pathao_token(client_id, client_secret, username, password,
+                              sandbox)
+    if err:
+        return Verified(False, error=err)
+
+    data, err = pathao_get("/aladdin/api/v1/stores", token, sandbox)
+    stores = ((data.get("data") or {}).get("data") or []) if not err else []
+    if err:
+        return Verified(False, error=f"Token worked, but {err} reading stores.")
+    if not stores:
+        return Verified(False, error=(
+            "That account has no store yet. Create one in the Pathao Merchant "
+            "panel first — a parcel needs somewhere to be collected from."))
+
+    store = next((s for s in stores if s.get("is_default_store")), stores[0])
+    return Verified(
+        True,
+        f"Pathao · {store.get('store_name') or 'your store'}",
+        str(store.get("store_id") or ""),
+        scopes=json.dumps({
+            "store_id": store.get("store_id"),
+            "store_name": store.get("store_name"),
+            "city_id": store.get("city_id"),
+            "zone_id": store.get("zone_id"),
+            "stores": len(stores),
+        }))
+
+
+def verify(platform: str, token: str, ident: str = "",
+           extra: dict | None = None) -> Verified:
+    extra = extra or {}
+    if platform == "pathao":
+        return verify_pathao(token, ident,
+                             str(extra.get("username") or ""),
+                             str(extra.get("password") or ""),
+                             bool(extra.get("sandbox")))
     if platform == "steadfast":
         # The pair travels as (token, ident) like every other platform, so the
         # form, the route and the storage need no special case.
         return verify_steadfast(token, ident)
-    if platform == "pathao":
-        return verify_pathao(token, ident)
     if platform == "instagram":
         return verify_instagram(token, ident)
     if platform == "youtube":
@@ -301,11 +400,27 @@ def verify(platform: str, token: str, ident: str = "") -> Verified:
     return verify_meta(token, ident)
 
 
-def connect(db, platform: str, token: str, ident: str = "") -> Verified:
+def connect(db, platform: str, token: str, ident: str = "",
+            extra: dict | None = None) -> Verified:
     """Verify first, save only on success. Never store an unusable token."""
-    result = verify(platform, token, ident)
+    extra = dict(extra or {})
+    if platform == "pathao":
+        # external_id is the store id for Pathao, so the client secret has
+        # nowhere else to live — without this, every later call re-issued a
+        # token with the store id in place of the secret and was refused.
+        extra.setdefault("client_secret", ident)
+    result = verify(platform, token, ident, extra)
     if result.ok:
-        save(db, platform, result.external_id, result.display_name, token)
+        # `scopes` carries whatever the platform told us about itself — the
+        # Pathao store id, for one — and it is needed to book, so it is kept
+        # alongside the credentials rather than looked up again every time.
+        if result.scopes:
+            try:
+                extra.update(json.loads(result.scopes))
+            except (TypeError, ValueError):
+                pass
+        save(db, platform, result.external_id, result.display_name, token,
+             extra=extra)
         # One Meta token covers the Page for both, and the owner should not
         # have to paste it twice to get what Meta treats as one connection.
         if platform in ("messenger", "facebook"):

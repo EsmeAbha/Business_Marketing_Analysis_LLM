@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 import requests
 
 from ..config import settings
@@ -75,6 +76,8 @@ class CourierAdapter:
         product_name: str,
         cod_amount: float = 0.0,
         note: str = "",
+        weight_kg: float = 0.5,
+        quantity: int = 1,
     ) -> DeliveryResult:
         provider = (provider or "steadfast").lower().strip()
         if provider not in SUPPORTED_PROVIDERS:
@@ -94,7 +97,9 @@ class CourierAdapter:
                                         note, key, secret)
         if provider == "pathao" and key:
             return self._book_pathao(recipient, phone, address, cod_amount,
-                                     note, key, secret)
+                                     note, key, secret,
+                                     weight_kg=weight_kg, quantity=quantity,
+                                     description=product_name)
 
         return self._simulate(provider, recipient, address, product_name, cod_amount)
 
@@ -151,59 +156,73 @@ class CourierAdapter:
     def _book_pathao(
         self, recipient: str, phone: str, address: str, cod: float, note: str,
         client_id: str = "", client_secret: str = "",
+        weight_kg: float = 0.5, quantity: int = 1, description: str = "",
     ) -> DeliveryResult:
-        client_id = client_id or settings.pathao_client_id
-        client_secret = client_secret or settings.pathao_client_secret
-        try:
-            token_resp = requests.post(
-                f"{PATHAO_BASE}/aladdin/api/v1/issue-token",
-                json={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "grant_type": "client_credentials",
-                },
-                timeout=_TIMEOUT,
-            ).json()
-            token = token_resp.get("access_token")
-            if not token:
-                return DeliveryResult(
-                    "pathao", False, False, error="could not issue Pathao token",
-                    raw=token_resp,
-                )
-            order = requests.post(
-                f"{PATHAO_BASE}/aladdin/api/v1/orders",
-                headers={"Authorization": f"Bearer {token}"},
-                json={
-                    "recipient_name": recipient,
-                    "recipient_phone": phone,
-                    "recipient_address": address,
-                    "amount_to_collect": cod,
-                    "special_instruction": note,
-                },
-                timeout=_TIMEOUT,
-            ).json()
-            data = order.get("data") or {}
-            cid = data.get("consignment_id")
-            if not cid:
-                return DeliveryResult(
-                    "pathao", False, False,
-                    error=str(order.get("message", "order rejected")), raw=order,
-                )
+        """Create a Pathao consignment.
+
+        Five fields the old version never sent are mandatory: the store the
+        parcel is collected from, the delivery and item types, the quantity
+        and the weight. Pathao rejects the order without them, so the booking
+        could not have worked no matter how good the credentials were.
+        """
+        from . import connections
+        from ..memory import memory
+
+        extra = connections.extras(memory.db, "pathao")
+        cid, secret, user, pw, sandbox = connections.pathao_credentials(memory.db)
+        token, err = connections.pathao_token(cid, secret, user, pw, sandbox)
+        if err:
+            return DeliveryResult("pathao", False, False, error=err)
+
+        store_id = extra.get("store_id")
+        if not store_id:
             return DeliveryResult(
-                provider="pathao",
-                ok=True,
-                simulated=False,
-                consignment_id=str(cid),
-                tracking_code=str(data.get("merchant_order_id", cid)),
-                status=str(data.get("order_status", "pending")),
-                cod_amount=cod,
-                raw=order,
-            )
+                "pathao", False, False,
+                error="No Pathao store on record — reconnect Pathao.")
+
+        # Pathao bills in half-kilo steps from 0.5 kg and refuses over 10.
+        weight = min(10.0, max(0.5, round(float(weight_kg or 0.5), 2)))
+        try:
+            with httpx.Client(timeout=_TIMEOUT) as c:
+                r = c.post(
+                    f"{connections.pathao_base(sandbox)}/aladdin/api/v1/orders",
+                    headers={"Authorization": f"Bearer {token}",
+                             "Content-Type": "application/json"},
+                    json={
+                        "store_id": store_id,
+                        "recipient_name": recipient,
+                        "recipient_phone": phone,
+                        "recipient_address": address,
+                        "delivery_type": 48,       # normal, not on-demand
+                        "item_type": 2,            # a parcel, not a document
+                        "item_quantity": max(1, int(quantity or 1)),
+                        "item_weight": str(weight),
+                        "item_description": description[:200],
+                        "special_instruction": note[:200],
+                        "amount_to_collect": int(round(cod or 0)),
+                    })
         except Exception as exc:  # noqa: BLE001
-            logger.warning("pathao booking failed: %s", exc)
             return DeliveryResult("pathao", False, False, error=str(exc))
 
-    # --- simulation ---
+        body = {}
+        try:
+            body = r.json()
+        except Exception:  # noqa: BLE001
+            pass
+        if r.status_code not in (200, 202):
+            return DeliveryResult(
+                "pathao", False, False,
+                error=(body.get("message") or f"Pathao returned {r.status_code}"),
+                raw=body)
+
+        data = body.get("data") or {}
+        cid = data.get("consignment_id") or ""
+        return DeliveryResult(
+            "pathao", bool(cid), False,
+            consignment_id=str(cid),
+            status=str(data.get("order_status") or "Pending"),
+            cod_amount=float(cod or 0),
+            raw=body)
 
     def _simulate(
         self, provider: str, recipient: str, address: str, product: str, cod: float
