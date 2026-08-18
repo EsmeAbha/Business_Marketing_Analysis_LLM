@@ -77,15 +77,48 @@ def _search_tavily(query: str, max_results: int) -> SearchResponse:
     return SearchResponse(query=query, provider="tavily", simulated=False, results=results)
 
 
+# Where the shop is, in the form DuckDuckGo wants. Without this a search for
+# "resin coaster price Dhaka" comes back with Amazon.com and Etsy: the query
+# says Dhaka, but an untargeted index answers for whoever asks most.
+_REGIONS = {
+    "bangladesh": "bd-en", "india": "in-en", "pakistan": "pk-en",
+    "sri lanka": "lk-en", "nepal": "xa-en", "malaysia": "my-en",
+    "singapore": "sg-en", "indonesia": "id-en", "united kingdom": "uk-en",
+    "united states": "us-en", "canada": "ca-en", "australia": "au-en",
+}
+
+
+def search_region() -> str:
+    """The regional index to ask, or "" to let DuckDuckGo decide."""
+    explicit = _env_region()
+    if explicit:
+        return explicit
+    where = f"{settings.location}".lower()
+    for name, code in _REGIONS.items():
+        if name in where:
+            return code
+    return ""
+
+
+def _env_region() -> str:
+    import os
+    return os.environ.get("AIW_SEARCH_REGION", "").strip()
+
+
 def _search_duckduckgo(query: str, max_results: int) -> SearchResponse:
     try:
         from ddgs import DDGS
     except ImportError:  # older package name
         from duckduckgo_search import DDGS  # type: ignore[no-redef]
 
+    kwargs: dict[str, Any] = {"max_results": max_results}
+    region = search_region()
+    if region:
+        kwargs["region"] = region
+
     results: list[SearchResult] = []
     with DDGS() as ddgs:
-        for item in ddgs.text(query, max_results=max_results):
+        for item in ddgs.text(query, **kwargs):
             results.append(
                 SearchResult(
                     title=item.get("title", ""),
