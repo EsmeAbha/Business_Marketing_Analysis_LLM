@@ -40,7 +40,9 @@ from starlette.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from lucida.config import AVATAR_DIR, UPLOAD_DIR, settings  # noqa: E402
+from lucida.config import (  # noqa: E402
+    AVATAR_DIR, DATA_DIR, UPLOAD_DIR, settings,
+)
 from lucida.graph import WorkforceRuntime  # noqa: E402
 from lucida.memory import memory  # noqa: E402
 from lucida.tools import inbox  # noqa: E402
@@ -1658,6 +1660,19 @@ if __name__ == "__main__":
     print(f"  email     : {mailer.status()}")
     print(f"  google    : {google_oauth.status()}")
     print(f"  accounts  : {auth.count_accounts()} registered")
+    print(f"  data      : {DATA_DIR}")
     if not settings.has_llm:
         print("  (no API key: the page renders, but the workforce can't run)")
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
+    # A container's loopback is its own; binding there means the platform's
+    # health check never connects and the deploy is rolled back. Hosts also
+    # choose the port and pass it in $PORT, so neither is hard-coded.
+    host = os.environ.get("HOST") or (
+        "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1")
+    port = int(os.environ.get("PORT") or 8000)
+    uvicorn.run(app, host=host, port=port, log_level="warning",
+                # One worker, deliberately: the approval gates and the run lock
+                # live in this process's memory, so a second worker would hand
+                # the same owner two different sessions and let two graph runs
+                # write over each other.
+                workers=1, proxy_headers=True,
+                forwarded_allow_ips="*")

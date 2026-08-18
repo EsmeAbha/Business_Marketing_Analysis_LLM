@@ -1,0 +1,14 @@
+# Keep the image small and, more importantly, keep secrets and one machine's
+# business data out of it.
+.env
+data/
+.venv/
+.git/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.log
+.pytest_cache/
+node_modules/
+*.md
+!README.md
