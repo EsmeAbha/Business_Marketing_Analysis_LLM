@@ -73,7 +73,7 @@ def _env(name: str, default: str = "") -> str:
 # different models on purpose — each gets its own bucket, roughly doubling
 # throughput for a multi-agent run.
 TEXT_DEFAULTS: dict[str, tuple[str, str]] = {
-    "groq": ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"),
+    "groq": ("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
     "anthropic": ("claude-opus-5", "claude-haiku-4-5"),
     "google": ("gemini-flash-latest", "gemini-flash-lite-latest"),
 }
