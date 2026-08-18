@@ -512,3 +512,20 @@ def _initials(account: dict[str, Any]) -> str:
               or account.get("email") or "?")
     parts = [p for p in str(source).replace("@", " ").split() if p]
     return "".join(p[0].upper() for p in parts[:2]) or "?"
+
+
+def not_found() -> str:
+    """A plain 404. Used where saying "forbidden" would itself be a leak."""
+    return (
+        "<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Not found · Lucida</title>"
+        "<style>body{font-family:'Inter',system-ui,sans-serif;background:#fff;"
+        "color:#000;display:grid;place-items:center;height:100vh;margin:0}"
+        "div{text-align:center}h1{font-size:22px;margin:0 0 6px}"
+        "p{color:#71717A;font-size:14px;margin:0 0 18px}"
+        "a{color:#7B1E22;font-weight:600;text-decoration:none}</style>"
+        "</head><body><div><h1>Not found</h1>"
+        "<p>There is nothing at that address.</p>"
+        "<a href='/'>Back to your team</a></div></body></html>"
+    )

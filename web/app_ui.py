@@ -144,10 +144,14 @@ def shell(title: str, account: dict, active: str, head: str, body: str,
     avatar = (account or {}).get("avatar") or ""
     face = (f"<img class='avatar' src='{e(avatar)}' alt=''>" if avatar
             else f"<div class='avatar'>{e(initials)}</div>")
+    items = list(NAV)
+    if (account or {}).get("is_admin"):
+        items.append(("/admin", "Service admin",
+                      "Every shop on this installation"))
     nav = "".join(
         f"<a class='nav{' on' if href == active else ''}' href='{href}'>"
         f"<div>{e(label)}<small>{e(sub)}</small></div></a>"
-        for href, label, sub in NAV
+        for href, label, sub in items
     )
     return (
         f"<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'>"
@@ -1008,6 +1012,142 @@ def studio_page(account: dict, provider: str, channels: dict,
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Admin — the operator's view of the whole service
+# ---------------------------------------------------------------------------
+
+ADMIN_CSS = f"""
+.kpis {{ display:grid; gap:12px; margin-bottom:18px;
+  grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }}
+.kpi {{ border:1px solid {BORDER}; border-radius:14px; padding:15px 17px;
+  background:{SURFACE}; }}
+.kpi small {{ display:block; font-size:11.5px; color:{MUTED};
+  letter-spacing:.03em; text-transform:uppercase; }}
+.kpi b {{ display:block; font-size:25px; font-weight:700; margin-top:5px;
+  letter-spacing:-.03em; }}
+.kpi span {{ display:block; font-size:12px; color:{MUTED}; margin-top:2px; }}
+
+.spark {{ display:flex; align-items:flex-end; gap:4px; height:52px;
+  margin-top:10px; }}
+.spark i {{ flex:1; background:{ACCENT_TINT}; border-radius:3px 3px 0 0;
+  min-height:2px; position:relative; }}
+.spark i.has {{ background:{ACCENT}; }}
+
+.utable {{ width:100%; border-collapse:collapse; font-size:13px; }}
+.utable th {{ text-align:left; font-size:11px; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase; color:{FAINT};
+  padding:0 12px 9px 0; white-space:nowrap; }}
+.utable td {{ padding:11px 12px 11px 0; border-top:1px solid {BORDER};
+  vertical-align:top; }}
+.utable td:last-child, .utable th:last-child {{ padding-right:0;
+  text-align:right; }}
+.biz {{ font-weight:600; }}
+.biz small {{ display:block; font-weight:400; color:{MUTED}; font-size:12px;
+  margin-top:2px; overflow-wrap:anywhere; }}
+.num {{ font-variant-numeric:tabular-nums; }}
+.quiet {{ color:{FAINT}; }}
+.privacy {{ border:1px solid {BORDER}; border-left:3px solid {ACCENT};
+  border-radius:12px; padding:13px 16px; background:{RAIL};
+  font-size:13px; color:{BODY}; line-height:1.6; margin-bottom:18px;
+  max-width:900px; }}
+.scroller {{ overflow-x:auto; border:1px solid {BORDER}; border-radius:16px;
+  padding:16px 18px; background:{SURFACE}; }}
+"""
+
+
+def _bytes(n: int) -> str:
+    if n > 1024 * 1024:
+        return f"{n / 1024 / 1024:.1f} MB"
+    return f"{max(0, n) // 1024} KB"
+
+
+def admin_page(account: dict, data: dict) -> str:
+    """Who is on the service, and how much of it they are using."""
+    t = data["totals"]
+    peak = max([s["n"] for s in data["signups"]] + [1])
+
+    spark = "".join(
+        f"<i class='{'has' if s['n'] else ''}' "
+        f"style='height:{max(4, round(s['n'] / peak * 100))}%' "
+        f"title='{e(s['day'])}: {s['n']} signup(s)'></i>"
+        for s in data["signups"]
+    )
+
+    kpis = (
+        f"<div class='kpi'><small>Accounts</small><b>{t['accounts']}</b>"
+        f"<span>{t['verified']} verified · {t['dormant']} never started</span>"
+        f"</div>"
+        f"<div class='kpi'><small>Active this week</small><b>{t['active7']}</b>"
+        f"<span>{t['active30']} in the last 30 days</span></div>"
+        f"<div class='kpi'><small>Sales recorded</small>"
+        f"<b>{t['sales']:,.0f}</b><span>across {t['orders']} order(s)</span>"
+        f"</div>"
+        f"<div class='kpi'><small>Products</small><b>{t['products']}</b>"
+        f"<span>{t['connections']} channel(s) connected</span></div>"
+        f"<div class='kpi'><small>Customer messages</small>"
+        f"<b>{t['messages']}</b><span>{t['conversations']} chat thread(s)"
+        f"</span></div>"
+        f"<div class='kpi'><small>Storage</small><b>{_bytes(t['bytes'])}</b>"
+        f"<span>all shops together</span></div>"
+    )
+
+    rows = ""
+    for a in data["accounts"]:
+        marks = []
+        if not a["verified"]:
+            marks.append("<span class='pill warn'>unverified</span>")
+        if a["dormant"]:
+            marks.append("<span class='pill warn'>never started</span>")
+        if a.get("auth_provider") == "google":
+            marks.append("<span class='pill ok'>google</span>")
+        rows += (
+            f"<tr>"
+            f"<td><div class='biz'>{e(a.get('business_name') or 'No name yet')}"
+            f"<small>{e(a.get('email'))}</small></div></td>"
+            f"<td>{e(a.get('owner_name') or '—')}<br>"
+            f"<span class='quiet' style='font-size:12px'>"
+            f"{e(a.get('location') or '—')}</span></td>"
+            f"<td>{e(a.get('business_stage') or '—')}<br>"
+            f"<span class='quiet' style='font-size:12px'>"
+            f"joined {e(a['joined'])}</span></td>"
+            f"<td>{e(a['last_seen'])}</td>"
+            f"<td class='num'>{a['products']}</td>"
+            f"<td class='num'>{a['orders']}</td>"
+            f"<td class='num'>{a['sales']:,.0f}</td>"
+            f"<td class='num'>{a['messages']}</td>"
+            f"<td class='num'>{a['connections']}</td>"
+            f"<td class='num'>{_bytes(a['bytes'])}</td>"
+            f"<td>{' '.join(marks)}</td>"
+            f"</tr>"
+        )
+
+    head = (
+        "<div class='head'><h1>Service admin</h1>"
+        "<p>Every shop on this installation, what it is using, and whether "
+        "it came back after signing up.</p></div>"
+    )
+    body = (
+        f"<div class='body'>"
+        f"<div class='privacy'><b>What this page deliberately does not "
+        f"show.</b> Counts only — never the contents of a shop's business. "
+        f"No customer message, no drafted reply, no product description, no "
+        f"access token is read to build this. You can see that a shop has "
+        f"{t['messages']} messages; you cannot read one.</div>"
+        f"<div class='kpis'>{kpis}</div>"
+        f"<div class='scroller' style='margin-bottom:18px'>"
+        f"<b style='font-size:14px'>Signups, last 14 days</b>"
+        f"<div class='spark'>{spark}</div></div>"
+        f"<div class='scroller'>"
+        f"<table class='utable'>"
+        f"<tr><th>Business</th><th>Owner</th><th>Stage</th><th>Last seen</th>"
+        f"<th>Products</th><th>Orders</th><th>Sales</th><th>Msgs</th>"
+        f"<th>Channels</th><th>Data</th><th></th></tr>"
+        f"{rows}</table></div>"
+        f"</div>"
+    )
+    return shell("Admin", account, "/admin", head, body, ADMIN_CSS)
 
 # ---------------------------------------------------------------------------
 # Workforce — the graph, live, and a way to hand out work
