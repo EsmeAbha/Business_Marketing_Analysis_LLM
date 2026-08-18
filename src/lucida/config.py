@@ -39,7 +39,10 @@ except Exception:  # noqa: BLE001 — never block startup over this
 # --- Filesystem layout -----------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data"
+# Every shop's database, uploads and generated artwork live under here, so on
+# a server this has to point at a mounted volume — a container's own disk is
+# wiped on each deploy, and with it the whole business.
+DATA_DIR = Path(os.environ.get("LUCIDA_DATA_DIR") or (PROJECT_ROOT / "data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 VECTOR_DIR = DATA_DIR / "vectors"
 DB_PATH = DATA_DIR / "lucida.db"
