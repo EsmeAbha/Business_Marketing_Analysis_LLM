@@ -1053,8 +1053,16 @@ def facts(session_id: str) -> dict[str, str]:
     latest = hist[0] if hist else {}
     f["wholesale"] = DASH
     f["rivalPrice"] = DASH
-    f["rivalsNote"] = ("Your team has not compared prices nearby yet — "
-                       "ask it to research who else sells this.")
+    found = memory.db.query("SELECT COUNT(*) c, AVG(price) a FROM competitors")
+    n = int(found[0]["c"]) if found else 0
+    if n:
+        f["rivalsNote"] = (f"{n} priced listing(s) your team found, "
+                           f"averaging {_cur(found[0]['a'])}.")
+        f["rivalPrice"] = _cur(found[0]["a"])
+    else:
+        f["rivalsNote"] = ("Nobody has compared prices nearby yet — ask your "
+                           "team to research who else sells this, and the "
+                           "listings it finds appear here with their prices.")
     if latest.get("sell_price"):
         keep = _cur(latest["sell_price"])
         f["raiseTo"] = f"Keep {keep}"
@@ -1137,18 +1145,28 @@ def price_advice() -> dict[str, str]:
 
 
 def rivals() -> list[dict]:
-    """Who else sells this, at what price.
+    """Who else sells this, at what price — from the shop's own research.
 
-    The bundle listed four named snack shops in Mirpur with their prices.
-    Nothing in this backend records a competitor as a row — the research
-    agent writes prose, and turning prose into a priced table would be
-    inventing the numbers, which is the whole thing this pass is removing.
-    So: empty, and the panel says how to fill it.
-
-    To make this real, the research tool would need to store what it finds
-    as structured rows (name, price, where seen) rather than a summary.
+    Rows come from searches the owner asked for, and only the results that
+    actually named a price are kept, each with the page it came from. An
+    empty list means nobody has looked yet, which is the honest answer until
+    they do.
     """
-    return []
+    rows = memory.db.query(
+        "SELECT name, price, currency, note, source FROM competitors "
+        "ORDER BY price LIMIT 6")
+    return [
+        {
+            "name": r.get("name") or "A seller",
+            # _cur takes the whole prefix, space included.
+            "price": _cur(r.get("price"),
+                         f"{r.get('currency') or settings.currency} "),
+            "note": (r.get("note") or "")[:80],
+            "source": r.get("source") or "",
+        }
+        for r in rows
+    ]
+
 
 
 

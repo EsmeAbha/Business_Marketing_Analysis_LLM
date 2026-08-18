@@ -78,6 +78,7 @@ Record the stock, then report levels and reorder advice."""
             product_id = memory.db.upsert_product(
                 name=item.product_name,
                 unit_cost=item.unit_cost or None,
+                weight_g=getattr(item, "weight_g", 0) or None,
                 photo_path=str((state.get("image_paths") or [""])[0]),
                 source_agent=self.name,
             )
