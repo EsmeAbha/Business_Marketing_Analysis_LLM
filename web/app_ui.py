@@ -20,6 +20,7 @@ INK = "#000000"
 BODY = "#3F3F46"
 MUTED = "#71717A"
 FAINT = "#A1A1AA"
+DASHED = "—"
 SURFACE = "#FFFFFF"
 RAIL = "#FAFAFA"
 SUNKEN = "#F4F4F5"
@@ -45,6 +46,7 @@ FONT_LINK = (
 NAV = [
     ("/", "Chat", "Ask your team anything"),
     ("/studio", "Ad studio", "Make posters and ad copy"),
+    ("/products", "Products", "What you sell, and what it weighs"),
     ("/delivery", "Delivery", "Weigh it, price it, book the courier"),
     ("/connect", "Connect", "Channels and couriers"),
     ("/board", "Dashboard", "Stock, money, customers, runs"),
@@ -1003,6 +1005,153 @@ def studio_page(account: dict, provider: str, channels: dict,
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Products
+# ---------------------------------------------------------------------------
+
+PRODUCTS_CSS = f"""
+.plist {{ max-width:1000px; width:100%; }}
+.prow {{ display:grid;
+  grid-template-columns:minmax(0,2fr) 110px 110px 110px 100px 160px;
+  gap:12px; align-items:center; padding:14px 16px; border:1px solid {BORDER};
+  border-radius:14px; background:{SURFACE}; margin-bottom:10px; }}
+.phead {{ display:grid;
+  grid-template-columns:minmax(0,2fr) 110px 110px 110px 100px 160px;
+  gap:12px; padding:0 16px 8px; font-size:11.5px; font-weight:600;
+  letter-spacing:.04em; text-transform:uppercase; color:{FAINT}; }}
+.pname {{ font-size:14.5px; font-weight:600; min-width:0;
+  overflow-wrap:anywhere; }}
+.pname small {{ display:block; font-size:12px; color:{MUTED};
+  font-weight:400; margin-top:2px; }}
+.pnum {{ font-size:14px; }}
+.pnum.missing {{ color:{AMBER}; font-weight:600; }}
+.pacts {{ display:flex; gap:8px; justify-content:flex-end; }}
+.pacts .btn {{ padding:8px 13px; font-size:13px; }}
+.pacts form {{ margin:0; }}
+.pform {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:0 14px; }}
+.pform .wide {{ grid-column:1 / -1; }}
+@media (max-width: 900px) {{
+  .phead {{ display:none; }}
+  .prow {{ grid-template-columns:minmax(0,1fr); }}
+  .pacts {{ justify-content:flex-start; }}
+}}
+"""
+
+
+def products_page(account: dict, products: list[dict], editing: str = "",
+                  note: str = "") -> str:
+    """The catalogue, and the only place a weight can be set.
+
+    Weight gets its own column and its own warning because until now nothing
+    in the app could record one, and every delivery quote depends on it: a
+    product without a weight simply cannot be priced.
+    """
+    cur = account.get("currency") or "BDT"
+    unweighed = [p for p in products if not (p.get("weight_g") or 0)]
+
+    banner = f"<div class='note'>{e(note)}</div>" if note else ""
+    if unweighed:
+        banner += (
+            f"<div class='note bad'>{len(unweighed)} product(s) have no "
+            f"weight, so a delivery for them cannot be priced. Put in what "
+            f"one piece weighs — that is what the courier charges on.</div>")
+
+    current = next((p for p in products if str(p["id"]) == str(editing)), None)
+
+    def money(v):
+        return f"{cur} {float(v):,.0f}" if v else DASHED
+
+    rows = ""
+    for p in products:
+        grams = int(p.get("weight_g") or 0)
+        # Double quotes inside, single quotes around the attribute: that
+        # way the markup needs no backslash escapes at all.
+        confirm = ('return confirm("Remove this product from your '
+                   'catalogue?")')
+        rows += (
+            f"<div class='prow'>"
+            f"<div class='pname'>{e(p['name'])}"
+            f"<small>{e(p.get('category') or 'no category')}</small></div>"
+            f"<div class='pnum{'' if grams else ' missing'}'>"
+            f"{str(grams) + ' g' if grams else 'not set'}</div>"
+            f"<div class='pnum'>{money(p.get('unit_cost'))}</div>"
+            f"<div class='pnum'>{money(p.get('sell_price'))}</div>"
+            f"<div class='pnum'>{int(p.get('quantity') or 0)}</div>"
+            f"<div class='pacts'>"
+            f"<a class='btn btn-quiet' href='/products?edit={p['id']}'>Edit</a>"
+            f"<form method='post' action='/products/{p['id']}/delete' "
+            f"onsubmit='{confirm}'>"
+            f"<button class='btn btn-quiet' type='submit'>Remove</button>"
+            f"</form></div></div>"
+        )
+    if not rows:
+        rows = (f"<div class='prow'><div class='pname' "
+                f"style='grid-column:1/-1;font-weight:400;color:{MUTED}'>"
+                f"Nothing in your catalogue yet. Add the first thing you sell "
+                f"below, or send your team a photo of it in the chat.</div>"
+                f"</div>")
+
+    def val(field, fallback=""):
+        if current and current.get(field) is not None:
+            return e(current.get(field))
+        return e(fallback)
+
+    hidden = (f"<input type='hidden' name='id' value='{current['id']}'>"
+              if current else "")
+    cancel = ("<a class='btn btn-quiet' href='/products' "
+              "style='margin-left:8px;display:inline-block'>Cancel</a>"
+              if current else "")
+    title = f"Edit {e(current['name'])}" if current else "Add a product"
+
+    form = (
+        f"<div class='card' style='max-width:1000px'>"
+        f"<h3 style='margin:0 0 4px;font-size:15px'>{title}</h3>"
+        f"<p class='muted' style='margin:0 0 16px'>Weight is the one your "
+        f"courier bills on: one piece, in grams, packed as you send it.</p>"
+        f"<form method='post' action='/products/save' class='pform'>{hidden}"
+        f"<div class='field wide'><label for='pn'>Name</label>"
+        f"<input id='pn' name='name' required value='{val('name')}'></div>"
+        f"<div class='field'><label for='pc'>Category</label>"
+        f"<input id='pc' name='category' value='{val('category')}'></div>"
+        f"<div class='field'><label for='pw'>Weight of one piece (g)</label>"
+        f"<input id='pw' name='weight_g' type='number' min='0' "
+        f"value='{val('weight_g', 0)}'></div>"
+        f"<div class='field'><label for='pu'>Costs you ({e(cur)})</label>"
+        f"<input id='pu' name='unit_cost' type='number' step='0.01' min='0' "
+        f"value='{val('unit_cost')}'></div>"
+        f"<div class='field'><label for='ps'>Sells for ({e(cur)})</label>"
+        f"<input id='ps' name='sell_price' type='number' step='0.01' min='0' "
+        f"value='{val('sell_price')}'></div>"
+        f"<div class='field'><label for='pq'>In stock now</label>"
+        f"<input id='pq' name='quantity' type='number' min='0' "
+        f"value='{val('quantity', 0)}'></div>"
+        f"<div class='field'><label for='pr'>Warn me below</label>"
+        f"<input id='pr' name='reorder_level' type='number' min='0' "
+        f"value='{val('reorder_level', 5)}'></div>"
+        f"<div class='wide' style='margin-top:4px'>"
+        f"<button class='btn' type='submit'>"
+        f"{'Save changes' if current else 'Add it'}</button>{cancel}"
+        f"</div></form></div>"
+    )
+
+    head = (
+        "<div class='head'><h1>Products</h1>"
+        "<p>What you sell, what each piece costs you, and what it weighs. "
+        "Your team fills this in as it learns; you can correct any of it.</p>"
+        "</div>"
+    )
+    body = (
+        f"<div class='body'>{banner}"
+        f"<div class='plist'>"
+        f"<div class='phead'><span>Product</span><span>Weight</span>"
+        f"<span>Costs</span><span>Sells for</span><span>In stock</span>"
+        f"<span></span></div>{rows}</div>"
+        f"<div style='margin-top:18px'>{form}</div></div>"
+    )
+    return shell("Products", account, "/products", head, body, PRODUCTS_CSS)
 
 # ---------------------------------------------------------------------------
 # Delivery

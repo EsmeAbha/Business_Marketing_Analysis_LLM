@@ -14,6 +14,7 @@ returning nothing and looking like a shop nobody talks about.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -211,6 +212,51 @@ def _own_media(platform: str, node: str, limit: int) -> tuple[list[Finding], str
 # ---------------------------------------------------------------------------
 
 
+# A price in a search result reads like "৳450", "BDT 450", "Tk 450/pc" or
+# "450 taka". One expression for all of them; anything it cannot read stays
+# unpriced rather than being guessed at.
+_PRICE = re.compile(
+    r"(?:৳|bdt|tk\.?|taka)\s*([0-9][0-9,]{1,7})|([0-9][0-9,]{1,7})\s*(?:৳|bdt|tk\b|taka)",
+    re.I)
+
+
+def _price_in(text: str) -> float | None:
+    m = _PRICE.search(text or "")
+    if not m:
+        return None
+    raw = (m.group(1) or m.group(2) or "").replace(",", "")
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    # A four-figure "price" is usually a follower count or a year.
+    return value if 1 <= value <= 100000 else None
+
+
+def record_competitors(db, query: str, findings: list[Finding]) -> int:
+    """Keep the priced results as rows, so a comparison can be shown later.
+
+    Only findings that actually name a price are kept. A competitor without
+    one adds nothing to the Money page except the impression of research.
+    """
+    kept = 0
+    for f in findings:
+        price = _price_in(f"{f.title} {f.snippet}")
+        if price is None:
+            continue
+        name = " ".join((f.title or "").split())[:70] or "A seller"
+        db.execute(
+            "INSERT OR REPLACE INTO competitors "
+            "(name, product, price, currency, note, source, found_at) "
+            "VALUES (?,?,?,?,?,?,datetime('now'))",
+            (name, query[:60], price, settings.currency,
+             " ".join((f.snippet or "").split())[:160], f.url))
+        kept += 1
+    if kept:
+        logger.info("recorded %d competitor price(s) for '%s'", kept, query[:40])
+    return kept
+
+
 def run(db, query: str, chosen: list[str],
         limit: int = 6) -> ResearchResult:
     """Search only where the owner said to look."""
@@ -235,6 +281,12 @@ def run(db, query: str, chosen: list[str],
             result.errors.append(f"{key}: {err}")
         result.findings.extend(found)
         result.per_source[key] = len(found)
+
+    # Anything with a price in it is worth keeping as a row.
+    try:
+        record_competitors(db, query, result.findings)
+    except Exception as exc:  # noqa: BLE001 — research is not worth an outage
+        logger.warning("could not record competitor prices: %s", exc)
 
     logger.info("research '%s' across %s -> %d finding(s)",
                 query[:40], ",".join(picked), len(result.findings))

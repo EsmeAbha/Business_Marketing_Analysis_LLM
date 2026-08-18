@@ -102,6 +102,11 @@ class InventoryItem(BaseModel):
     quantity: int
     unit_cost: float = 0.0
     reorder_level: int = 5
+    # Weight is what the delivery charge is worked out from, so it is worth
+    # capturing whenever the owner mentions it. 0 means they did not say.
+    weight_g: int = Field(
+        default=0,
+        description="Weight of ONE unit in grams, if the owner said. 0 if not.")
 
 
 class InventoryResult(BaseModel):

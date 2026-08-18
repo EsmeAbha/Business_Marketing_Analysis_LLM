@@ -282,6 +282,112 @@ async def favicon(request):
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+
+# ---------------------------------------------------------------------------
+# The catalogue
+# ---------------------------------------------------------------------------
+
+
+def _catalogue() -> list[dict]:
+    """Every product with its stock, in one row each."""
+    return memory.db.query(
+        "SELECT p.*, COALESCE(i.quantity,0) AS quantity, "
+        "       COALESCE(i.reorder_level,5) AS reorder_level "
+        "FROM products p LEFT JOIN inventory i ON i.product_id = p.id "
+        "ORDER BY p.name")
+
+
+async def products_page(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    return page(app_ui.products_page(
+        _who(account), _catalogue(),
+        editing=request.query_params.get("edit", ""),
+        note=request.session.pop("product_note", "")))
+
+
+async def product_save(request):
+    """Add a product, or change one. The only place a weight can be set."""
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+
+    form = await request.form()
+    name = str(form.get("name") or "").strip()
+    if not name:
+        request.session["product_note"] = "A product needs a name."
+        return RedirectResponse("/products", status_code=303)
+
+    def _num(field, cast=float):
+        raw = str(form.get(field) or "").strip()
+        try:
+            return cast(raw) if raw else None
+        except ValueError:
+            return None
+
+    pid = str(form.get("id") or "").strip()
+    if pid:
+        # An edit: the name may have changed, so it is written directly
+        # rather than going through the upsert's fold-by-name matching.
+        memory.db.execute(
+            "UPDATE products SET name=?, category=?, unit_cost=?, "
+            "sell_price=?, weight_g=? WHERE id=?",
+            (name, str(form.get("category") or ""), _num("unit_cost"),
+             _num("sell_price"), int(_num("weight_g", float) or 0), int(pid)))
+        product_id = int(pid)
+    else:
+        product_id = memory.db.upsert_product(
+            name=name,
+            category=str(form.get("category") or ""),
+            unit_cost=_num("unit_cost"),
+            sell_price=_num("sell_price"),
+            weight_g=int(_num("weight_g", float) or 0),
+            source_agent="owner")
+        if product_id is None:
+            request.session["product_note"] = (
+                f"“{name}” is not a usable product name.")
+            return RedirectResponse("/products", status_code=303)
+
+    qty = _num("quantity", float)
+    if qty is not None:
+        memory.db.set_stock(product_id, int(qty),
+                            int(_num("reorder_level", float) or 5))
+
+    request.session["product_note"] = f"Saved {name}."
+    return RedirectResponse("/products", status_code=303)
+
+
+async def product_delete(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    pid = int(request.path_params["product_id"])
+    rows = memory.db.query("SELECT name FROM products WHERE id=?", (pid,))
+    name = rows[0]["name"] if rows else ""
+    # Orders record the product name as it was sold, and often no id at all,
+    # so checking the id alone would have let a product with sales be deleted
+    # and quietly changed what the dashboard reports.
+    sold = memory.db.query(
+        "SELECT 1 FROM orders WHERE product_id=? OR product_name=? LIMIT 1",
+        (pid, name))
+    if sold:
+        # Deleting it would take the sales with it and change what the
+        # dashboard reports. Renaming is the honest way to retire a line.
+        request.session["product_note"] = (
+            "That product has sales recorded against it, so removing it would "
+            "change your figures. Edit it instead.")
+        return RedirectResponse("/products", status_code=303)
+    for table in ("inventory", "stock_movements", "pricing_history",
+                  "media_assets"):
+        try:
+            memory.db.execute(f"DELETE FROM {table} WHERE product_id=?", (pid,))
+        except Exception:  # noqa: BLE001 — an absent column is not an error
+            pass
+    memory.db.execute("DELETE FROM products WHERE id=?", (pid,))
+    request.session["product_note"] = f"Removed {name or 'it'}."
+    return RedirectResponse("/products", status_code=303)
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -1469,6 +1575,10 @@ app = Starlette(
               methods=["POST"]),
         Route("/connect/{platform}/callback", connect_callback),
         Route("/connect/{platform}/disconnect", connect_forget,
+              methods=["POST"]),
+        Route("/products", products_page),
+        Route("/products/save", product_save, methods=["POST"]),
+        Route("/products/{product_id:int}/delete", product_delete,
               methods=["POST"]),
         Route("/delivery", delivery_page),
         Route("/api/delivery/quote", api_delivery_quote,

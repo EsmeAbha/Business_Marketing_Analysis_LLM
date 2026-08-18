@@ -291,6 +291,22 @@ CREATE TABLE IF NOT EXISTS social_posts (
 
 -- The owner's conversations with their team. Kept per shop like everything
 -- else, so one owner's questions are never visible to another.
+-- Who else sells what this shop sells. Written by the research tool from
+-- a search the owner asked for, so the Money page can show a comparison
+-- instead of a sentence. `source` is the URL it came from: a price with no
+-- provenance is a rumour.
+CREATE TABLE IF NOT EXISTS competitors (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    product       TEXT,
+    price         REAL,
+    currency      TEXT,
+    note          TEXT,
+    source        TEXT,
+    found_at      TEXT,
+    UNIQUE(name, product)
+);
+
 CREATE TABLE IF NOT EXISTS chat_threads (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     title         TEXT,
@@ -535,6 +551,7 @@ class Database:
         sell_price: float | None = None,
         photo_path: str = "",
         source_agent: str = "",
+        weight_g: int | None = None,
         create: bool = True,
     ) -> int | None:
         """Record a product, or update one already recorded.
@@ -564,15 +581,17 @@ class Database:
                 """UPDATE products SET category=COALESCE(NULLIF(?,''),category),
                    description=COALESCE(NULLIF(?,''),description),
                    unit_cost=COALESCE(?,unit_cost), sell_price=COALESCE(?,sell_price),
+                   weight_g=COALESCE(NULLIF(?,0),weight_g),
                    photo_path=COALESCE(NULLIF(?,''),photo_path) WHERE id=?""",
-                (category, description, unit_cost, sell_price, photo_path, pid),
+                (category, description, unit_cost, sell_price, weight_g or 0,
+                 photo_path, pid),
             )
             return pid
         return self.execute(
             """INSERT INTO products
                (name, category, description, unit_cost, sell_price, photo_path,
-                source_agent, created_at)
-               VALUES (?,?,?,?,?,?,?,?)""",
+                source_agent, weight_g, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (
                 clean,
                 category,
@@ -581,6 +600,7 @@ class Database:
                 sell_price,
                 photo_path,
                 source_agent,
+                int(weight_g or 0),
                 _now(),
             ),
         )
