@@ -155,6 +155,32 @@ class WorkforceRuntime:
         )
         yield from self._stream(state, session_id)
 
+    def assign(
+        self,
+        agent: str,
+        task: str,
+        owner_context: dict[str, Any] | None = None,
+        session_id: str | None = None,
+    ) -> Iterator[dict[str, Any]]:
+        """Run a job the owner handed to one named specialist.
+
+        It still enters through the supervisor, so the plan, the handoff and
+        the write-back all happen the way they always do — the only
+        difference is that the first routing decision is already made.
+        """
+        session_id = session_id or self.new_session_id()
+        state = new_state(session_id, task, None, owner_context)
+        state["requested_agent"] = agent
+
+        bus.emit(
+            session_id,
+            kind="session_start",
+            actor="supervisor",
+            summary=f"{agent} asked directly: {task[:180]}",
+            payload={"directed_to": agent},
+        )
+        yield from self._stream(state, session_id)
+
     def resume(self, session_id: str, decision: dict[str, Any]) -> Iterator[dict[str, Any]]:
         """Answer a pending approval and continue from the interrupt point."""
         from langgraph.types import Command

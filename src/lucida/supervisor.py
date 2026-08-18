@@ -158,6 +158,22 @@ class Supervisor:
                 payload={"steps": plan.steps, "stage": plan.stage},
             )
 
+        # The owner asking for someone by name outranks the router. It is
+        # cleared as it is used, so the next hop is the supervisor's call
+        # again — otherwise a directed job would never end.
+        wanted = (state.get("requested_agent") or "").strip()
+        if wanted and wanted in self.ALL_AGENTS:
+            bus.emit(
+                session_id,
+                kind="handoff",
+                actor=self.name,
+                summary=f"-> {wanted}: asked for by name",
+                payload={"recipient": wanted, "directed": True},
+            )
+            return {**update, "next_agent": wanted, "requested_agent": "",
+                    "current_task": state.get("owner_input", ""),
+                    "routing_reason": "you asked for this specialist"}
+
         decision = self._enforce(self._route(state), state)
         update["next_agent"] = decision.next_agent
         update["current_task"] = decision.task

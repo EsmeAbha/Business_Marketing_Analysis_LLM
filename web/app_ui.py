@@ -46,6 +46,7 @@ FONT_LINK = (
 NAV = [
     ("/", "Chat", "Ask your team anything"),
     ("/studio", "Ad studio", "Make posters and ad copy"),
+    ("/workforce", "Workforce", "Watch them work, hand out a job"),
     ("/products", "Products", "What you sell, and what it weighs"),
     ("/delivery", "Delivery", "Weigh it, price it, book the courier"),
     ("/connect", "Connect", "Channels and couriers"),
@@ -1006,6 +1007,333 @@ def studio_page(account: dict, provider: str, channels: dict,
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Workforce — the graph, live, and a way to hand out work
+# ---------------------------------------------------------------------------
+
+# Where each specialist sits. A star: the supervisor routes everything, so it
+# belongs in the middle and the eight sit around it at even angles.
+# A card is about 11% of the stage tall, so nothing sits closer than 13% to
+# an edge — at 96% the Customers card was cut off by the frame.
+TEAM = [
+    ("supervisor", "Supervisor", "Routes the work and holds your gates", 50, 50),
+    ("vision", "Product Vision", "Reads photos of what you sell", 50, 14),
+    ("market", "Market Research", "What sells, and what rivals charge", 17, 27),
+    ("pricing", "Pricing", "What to charge and what you keep", 83, 27),
+    ("inventory", "Stock", "What you have and when it runs out", 85, 57),
+    ("ads", "Ad Creative", "Writes and publishes the ads", 71, 84),
+    ("engage", "Customers", "Reads messages, drafts the replies", 50, 87),
+    ("delivery", "Delivery", "Quotes and books the courier", 29, 84),
+    ("report", "Reporting", "Writes the day up for you", 15, 57),
+]
+
+WORKFORCE_CSS = f"""
+.wf {{ display:grid; grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);
+  gap:18px; align-items:start; max-width:1280px; }}
+.stage {{ position:relative; width:100%; aspect-ratio:10/7; background:{RAIL};
+  border:1px solid {BORDER}; border-radius:18px; overflow:hidden; }}
+/* Above the wires. They are appended to the same box after the nodes, so
+   without this the lines sit on top and swallow the click that is meant to
+   pick a specialist. */
+.node {{ position:absolute; transform:translate(-50%,-50%); width:20%;
+  min-width:124px; padding:9px 11px; border-radius:12px; background:{SURFACE};
+  border:1px solid {BORDER}; box-shadow:0 1px 2px rgba(0,0,0,.05);
+  cursor:pointer; z-index:2; transition:border-color .18s, box-shadow .18s,
+  transform .18s; }}
+.node:hover {{ border-color:{INK}; transform:translate(-50%,-50%) scale(1.03); }}
+.node.on {{ border-color:{ACCENT}; background:{ACCENT_TINT};
+  box-shadow:0 3px 14px rgba(123,30,34,.18); }}
+.node.used {{ border-color:#F0D6D6; }}
+.node.picked {{ border-color:{INK}; box-shadow:0 0 0 3px rgba(0,0,0,.08); }}
+.node b {{ display:flex; align-items:center; gap:6px; font-size:12.5px;
+  font-weight:600; letter-spacing:-.01em; }}
+.node small {{ display:block; font-size:11px; color:{MUTED}; margin-top:3px;
+  line-height:1.35; }}
+.dot {{ width:7px; height:7px; border-radius:50%; background:#D4D4D8;
+  flex:none; }}
+.node.used .dot {{ background:{FAINT}; }}
+.node.on .dot {{ background:{ACCENT}; animation:pulse 1.1s infinite; }}
+@keyframes pulse {{ 0%,100% {{ opacity:1 }} 50% {{ opacity:.25 }} }}
+.wire {{ position:absolute; height:1px; background:#E7E7EA;
+  transform-origin:0 50%; z-index:0; pointer-events:none; }}
+.wire.live {{ height:2px; background:{ACCENT}; border-radius:2px; }}
+.hop {{ position:absolute; z-index:1; pointer-events:none;
+  transform:translate(-50%,-50%); width:20px;
+  height:20px; border-radius:50%; display:grid; place-items:center;
+  font-size:11px; font-weight:700; background:{SURFACE}; color:{ACCENT};
+  border:1px solid #C4879A; }}
+.hop.live {{ background:{ACCENT}; color:#fff; border-color:{ACCENT}; }}
+
+.wfbar {{ display:flex; align-items:center; gap:10px; margin-bottom:12px;
+  flex-wrap:wrap; }}
+.state {{ display:inline-flex; align-items:center; gap:7px; font-size:13px;
+  font-weight:500; padding:5px 11px; border-radius:999px;
+  background:{SUNKEN}; color:{BODY}; }}
+.state .dot {{ width:8px; height:8px; }}
+.state.busy {{ background:{ACCENT_TINT}; color:{ACCENT}; }}
+.state.busy .dot {{ background:{ACCENT}; animation:pulse 1.1s infinite; }}
+
+.feed {{ border:1px solid {BORDER}; border-radius:16px; background:{SURFACE};
+  overflow:hidden; }}
+.feed h3 {{ margin:0; padding:14px 16px; font-size:14px; font-weight:600;
+  border-bottom:1px solid {BORDER}; display:flex; align-items:center;
+  gap:8px; }}
+.feed .rows {{ max-height:340px; overflow-y:auto; }}
+.ev {{ display:grid; grid-template-columns:52px minmax(0,1fr); gap:10px;
+  padding:10px 16px; border-bottom:1px solid {SUNKEN}; font-size:12.5px; }}
+.ev:last-child {{ border-bottom:none; }}
+.ev time {{ color:{FAINT}; font-variant-numeric:tabular-nums; }}
+.ev b {{ display:block; font-weight:600; font-size:12px; }}
+.ev span {{ color:{MUTED}; line-height:1.5; overflow-wrap:anywhere; }}
+.ev.warn b {{ color:{AMBER}; }}
+.ev.error b {{ color:{DANGER}; }}
+.ev .none {{ color:{MUTED}; }}
+
+.assign {{ border:1px solid {BORDER}; border-radius:16px; padding:18px;
+  background:{SURFACE}; margin-bottom:16px; }}
+.assign h3 {{ margin:0 0 3px; font-size:14px; font-weight:600; }}
+.assign p {{ margin:0 0 12px; font-size:12.5px; color:{MUTED};
+  line-height:1.55; }}
+.who-pill {{ display:inline-flex; align-items:center; gap:6px;
+  background:{ACCENT_TINT}; color:{ACCENT}; font-size:12px; font-weight:600;
+  padding:4px 10px; border-radius:999px; margin-bottom:10px; }}
+/* The cards are a percentage of the frame, but a minimum width in pixels —
+   so on a narrow screen that minimum is a third of the frame and the ring
+   spills out of it. Below these widths the cards shrink instead, and the
+   frame grows taller to keep them apart. */
+@media (max-width: 1100px) {{
+  .wf {{ grid-template-columns:minmax(0,1fr); }}
+  .stage {{ aspect-ratio:10/8; }}
+  .node {{ min-width:106px; width:22%; padding:8px 9px; }}
+  .node small {{ font-size:10px; }}
+}}
+@media (max-width: 620px) {{
+  .stage {{ aspect-ratio:10/11; }}
+  .node {{ min-width:0; width:30%; padding:7px 8px; }}
+  .node b {{ font-size:11px; }}
+  .node small {{ display:none; }}
+}}
+"""
+
+WORKFORCE_JS = """
+const NODES = window.__TEAM;
+const $ = (id) => document.getElementById(id);
+let picked = null;
+const used = new Set();
+const hops = [];
+
+/* The fixed topology behind everything: the supervisor reaches all eight.
+   Drawn once, in CSS rather than SVG, so an unbound template is never a
+   console error and the whole thing scales with the box. */
+function wires() {
+  const stage = $('stage');
+  const hub = NODES[0];
+  NODES.slice(1).forEach((n) => {
+    const el = document.createElement('div');
+    el.className = 'wire';
+    place(el, hub, n);
+    stage.appendChild(el);
+  });
+}
+
+function place(el, a, b, thick) {
+  const box = $('stage').getBoundingClientRect();
+  const dx = (b.x - a.x) / 100 * box.width;
+  const dy = (b.y - a.y) / 100 * box.height;
+  el.style.left = a.x + '%';
+  el.style.top = a.y + '%';
+  el.style.width = Math.sqrt(dx * dx + dy * dy) + 'px';
+  el.style.transform = 'rotate(' + (Math.atan2(dy, dx) * 180 / Math.PI) + 'deg)';
+}
+
+function nodeById(id) { return NODES.find((n) => n.id === id); }
+
+/* A handoff arrives: draw it, number it, and mark both ends as used. */
+function addHop(fromId, toId) {
+  const a = nodeById(fromId), b = nodeById(toId);
+  if (!a || !b) return;
+  document.querySelectorAll('.wire.live').forEach((w) => w.classList.remove('live'));
+  const wire = document.createElement('div');
+  wire.className = 'wire live';
+  place(wire, a, b);
+  $('stage').appendChild(wire);
+
+  const badge = document.createElement('div');
+  badge.className = 'hop live';
+  badge.textContent = String(hops.length + 1);
+  badge.style.left = ((a.x + b.x) / 2) + '%';
+  badge.style.top = ((a.y + b.y) / 2) + '%';
+  $('stage').appendChild(badge);
+  document.querySelectorAll('.hop').forEach((h, i, all) => {
+    if (i < all.length - 1) h.classList.remove('live');
+  });
+  hops.push([fromId, toId]);
+}
+
+function markBusy(id) {
+  document.querySelectorAll('.node.on').forEach((n) => n.classList.remove('on'));
+  const el = $('n-' + id);
+  if (el) { el.classList.add('on'); el.classList.add('used'); used.add(id); }
+}
+
+function setState(busy, text) {
+  const s = $('runstate');
+  s.className = 'state' + (busy ? ' busy' : '');
+  s.innerHTML = '<span class="dot"></span>' + text;
+}
+
+function logEvent(e) {
+  const rows = $('rows');
+  const none = rows.querySelector('.none');
+  if (none) none.remove();
+  const div = document.createElement('div');
+  div.className = 'ev' + (e.level === 'error' ? ' error'
+    : e.level === 'warning' ? ' warn' : '');
+  div.innerHTML = '<time>' + (e.at || '') + '</time><div><b>'
+    + (e.actor || 'workforce').replace(/_/g, ' ') + '</b><span>'
+    + (e.summary || e.kind) + '</span></div>';
+  rows.insertBefore(div, rows.firstChild);
+  while (rows.children.length > 60) rows.removeChild(rows.lastChild);
+}
+
+/* One connection, held open, pushing each step as it is recorded. */
+function listen() {
+  const src = new EventSource('/api/events');
+  src.onmessage = (m) => {
+    const e = JSON.parse(m.data);
+    logEvent(e);
+    if (e.node) markBusy(e.node);
+    if (e.kind === 'handoff' && e.to) addHop(e.node || 'supervisor', e.to);
+    if (e.kind === 'session_start') setState(true, 'Working');
+    if (e.kind === 'agent_start') setState(true, (e.actor || '').replace(/_/g, ' ') + ' is working');
+    if (e.kind === 'approval') setState(false, 'Waiting for your decision');
+    if (e.kind === 'report' || e.summary === 'run complete') setState(false, 'Idle');
+  };
+  src.onerror = () => setState(false, 'Reconnecting…');
+}
+
+function pick(id) {
+  picked = id;
+  document.querySelectorAll('.node').forEach((n) => n.classList.remove('picked'));
+  $('n-' + id).classList.add('picked');
+  const n = nodeById(id);
+  $('who').innerHTML = '<span class="who-pill">' + n.name + '</span>';
+  $('task').placeholder = 'What should ' + n.name + ' do?';
+  $('task').focus();
+  $('send').disabled = !$('task').value.trim();
+}
+
+async function assign() {
+  const task = $('task').value.trim();
+  if (!picked || !task) return;
+  const btn = $('send');
+  btn.disabled = true; btn.textContent = 'Working…';
+  setState(true, 'Starting');
+  $('out').textContent = '';
+  try {
+    const r = await fetch('/api/assign', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent: picked, task: task }) });
+    const d = await r.json();
+    $('out').innerHTML = d.error
+      ? '<div class="note bad">' + d.error + '</div>'
+      : '<div class="note">' + (d.answer || 'Done.').slice(0, 900) + '</div>';
+  } catch (err) {
+    $('out').innerHTML = '<div class="note bad">' + err.message + '</div>';
+  }
+  btn.textContent = 'Assign the job'; btn.disabled = false;
+  setState(false, 'Idle');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  wires();
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.wire').forEach((w) => w.remove());
+    wires();
+    const done = hops.slice(); hops.length = 0;
+    document.querySelectorAll('.hop').forEach((h) => h.remove());
+    done.forEach(([a, b]) => addHop(a, b));
+  });
+  NODES.forEach((n) => {
+    const el = $('n-' + n.id);
+    if (el && n.id !== 'supervisor') el.onclick = () => pick(n.id);
+  });
+  $('task').addEventListener('input', () => {
+    $('send').disabled = !picked || !$('task').value.trim();
+  });
+  $('send').addEventListener('click', assign);
+  listen();
+});
+"""
+
+
+def workforce_page(account: dict, busy: bool = False) -> str:
+    """The team at work: the graph moves as they move, and you can hand out a job."""
+    nodes = "".join(
+        f"<div class='node' id='n-{n[0]}' style='left:{n[3]}%;top:{n[4]}%'>"
+        f"<b><span class='dot'></span>{e(n[1])}</b>"
+        f"<small>{e(n[2])}</small></div>"
+        for n in TEAM
+    )
+    team_json = json.dumps([
+        {"id": n[0], "name": n[1], "x": n[3], "y": n[4]} for n in TEAM
+    ])
+
+    head = (
+        "<div class='head'><h1>Workforce</h1>"
+        "<p>One supervisor and eight specialists. Watch the work move between "
+        "them as it happens, or pick one and hand it a job yourself.</p></div>"
+    )
+    body = (
+        f"<div class='body'><div class='wf'>"
+
+        f"<div>"
+        f"<div class='wfbar'>"
+        f"<span class='state' id='runstate'><span class='dot'></span>"
+        f"{'Working' if busy else 'Idle'}</span>"
+        f"<span class='muted' style='font-size:12.5px'>"
+        f"Click a specialist to give it a job.</span></div>"
+        f"<div class='stage' id='stage'>{nodes}</div>"
+        f"</div>"
+
+        f"<div>"
+        f"<div class='assign'>"
+        f"<h3>Hand out a job</h3>"
+        f"<p>The supervisor normally decides who does what. This goes over its "
+        f"head and puts the work straight in front of the specialist you "
+        f"choose — useful when you already know who you need.</p>"
+        f"<div id='who'><span class='muted' style='font-size:12.5px'>"
+        f"Nobody picked yet.</span></div>"
+        f"<div class='field' style='margin-top:10px'>"
+        f"<textarea id='task' rows='3' "
+        f"placeholder='Pick a specialist on the left first'></textarea></div>"
+        f"<button class='btn' id='send' disabled>Assign the job</button>"
+        f"<div id='out' style='margin-top:12px'></div>"
+        f"</div>"
+
+        f"<div class='feed'><h3>Live activity</h3>"
+        f"<div class='rows' id='rows'>"
+        f"<div class='ev'><time></time><div><span class='none'>"
+        f"Nothing running. Ask a question in the chat, or hand a job to a "
+        f"specialist, and every step appears here as it happens.</span>"
+        f"</div></div></div></div>"
+        f"</div>"
+
+        f"</div></div>"
+    )
+    js = f"window.__TEAM = {team_json};\n" + WORKFORCE_JS
+    return shell("Workforce", account, "/workforce", head, body,
+                 WORKFORCE_CSS + NOTE_CSS, js)
+
+
+NOTE_CSS = f"""
+.note {{ padding:12px 14px; border-radius:12px; background:{ACCENT_TINT};
+  color:{ACCENT}; font-size:13px; line-height:1.6; border:1px solid #F3D4D6;
+  white-space:pre-wrap; max-height:280px; overflow-y:auto; }}
+.note.bad {{ background:{DANGER_TINT}; color:{DANGER}; border-color:#FBC5C5; }}
+"""
 
 # ---------------------------------------------------------------------------
 # Products

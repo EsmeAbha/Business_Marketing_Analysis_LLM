@@ -85,6 +85,11 @@ class WorkforceState(TypedDict, total=False):
     stage: Stage
     plan: list[str]
     next_agent: str
+    # Set when the owner picked a specialist themselves rather than leaving
+    # the choice to the supervisor. Honoured once, then cleared, so the run
+    # carries on normally afterwards instead of looping back to the same
+    # agent forever.
+    requested_agent: str
     routing_reason: str
     current_task: str
     step_count: int

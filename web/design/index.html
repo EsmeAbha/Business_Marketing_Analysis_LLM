@@ -409,7 +409,7 @@ main { min-width: 0; }
             <h2 style="margin: 0 0 5px; font-size: 15px; font-weight: 600;">Add stock with a photo</h2>
             <p style="margin: 0 0 13px; font-size: 13px; color: #71717A; line-height: 1.55;">Drop a photo of what arrived. Your team recognises the item, asks only for the count, and updates everything else.</p>
             <div style="height: 150px; border-radius: 12px; overflow: hidden; margin-bottom: 12px;">
-              <image-slot id="suite-stock-upload" shape="rounded" radius="12" placeholder="Drop a photo of new stock"></image-slot>
+              <a href="/products" style="display:grid;place-items:center;height:100%;min-height:120px;border:1px dashed #D4D4D8;border-radius:12px;color:#71717A;font-size:12.5px;text-align:center;padding:14px;">Add stock on the Products page &mdash;<br>or send your team a photo in the chat</a>
             </div>
             <div style="display: flex; gap: 8px;">
               <input placeholder="How many pieces?" style="flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #E4E4E7; font-size: 13px; background: #FAFAFA;" />
@@ -554,7 +554,7 @@ main { min-width: 0; }
         <div style="background: #FFFFFF; border: 1px solid #E4E4E7; border-radius: 14px; padding: 20px; margin-bottom: 18px; display: grid; grid-template-columns: 210px minmax(0,1fr); gap: 20px; align-items: start;">
           <div>
             <div style="height: 210px; border-radius: 12px; overflow: hidden;">
-              <image-slot id="suite-idea-photo" shape="rounded" radius="12" placeholder="Photo of your product idea"></image-slot>
+              <a href="/" style="display:grid;place-items:center;height:100%;min-height:120px;border:1px dashed #D4D4D8;border-radius:12px;color:#71717A;font-size:12.5px;text-align:center;padding:14px;">Send a photo in the chat and<br>Product Vision will read it</a>
             </div>
             <div style="font-size: 12px; color: #71717A; margin-top: 8px; text-align: center;">Drop a photo · or type the idea</div>
           </div>
@@ -1458,8 +1458,20 @@ class Component extends DCLogic {
       }).reverse(),
       gateWaiting: gateWaiting, runDone: runDone,
       gateTitle: run.gate.title, gateBody: run.gate.body,
-      approveGate: () => { const g = Object.assign({}, s.gates); g[s.run] = 'yes'; this.setState({ gates: g, playing: true }); },
-      rejectGate: () => { const g = Object.assign({}, s.gates); g[s.run] = 'no'; this.setState({ gates: g, playing: false }); },
+      /* These used to move a flag in the browser and nothing else, so a run
+         paused at a gate stayed paused however many times you pressed
+         Approve. They go through the same action the owner's Today page
+         uses, which actually resumes the graph. */
+      approveGate: () => {
+        const g = Object.assign({}, s.gates); g[s.run] = 'yes';
+        this.setState({ gates: g, playing: true });
+        if (window.LucidaActions) window.LucidaActions.decide('gate', 'yes');
+      },
+      rejectGate: () => {
+        const g = Object.assign({}, s.gates); g[s.run] = 'no';
+        this.setState({ gates: g, playing: false });
+        if (window.LucidaActions) window.LucidaActions.decide('gate', 'no');
+      },
 
       handoffs: shown.filter(x => x.h).map(x => x.h).reverse(),
       noHandoffs: shown.filter(x => x.h).length === 0,

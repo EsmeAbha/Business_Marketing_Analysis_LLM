@@ -34,6 +34,7 @@ from starlette.responses import (  # noqa: E402
     HTMLResponse,
     JSONResponse,
     RedirectResponse,
+    StreamingResponse,
 )
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
@@ -412,6 +413,134 @@ async def product_delete(request):
     memory.db.execute("DELETE FROM products WHERE id=?", (pid,))
     request.session["product_note"] = f"Removed {name or 'it'}."
     return RedirectResponse("/products", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# The workforce, live
+# ---------------------------------------------------------------------------
+
+# The design's node ids, which the graph is drawn with, against the internal
+# agent names the runtime uses. One mapping, both directions.
+NODE_TO_AGENT = {
+    "market": "market_research", "vision": "product_vision",
+    "pricing": "pricing", "inventory": "inventory", "ads": "ad_creative",
+    "engage": "engagement", "delivery": "delivery", "report": "reporting",
+}
+
+
+async def workforce_page(request):
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    session_id = _session_for(account["id"])
+    return page(app_ui.workforce_page(
+        _who(account), busy=runtime.is_running(session_id)))
+
+
+async def api_events(request):
+    """Server-sent events: every step of this owner's run, as it happens.
+
+    Polling the whole snapshot every second to watch a graph is wasteful and
+    still lags; this pushes each trace event the moment it is recorded, so
+    the picture moves at the speed the work does.
+    """
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, 401)
+    session_id = _session_for(account["id"])
+
+    async def stream():
+        seen = {e["id"] for e in bus.load(session_id, 400)}
+        idle = 0
+        # A browser tab left open should not hold a worker forever.
+        while idle < 900:
+            events = [e for e in bus.load(session_id, 400) if e["id"] not in seen]
+            for e in events:
+                seen.add(e["id"])
+                payload = {
+                    "id": e["id"],
+                    "kind": e["kind"],
+                    "actor": e.get("actor") or "",
+                    "node": bridge.NODE_ID.get(e.get("actor") or "", ""),
+                    "summary": (e.get("summary") or "")[:400],
+                    "level": e.get("level") or "info",
+                    "at": str(e.get("ts") or "")[11:19],
+                    "to": bridge.NODE_ID.get(
+                        str((e.get("payload") or {}).get("recipient") or ""), ""),
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+            idle = idle + 1 if not events else 0
+            # A comment line keeps proxies from closing an idle connection.
+            if idle and idle % 20 == 0:
+                yield ": keep-alive\n\n"
+            await asyncio.sleep(1)
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",   # nginx would otherwise hold the stream
+    })
+
+
+async def api_assign(request):
+    """Hand a job to one named specialist and run it."""
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, 401)
+    if not settings.has_llm:
+        return JSONResponse({"error": "No API key configured."}, 400)
+
+    body = await request.json()
+    node = str(body.get("agent") or "").strip()
+    agent = NODE_TO_AGENT.get(node, node)
+    task = str(body.get("task") or "").strip()
+    if agent not in NODE_TO_AGENT.values():
+        return JSONResponse({"error": f"no specialist called {node!r}"}, 400)
+    if not task:
+        return JSONResponse({"error": "what should they do?"}, 400)
+
+    session_id = _session_for(account["id"])
+    if runtime.is_running(session_id):
+        return JSONResponse(
+            {"error": "Your team is already working. Wait for this run to "
+                      "finish before handing out another job."}, 409)
+
+    async with _run_lock:
+        try:
+            answer = await asyncio.to_thread(
+                _drain_assigned, session_id, agent, task, _owner_context(account))
+        except Exception as exc:  # noqa: BLE001
+            from lucida.llm import AllModelsBusy, is_rate_limited
+            if isinstance(exc, AllModelsBusy) or is_rate_limited(exc):
+                return JSONResponse({"error": str(exc)}, 429)
+            logger.error("assigned run failed: %s", exc)
+            return JSONResponse({"error": str(exc)}, 500)
+
+    snap = _snapshot(session_id, account)
+    snap["answer"] = answer
+    return JSONResponse(snap)
+
+
+def _drain_assigned(session_id: str, agent: str, task: str,
+                    owner_context: dict) -> str:
+    """Same as a normal turn, entered at a chosen specialist."""
+    report, errors = "", []
+    for chunk in runtime.assign(agent=agent, task=task,
+                                owner_context=owner_context,
+                                session_id=session_id):
+        for _node, update in (chunk or {}).items():
+            if not isinstance(update, dict):
+                continue
+            if update.get("final_report"):
+                report = update["final_report"]
+            for err in update.get("errors") or []:
+                errors.append(str(err))
+    if report:
+        return report
+    if errors:
+        return ("That did not finish cleanly:\n\n"
+                + "\n".join(f"- {e}" for e in errors[:4]))
+    return "Done, but nothing was written down."
 
 # ---------------------------------------------------------------------------
 # Routes
@@ -1642,6 +1771,9 @@ app = Starlette(
         Route("/api/inbox/sync", api_inbox_sync, methods=["POST"]),
         Route("/api/reply", api_reply, methods=["POST"]),
         Route("/api/decide", api_decide, methods=["POST"]),
+        Route("/workforce", workforce_page),
+        Route("/api/events", api_events),
+        Route("/api/assign", api_assign, methods=["POST"]),
         Route("/api/health", api_health),
         # Serves support.js, image-slot.js and vendor/ alongside the page, so
         # the design's own relative script paths resolve unchanged.

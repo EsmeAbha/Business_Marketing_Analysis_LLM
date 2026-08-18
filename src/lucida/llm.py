@@ -152,11 +152,9 @@ def build_client(provider: str, model: str, max_tokens: int):
 # Groq meters each model separately, so a daily cap on one says nothing about
 # the others. Ordered by capability: drop only as far as needed.
 GROQ_FALLBACKS = (
-    "llama-3.3-70b-versatile",
     "openai/gpt-oss-120b",
     "qwen/qwen3.6-27b",
     "openai/gpt-oss-20b",
-    "llama-3.1-8b-instant",
 )
 
 
@@ -165,10 +163,47 @@ def is_rate_limited(exc: Exception) -> bool:
     return "rate_limit" in text or "429" in text or "rate limit" in text
 
 
+def is_gone(exc: Exception) -> bool:
+    """The model was retired, or this key was never allowed to use it.
+
+    Providers decommission models without warning — `llama-3.3-70b-versatile`
+    started 404ing mid-project — and that used to kill the whole run, because
+    only a rate limit moved the chain along. A model that is not there is
+    every bit as unusable as one that is busy, so it is treated the same.
+    """
+    text = str(exc).lower()
+    return ("does not exist" in text or "model_not_found" in text
+            or "decommission" in text
+            or ("404" in text and "model" in text))
+
+
+def is_flaky_tool_call(exc: Exception) -> bool:
+    """The model wrote the right answer but not as a tool call.
+
+    Groq enforces tool choice server-side and rejects the reply when the
+    model emits the JSON as plain text instead. It is intermittent — the
+    same model and prompt succeed on a retry — so it should cost one hop
+    down the chain, not the whole run.
+    """
+    return "tool_use_failed" in str(exc)
+
+
+def should_try_next(exc: Exception) -> bool:
+    return is_rate_limited(exc) or is_gone(exc) or is_flaky_tool_call(exc)
+
+
 def retry_after(exc: Exception) -> str:
     """The wait the provider asked for, as it wrote it. '' when it did not."""
     m = re.search(r"try again in ([0-9hms\.]+)", str(exc))
     return m.group(1) if m else ""
+
+
+def _why(exc: Exception) -> str:
+    if is_gone(exc):
+        return "has been retired"
+    if is_flaky_tool_call(exc):
+        return "did not answer as a tool call"
+    return "is over its cap"
 
 
 class AllModelsBusy(ProviderError):
@@ -226,12 +261,12 @@ class _Failover:
                 return build_client(provider, model,
                                     self._max_tokens).invoke(*args, **kwargs)
             except Exception as exc:  # noqa: BLE001
-                if not is_rate_limited(exc):
+                if not should_try_next(exc):
                     raise
                 last = exc
                 if i + 1 < len(self._models):
-                    logger.warning("%s is over its cap; trying %s",
-                                   model, self._models[i + 1][1])
+                    logger.warning("%s %s; trying %s", model, _why(exc),
+                                   self._models[i + 1][1])
         raise AllModelsBusy(retry_after(last) if last else "")
 
     def with_structured_output(self, *args, **kwargs):
@@ -248,12 +283,13 @@ class _Failover:
                         return client.with_structured_output(
                             *args, **kwargs).invoke(*a, **kw)
                     except Exception as exc:  # noqa: BLE001
-                        if not is_rate_limited(exc):
+                        if not should_try_next(exc):
                             raise
                         last = exc
                         if i + 1 < len(outer._models):
-                            logger.warning("%s is over its cap; trying %s",
-                                           model, outer._models[i + 1][1])
+                            logger.warning(
+                                "%s %s; trying %s", model, _why(exc),
+                                outer._models[i + 1][1])
                 raise AllModelsBusy(retry_after(last) if last else "")
 
         return _Structured()
