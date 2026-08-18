@@ -54,7 +54,7 @@ from lucida.tools import (  # noqa: E402
 )
 from lucida.tools.courier import courier  # noqa: E402
 from web import (  # noqa: E402
-    app_ui, auth, bridge, google_oauth, mailer, screens,
+    admin, app_ui, auth, bridge, google_oauth, mailer, screens,
 )
 
 logger = get_logger("serve")
@@ -426,6 +426,27 @@ NODE_TO_AGENT = {
     "pricing": "pricing", "inventory": "inventory", "ads": "ad_creative",
     "engage": "engagement", "delivery": "delivery", "report": "reporting",
 }
+
+
+async def admin_page(request):
+    """Every shop on this installation. Operators only.
+
+    The check is repeated here rather than trusted from the navigation: a URL
+    typed by hand does not go through the nav, and this page reads across all
+    of them.
+    """
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    if not admin.is_admin(account):
+        logger.warning("admin page refused for %s", account.get("email"))
+        # 404 rather than 403: an account that is not an operator has no
+        # business learning that the page exists.
+        return page(screens.not_found(), status=404)
+
+    logger.info("admin page opened by %s", account.get("email"))
+    data = await asyncio.to_thread(admin.overview)
+    return page(app_ui.admin_page(_who(account), data))
 
 
 async def workforce_page(request):
@@ -845,6 +866,9 @@ def _who(account: dict) -> dict:
         "location": account.get("location") or "",
         "initials": auth.initials(account),
         "avatar": f"/avatar/{account['id']}" if account.get("avatar_path") else "",
+        # Decides whether the nav shows the admin link at all. The page
+        # itself re-checks; this only controls what is offered.
+        "is_admin": admin.is_admin(account),
     }
 
 
@@ -1771,6 +1795,7 @@ app = Starlette(
         Route("/api/inbox/sync", api_inbox_sync, methods=["POST"]),
         Route("/api/reply", api_reply, methods=["POST"]),
         Route("/api/decide", api_decide, methods=["POST"]),
+        Route("/admin", admin_page),
         Route("/workforce", workforce_page),
         Route("/api/events", api_events),
         Route("/api/assign", api_assign, methods=["POST"]),
