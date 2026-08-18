@@ -212,13 +212,36 @@ async def api_delivery_quote(request):
             shop_city=from_city,
             shop_area=from_area)
 
+    provider = connections.courier_ready(memory.db)
     q = delivery_pricing.quote(
-        memory.db, items, kind=kind,
-        provider=connections.courier_ready(memory.db),
+        memory.db, items, kind=kind, provider=provider,
         is_cod=bool(body.get("cod", True)))
+
+    # When the courier is connected it can say what it will actually charge,
+    # which beats any rate card we keep. The estimate stays as the fallback,
+    # and the reply says which of the two the owner is looking at.
+    priced_by = "your saved rates"
+    if q.known and provider == "pathao":
+        city_id, zone_id, why = await asyncio.to_thread(
+            delivery_pricing.pathao_place, memory.db,
+            str(body.get("city") or ""), str(body.get("area") or ""))
+        if zone_id:
+            fee, cod_pct, err = await asyncio.to_thread(
+                delivery_pricing.pathao_quote, memory.db, q.weight_g,
+                city_id, zone_id)
+            if fee and not err:
+                q.delivery_charge = fee
+                q.cod_fee = (q.goods_total * cod_pct) if q.is_cod else 0.0
+                q.total_charge = q.goods_total + q.delivery_charge + q.cod_fee
+                priced_by = "Pathao's own rate for this address"
+            elif err:
+                q.problems.append(f"Pathao could not price it: {err}")
+        elif why:
+            q.problems.append(why)
 
     return JSONResponse({
         "known": q.known,
+        "pricedBy": priced_by,
         "zoneKind": kind,
         "zone": q.zone_name or kind.replace("_", " "),
         "weight_g": q.weight_g,
@@ -809,9 +832,13 @@ async def connect_save(request):
     form = await request.form()
     token = str(form.get("token") or "").strip()
     ident = str(form.get("ident") or "").strip()
+    # Anything beyond the two the storage layer knows about — Pathao's login,
+    # its sandbox switch — travels as extras.
+    extra = {k: str(v).strip() for k, v in form.items()
+             if k not in ("token", "ident")}
 
     result = await asyncio.to_thread(
-        connections.connect, memory.db, platform, token, ident)
+        connections.connect, memory.db, platform, token, ident, extra)
     if not result.ok:
         request.session["connect_error"] = result.error
         return RedirectResponse(f"/connect/{platform}?manual=1", status_code=303)

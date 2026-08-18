@@ -1213,6 +1213,7 @@ async function priceIt() {
     '<div class="qline"><span>Parcel weight</span><b>' + q.weight_g + ' g'
       + (q.billable_kg ? ' · ' + q.billable_kg + ' extra kg billed' : '') + '</b></div>'
     + '<div class="qline"><span>Zone</span><b>' + q.zone + '</b></div>'
+    + '<div class="qline"><span>Priced by</span><b>' + (q.pricedBy || '') + '</b></div>'
     + '<div class="qline"><span>Goods</span><b>' + money(q.goods, c) + '</b></div>'
     + '<div class="qline"><span>Delivery</span><b>' + money(q.delivery, c) + '</b></div>'
     + (q.cod_fee ? '<div class="qline"><span>Cash-on-delivery fee</span><b>'
@@ -1429,67 +1430,107 @@ CONNECT_CSS = f"""
 # What each platform is called, and what the owner has to have in hand. The
 # id is asked for separately from the token because Meta's tokens do not say
 # which Page they are for, and a token without one cannot be checked.
+# What each platform asks for. A list rather than a fixed pair because
+# Pathao needs four things — the client pair identifies the integration, the
+# login identifies the merchant, and it will not issue a token without both.
+# `name` is the form field; `token` and `ident` are the two the storage layer
+# already understands, and anything else travels alongside them.
 NEEDS = {
-    "messenger": ("Page access token", "Facebook Page id",
-                  "Both come from the same Meta app. A Page token is what "
-                  "reads the messages; a user token cannot."),
-    "facebook": ("Page access token", "Facebook Page id",
-                 "The same token and Page as Messenger — Meta treats them "
-                 "as one thing, so connecting either connects both."),
-    "instagram": ("Page access token", "Instagram Business account id",
-                  "The token is the Facebook Page's. The id is the Instagram "
-                  "Business account linked to that Page, not the handle."),
-    "steadfast": ("API key", "Secret key",
-                  "Both come from the API page of your Steadfast merchant "
-                  "portal. They are checked against your account balance "
-                  "before they are saved."),
-    "pathao": ("Client id", "Client secret",
-               "Both come from Developer API in the Pathao Merchant panel. "
-               "A token is issued to prove they work before they are saved."),
-    "youtube": ("OAuth refresh token", "",
-                "An API key cannot upload — the upload happens as you, not "
-                "as the app, so it has to be a refresh token."),
+    "messenger": {
+        "why": "Both come from the same Meta app. A Page token is what reads "
+               "the messages; a user token cannot.",
+        "fields": [("token", "Page access token", "textarea"),
+                   ("ident", "Facebook Page id", "text")],
+    },
+    "facebook": {
+        "why": "The same token and Page as Messenger — Meta treats them as "
+               "one thing, so connecting either connects both.",
+        "fields": [("token", "Page access token", "textarea"),
+                   ("ident", "Facebook Page id", "text")],
+    },
+    "instagram": {
+        "why": "The token is the Facebook Page's. The id is the Instagram "
+               "Business account linked to that Page, not the handle.",
+        "fields": [("token", "Page access token", "textarea"),
+                   ("ident", "Instagram Business account id", "text")],
+    },
+    "youtube": {
+        "why": "An API key cannot upload — the upload happens as you, not as "
+               "the app, so it has to be a refresh token.",
+        "fields": [("token", "OAuth refresh token", "textarea")],
+    },
+    "steadfast": {
+        "why": "Both come from the API page of your Steadfast merchant "
+               "portal. They are checked against your account balance before "
+               "they are saved.",
+        "fields": [("token", "API key", "text"),
+                   ("ident", "Secret key", "text")],
+    },
+    "pathao": {
+        "why": "Pathao issues a token from your client pair *and* your "
+               "Merchant panel login together — the pair alone returns \u201cthe "
+               "user credentials were incorrect\u201d. Your store is read back "
+               "automatically; a parcel needs somewhere to be collected from.",
+        "fields": [("token", "Client id", "text"),
+                   ("ident", "Client secret", "text"),
+                   ("username", "Merchant panel email", "text"),
+                   ("password", "Merchant panel password", "password"),
+                   ("sandbox", "Use Pathao's sandbox (books nothing real)",
+                    "checkbox")],
+    },
 }
 
 
 def connect_form(account: dict, platform: str, has_oauth: bool,
                  redirect_uri: str, error: str = "") -> str:
     """Paste a credential. Checked against the live API before it is saved."""
-    token_label, ident_label, why = NEEDS.get(platform, ("Token", "Id", ""))
-    warn = (f"<div class='note bad'>{e(error)}</div>" if error else "")
-    ident_field = (
-        f"<div class='field'><label for='ident'>{e(ident_label)}</label>"
-        f"<input id='ident' name='ident' required "
-        f"placeholder='numbers only'></div>"
-    ) if ident_label else ""
-    alt = (
-        f"<p class='muted' style='margin-top:14px'>Or "
-        f"<a href='/connect/{e(platform)}' style='color:{ACCENT};"
-        f"font-weight:600'>sign in with {e(platform.title())}</a> instead and "
-        f"never handle a token.</p>"
-    ) if has_oauth else (
-        f"<p class='muted' style='margin-top:14px'>One-click sign-in is off "
-        f"because this machine has no app registered with the platform. To "
-        f"turn it on, register one and set its id and secret, with "
-        f"<code>{e(redirect_uri)}</code> as the redirect.</p>"
-    )
+    spec = NEEDS.get(platform, {"why": "", "fields": [("token", "Token", "text")]})
+    warn = f"<div class='note bad'>{e(error)}</div>" if error else ""
+
+    fields = ""
+    for name, label, kind in spec["fields"]:
+        if kind == "checkbox":
+            fields += (
+                f"<label style='display:flex;align-items:center;gap:8px;"
+                f"font-weight:400;margin-bottom:14px'>"
+                f"<input type='checkbox' name='{e(name)}' value='1' "
+                f"style='width:auto'>{e(label)}</label>")
+        elif kind == "textarea":
+            fields += (
+                f"<div class='field'><label for='{e(name)}'>{e(label)}</label>"
+                f"<textarea id='{e(name)}' name='{e(name)}' rows='3' required "
+                f"placeholder='paste it here'></textarea></div>")
+        else:
+            fields += (
+                f"<div class='field'><label for='{e(name)}'>{e(label)}</label>"
+                f"<input id='{e(name)}' name='{e(name)}' type='{e(kind)}' "
+                f"required></div>")
+
+    if has_oauth:
+        alt = (f"<p class='muted' style='margin-top:14px'>Or "
+               f"<a href='/connect/{e(platform)}' style='color:{ACCENT};"
+               f"font-weight:600'>sign in with {e(platform.title())}</a> "
+               f"instead and never handle a token.</p>")
+    else:
+        alt = (f"<p class='muted' style='margin-top:14px'>One-click sign-in is "
+               f"off because this machine has no app registered with the "
+               f"platform. To turn it on, register one and set its id and "
+               f"secret, with <code>{e(redirect_uri)}</code> as the redirect."
+               f"</p>")
 
     body = (
         f"<div class='body'><div class='card' style='max-width:560px'>"
         f"{warn}"
-        f"<p class='muted' style='margin-top:0'>{e(why)}</p>"
+        f"<p class='muted' style='margin-top:0'>{e(spec['why'])}</p>"
         f"<form method='post' action='/connect/{e(platform)}/save'>"
-        f"<div class='field'><label for='token'>{e(token_label)}</label>"
-        f"<textarea id='token' name='token' rows='3' required "
-        f"placeholder='paste it here'></textarea></div>"
-        f"{ident_field}"
+        f"{fields}"
         f"<button class='btn' type='submit'>Check and connect</button>"
         f"<a class='btn btn-quiet' href='/connect' "
         f"style='margin-left:8px;display:inline-block'>Cancel</a>"
         f"</form>{alt}"
-        f"<p class='muted' style='margin-top:14px'>Nothing is saved unless "
-        f"the platform confirms the credential works. It is stored in your "
-        f"shop's own database, not in a file shared with anyone else.</p>"
+        f"<p class='muted' style='margin-top:14px'>Nothing is saved unless the "
+        f"platform confirms the credential works. It is stored in your shop's "
+        f"own database, not in a file shared with anyone else.</p>"
         f"</div></div>"
     )
     head = (
