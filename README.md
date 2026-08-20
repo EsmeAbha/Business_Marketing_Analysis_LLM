@@ -1,467 +1,254 @@
-﻿# 🏪 Lucida
+# Lucida
 
-A multi-agent AI system that acts as an **autonomous workforce for a small business** —
-from deciding what to sell, through sourcing, pricing, marketing, customer listening
-and delivery. A Supervisor agent coordinates eight specialists, keeps a shared memory
-across the whole business lifecycle, and stops for the owner's approval before anything
-irreversible or costly.
+An AI workforce for a small shop. One supervisor routes work to eight
+specialists — research, photos, pricing, stock, ads, customers, delivery,
+reporting — and they share one memory of the business. The owner talks to it
+in plain language, or sends a photo of what they make.
 
-The owner talks to it in plain language — or just uploads a photo of what they make.
-
-> **The differentiators:** a *photo-to-business-plan* flow (snap a product → identified,
-> priced, validated, GO/NO-GO), and a *continuous customer-listening loop* that detects
-> demand for things the business does not yet sell and feeds that back into replanning.
+It is built for a shop in Dhaka: Bengali and Banglish messages, taka, Pathao
+and Steadfast couriers, weight-based delivery pricing, and a free model tier
+that has to survive a daily cap.
 
 ---
 
-## Table of contents
+## Contents
 
-- [What it does](#what-it-does)
-- [Architecture](#architecture)
-- [Setup](#setup)
+- [How it works](#how-it-works)
+- [The screens](#the-screens)
+- [Where the data lives](#where-the-data-lives)
+- [Models, and what happens when one dies](#models-and-what-happens-when-one-dies)
+- [Integrations](#integrations)
 - [Running it](#running-it)
-- [The interface](#the-interface)
-- [Demo script](#demo-script)
-- [Live vs simulated integrations](#live-vs-simulated-integrations)
-- [Project structure](#project-structure)
-- [Design notes](#design-notes)
-- [Troubleshooting](#troubleshooting)
+- [Configuration](#configuration)
+- [Project layout](#project-layout)
+- [What is honest about the current state](#what-is-honest-about-the-current-state)
 
 ---
 
-## What it does
+## How it works
 
-The system supports the full small-business lifecycle. The Supervisor works out which
-stage the owner is in and routes accordingly — it does not march through all eight
-agents for a simple question.
+### The star
 
-| Stage | What happens | Agent |
-|---|---|---|
-| 1. Idea & market research | *"What business should I start in Dhaka with 30k?"* → live web search for demand, competition and price bands | 🔍 Market Research |
-| 2. Product validation | Owner uploads a photo → product identified, demand assessed, price band estimated, **GO / NO-GO** | 📸 Product Vision |
-| 3. Owner decision | Owner approves, rejects, or requests changes | 🙋 Human-in-the-loop |
-| 4. Inventory setup | Photos + quantities → structured stock record, low-stock thresholds | 📦 Inventory |
-| 5. Marketing launch | Platform-specific ad copy → **owner approves** → published to FB / IG / YouTube | 📣 Ad Creation |
-| 6. Customer engagement | DMs and comments read → sentiment, pre-orders extracted, **unmet demand detected** | 💬 Engagement |
-| 7. Reporting & replanning | Restock alerts, demand shifts, recomputed financials, revised plan | 📊 Reporting |
-| 8. Delivery | Courier booked via Pathao / Steadfast / Uber after **owner confirms** | 🚚 Delivery |
+A LangGraph state machine. Every request enters at the **supervisor**, which
+reads it, plans, and hands to one specialist. That specialist works, writes
+what it learned to shared memory, and returns to the supervisor, which picks
+the next one or finishes.
 
-Pricing runs through all of it — cost-plus price, margin, break-even and competitor
-comparison, computed in a real Python sandbox rather than asserted in prose.
-
----
-
-## Architecture
-
-Supervisor-routed star topology on **LangGraph**. Every specialist returns to the
-Supervisor, which re-decides — so new information (a customer asking for a product you
-don't stock) can send the workflow *backwards* into research or pricing instead of
-forcing it down a fixed pipeline.
-
-```mermaid
-graph TB
-    OWNER([👤 Owner: text + photos]) --> SUP{{🧭 Supervisor<br/>interpret · plan · route · aggregate}}
-    SUP --> MR[🔍 Market Research] --> SUP
-    SUP --> PV[📸 Product Vision] --> SUP
-    SUP --> PR[💵 Pricing & Cost] --> SUP
-    SUP --> INV[📦 Inventory] --> SUP
-    SUP --> AD[📣 Ad Creation 🔒] --> SUP
-    SUP --> ENG[💬 Engagement] --> SUP
-    SUP --> DEL[🚚 Delivery 🔒] --> SUP
-    SUP --> REP[📊 Reporting] --> SUP
-    SUP --> FIN[finalize] --> OWNER
-    AD -.interrupt.-> GATE[[🙋 Owner approval]] -.resume.-> SUP
-    DEL -.interrupt.-> GATE
-    MR <--> MEM[(🧠 Shared memory<br/>SQLite + vector store)]
-    PR <--> MEM
-    ENG <--> MEM
-    REP <--> MEM
+```
+                       Product Vision
+                            │
+      Market Research       │       Pricing
+                   ╲        │        ╱
+                    ╲       │       ╱
+   Reporting ─────── SUPERVISOR ─────── Stock
+                    ╱       │       ╲
+                   ╱        │        ╲
+        Delivery           │          Ad Creative
+                       Customers
 ```
 
-🔒 = suspends the entire graph to a SQLite checkpointer until the owner answers.
+It is a star, not a pipeline: a question about stock does not drag six agents
+along with it. The supervisor decides, and the route it took is recorded.
 
-**Full architecture write-up:** [`docs/architecture.md`](docs/architecture.md) — topology,
-the two collaboration channels, HITL mechanics, tool degradation paths, observability,
-and the design decisions behind each.
-
----
-
-## Setup
-
-**Requirements:** Python 3.11+ and one model-provider API key.
-
-```bash
-git clone <your-repo-url>
-cd Business_Marketing_Analysis_LLM
-
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS / Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-Configure credentials:
-
-```bash
-cp .env.example .env          # Windows: copy .env.example .env
-```
-
-Open `.env` and set **one text-provider key**:
-
-```env
-AIW_PROVIDER=groq            # groq | anthropic | google
-GROQ_API_KEY=gsk_...         # free tier at console.groq.com
-```
-
-That is enough to run. Every other credential is optional — each missing one degrades
-to a free fallback or a clearly-labelled simulated adapter rather than breaking the
-system.
-
-### Choosing a provider
-
-| Provider | Cost | Photo understanding | Notes |
-|---|---|---|---|
-| **`groq`** (default) | Free tier | ❌ **none** | Fast. Serves no multimodal model, so the photo flow is disabled unless you add a vision key below. Free tier caps tokens/minute per model, so a long run paces itself. |
-| `anthropic` | Paid | ✅ strongest | Best structured-output reliability and the best photo reading. |
-| `google` | Generous free tier | ✅ good | A reasonable middle ground; also works as the vision provider on its own. |
-
-> **Turning the photo flow back on while staying on Groq.** Photo-to-business-plan is
-> the project's headline feature, and Groq cannot do it. Add a **free** Google AI Studio
-> key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) as
-> `GOOGLE_API_KEY` and the Product Vision agent starts reading images again — the text
-> agents stay on Groq. The vision provider is configured independently of the text one,
-> so nothing else changes.
->
-> Without a vision key the system does **not** pretend: the Product Vision agent says
-> plainly that it could not look at the photo, falls back to validating from your written
-> description, and tells you how to enable it.
-
-| Optional key | Without it |
+| Specialist | What it owns |
 |---|---|
-| `GOOGLE_API_KEY` / `ANTHROPIC_API_KEY` | Photo understanding is off (see above) |
-| `TAVILY_API_KEY` | Web search falls back to DuckDuckGo (free, no key) |
-| `META_ACCESS_TOKEN`, `META_PAGE_ID`, `META_IG_USER_ID` | FB/IG publishing + inbox use the simulated adapter |
-| `YOUTUBE_API_KEY` | YouTube publishing simulated |
-| `PATHAO_*` / `STEADFAST_*` | Courier booking simulated |
+| Market Research | What sells, what rivals charge, what people are asking for |
+| Product Vision | Reads a photo and says what the product is and whether it is worth selling |
+| Pricing | Unit cost, price, margin, break-even |
+| Stock | Quantities, reorder levels, what runs out first |
+| Ad Creative | Writes platform-specific copy and publishes it, after approval |
+| Customers | Reads DMs and comments, sentiment, unmet demand, drafts replies |
+| Delivery | Quotes a parcel and books the courier, after approval |
+| Reporting | Writes the day up in the owner's own numbers |
+
+### Gates
+
+Anything irreversible or costly — publishing an ad, spending money, booking a
+courier — stops and waits. The run suspends at a LangGraph interrupt, the
+owner sees it on the dashboard, and approving resumes the graph from exactly
+that point rather than starting over.
+
+### Memory
+
+Two halves, both per shop:
+
+- **Structured** — SQLite, 22 tables: products, inventory, orders, pricing
+  history, social messages, campaigns, deliveries, chat threads, competitors.
+- **Semantic** — a small vector store of what agents learned, so later runs
+  recall earlier conclusions.
+
+### Watching it happen
+
+`/api/events` holds one connection open and pushes each step as it is
+recorded. The Workforce screen draws the run live: a card lights when its
+agent starts, handoffs appear as numbered arrows in order, and every step
+scrolls into a feed with its timestamp and cost.
+
+---
+
+## The screens
+
+| Screen | What it is for |
+|---|---|
+| **Dashboard** `/board` | Where the shop stands. Sales, stock cover, promises, what needs a decision. Has its own operator view with the execution graph, runs, memory and cost. |
+| **Chat** `/` | Ask anything. Conversations are kept and can be reopened. Send a photo and Product Vision reads it. A research question asks *where* to look before spending anything. |
+| **Ad studio** `/studio` | Generate a poster and ad copy, or upload your own picture and edit it — rotate, flip, crop, filters, shapes, text. |
+| **Workforce** `/workforce` | The graph, live. Click a specialist to hand it a job directly, over the supervisor's head. |
+| **Products** `/products` | What you sell, what it costs, and **what it weighs**. Weight is what every delivery quote is worked out from. |
+| **Delivery** `/delivery` | Pick what is going and where. The charge comes from your courier's own rates, with weight, zone, delivery and cash-on-delivery shown separately. |
+| **Connect** `/connect` | Messenger, Facebook, Instagram, YouTube, Steadfast, Pathao. Credentials are checked against the live API before they are stored. |
+| **Service admin** `/admin` | Operators only. Every shop on the installation and what it is using. |
+
+---
+
+## Where the data lives
+
+```
+data/
+├── accounts.db          every owner: email, bcrypt hash, business, verification
+├── lucida.db            the trace — every step every agent has taken
+├── checkpoints.db       LangGraph state, so a paused run can resume
+├── session.key          cookie signing key (gitignored)
+└── shops/
+    └── <account-id>/
+        ├── shop.db          this shop's business, alone
+        └── knowledge.jsonl  this shop's semantic memory
+```
+
+**Isolation is by file, not by a column.** Every agent shares one `memory`
+singleton; the web layer rebinds it to the signed-in owner's directory before
+any agent runs. No query has to remember a `WHERE owner_id = ?`, and a
+forgotten filter cannot leak one shop into another.
+
+The trace is the exception — one file for the whole machine — so session ids
+carry a hash of the owner and the dashboard matches on that prefix.
+
+---
+
+## Models, and what happens when one dies
+
+Free tiers are rationed and providers retire models without warning. Both
+have happened during this project, so the chain is built for it:
+
+```
+your model → the other Groq models → Google (if a key is set)
+```
+
+A model moves the chain along when it is **capped** (429), **retired** (404),
+or **returns the right JSON but not as a tool call** — a real intermittent
+failure that used to kill a whole run. Only when everything is exhausted does
+the owner see a message, and it says when to come back rather than showing a
+provider traceback.
+
+Photo reading runs on Google, because Groq serves no multimodal model.
+
+---
+
+## Integrations
+
+| | State |
+|---|---|
+| **Groq** | Text. Free tier, daily caps per model. |
+| **Google AI Studio** | Photo reading, and the fallback when Groq is spent. Free. |
+| **Pathao** | **Live.** Books real parcels and prices them from Pathao's own rate card. |
+| **Steadfast** | Ready — paste the key pair from your merchant portal. |
+| **DuckDuckGo** | Web search, no key, searches your own country's index. |
+| **Tavily** | Better search if a key is set — returns page content, not one-line snippets. |
+| **Pollinations** | Ad artwork, no key. Free Gemini keys get no image quota, so this is the default. |
+| **Messenger / Facebook / Instagram** | Built and tested against the Graph API. Needs a Meta app and App Review before it reaches real customers. |
+| **YouTube** | Needs an OAuth client. An API key cannot upload. |
+| **Email** | Needs SMTP. Without it, verification codes print on screen. |
+
+Anything not connected runs against a **simulated** adapter that is labelled
+as such everywhere it appears, and nothing simulated is ever written to the
+shop's records as though a customer sent it.
 
 ---
 
 ## Running it
 
-There are two front-ends over the same workforce. Both read and write the same
-shared memory, so you can switch between them freely.
-
-### The Business Suite workspace (primary)
-
 ```bash
+python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt    # Windows
+# .venv/bin/pip install -r requirements.txt      # macOS / Linux
+
+cp .env.example .env        # then add GROQ_API_KEY
 python serve.py
 ```
 
-Open **http://127.0.0.1:8000**.
+Then open **http://127.0.0.1:8000**.
 
-This serves the `Business Suite` design bundle in [`web/design/`](web/design/)
-exactly as authored — its own markup, its own React runtime, its own fonts.
-Nothing is redrawn. Two additive patches make it Lucida's:
-
-* `window.__resources` points the runtime's CDN URLs at vendored copies of
-  React / ReactDOM / Babel, so the page runs with no external requests.
-* Each data constant prefers `window.LUCIDA.<key>`, which the server injects
-  inline before the runtime boots. **Where the database is empty the design
-  falls back to its own literals**, so a fresh install still renders as drawn
-  and real data replaces it section by section as agents populate memory.
-
-The design's own controls are wired through: **Ask** puts a question to the
-workforce, and a decision card's approve / not-now answers a real approval gate.
-
-Re-apply the patches after replacing the bundle:
+Tests:
 
 ```bash
-python web/patch_design.py     # idempotent; keeps a pristine index.orig.html
+python tests/test_workforce.py
 ```
 
-### The Streamlit app (fallback)
+Deployment — persistent disk, one instance, long request timeouts — is in
+[DEPLOY.md](DEPLOY.md).
 
-```bash
-streamlit run app.py
-```
+---
 
-Open **http://localhost:8501**. Kept as a working fallback; it additionally
-supports photo upload and streams agent narration live, which the workspace
-does not yet do.
+## Configuration
 
-Either way, integration status is shown as 🟢 LIVE / 🟡 SIMULATED / 🔴 MISSING,
-so it is always unambiguous which parts are calling real APIs.
+Everything lives in `.env`, which is gitignored.
 
-> **TLS-inspected networks.** If provider calls fail with
-> `APIConnectionError: Connection error`, the real cause is usually
-> `CERTIFICATE_VERIFY_FAILED`: antivirus or a corporate proxy is intercepting
-> TLS with a root CA that lives in the OS trust store but not in certifi's
-> bundle. `truststore` (in `requirements.txt`) is injected in
-> [`config.py`](src/lucida/config.py) to make Python use the OS store instead.
-
-### Accounts
-
-The workspace requires an account. The first visit lands on **`/signup`**,
-which asks the one question that changes what the workforce does first:
-
-| You said | Where the team starts |
+| Setting | For |
 |---|---|
-| **I'm starting out** — no business yet | Research and validation: what to sell, at what price, and whether it's worth doing at all |
-| **I already sell** — I have a business | Day-to-day management, using the product, place and price you gave at sign-up instead of re-deriving them |
+| `GROQ_API_KEY` | The text models. Required. |
+| `GOOGLE_API_KEY` | Photo reading, and the cross-provider fallback. |
+| `AIW_SECRET_KEY` | Signs session cookies. Generated and kept if unset. |
+| `AIW_SMTP_*` | Sending verification emails. |
+| `TAVILY_API_KEY` | Better web search. |
+| `META_APP_ID` / `META_APP_SECRET` | Turns Connect into one-click sign-in. |
+| `YOUTUBE_CLIENT_ID` / `_SECRET` | YouTube uploads. |
+| `LUCIDA_ADMIN_EMAILS` | Who sees `/admin`. Never a database column. |
+| `LUCIDA_DATA_DIR` | Where the data lives. Point at a volume in production. |
 
-That answer is stored on the account and seeded into the shop's own profile,
-so the agents start from the owner's facts. It can be changed later from the
-account page — the team adjusts.
-
-Clicking the **identity block at the top of the rail** — your photo, or your
-initials until you upload one — opens `/account`, where you can edit your
-name, shop, location, currency, what you sell, your journey, your photo and
-your password.
-
-**Each account gets its own database.** `data/shops/<account-id>/shop.db` and
-its own vector store, bound to the shared `memory` singleton at the start of
-every request. Isolation is by file rather than by an `owner_id` column, so no
-query in any of the twelve tables has to remember to filter — and a forgotten
-filter cannot leak one shop's business into another's.
-
-Passwords are bcrypt hashes. Sessions are signed cookies carrying only the
-account id. For anything beyond local use, set a stable `AIW_SECRET_KEY` (or
-everyone is signed out on restart) and `AIW_HTTPS=1` behind TLS.
-
-#### Email verification
-
-Sign-up issues a six-digit code, stored as a bcrypt hash and valid for 15
-minutes. The workspace stays closed until it's entered.
-
-With `AIW_SMTP_*` set the code is emailed. **Without it, the code is shown on
-the verify screen** under a notice saying no mail server is configured —
-usable in development without pretending an email went out.
-
-For Gmail you need an **App Password**, not your account password:
-
-1. Turn on 2-Step Verification at [myaccount.google.com/security](https://myaccount.google.com/security)
-2. Create one at [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-3. Put it in `AIW_SMTP_PASSWORD`, with your address in `AIW_SMTP_USER`
-
-#### Sign in with Google
-
-Set `AIW_GOOGLE_CLIENT_ID` and `AIW_GOOGLE_CLIENT_SECRET` and a **Continue
-with Google** button appears on both screens. Leave them blank and the button
-is hidden rather than shown and broken.
-
-1. [console.cloud.google.com](https://console.cloud.google.com/) → create or pick a project
-2. APIs & Services → OAuth consent screen → External → fill in the basics
-3. Credentials → Create credentials → OAuth client ID → Web application
-4. Add the redirect URI **exactly**: `http://127.0.0.1:8000/auth/google/callback`
-
-Google has already proven the address, so those accounts skip the code step.
-Signing in with Google on an address that already has a password account links
-the two rather than creating a duplicate. The callback checks a `state` value
-held in the session, so a forged callback URL cannot sign anyone in.
-
-### Where the data lives
-
-By default the shop's memory is a **local SQLite file** in `data/` — no
-account, no network, and free in the ordinary sense of the word.
-
-If you want that memory off this machine — shared between the two front-ends,
-or surviving a redeploy — point Lucida at a free
-[Turso](https://turso.tech) database (libSQL). Its free tier covers 500
-databases and 9 GB, which is far more than this app will ever use:
-
-```bash
-turso db create lucida
-turso db show lucida --url        # -> AIW_DATABASE_URL
-turso db tokens create lucida     # -> AIW_DATABASE_AUTH_TOKEN
-```
-
-Put both in `.env` and restart. **No schema or query changes** — libSQL speaks
-SQLite's dialect, so the same `CREATE TABLE` statements and the same SQL run
-against either backend. Leave the variables blank to stay on the local file.
-
-Which backend is active is reported by the audit line
-`memory: backend in use`.
-
-### Tests
-
-A component suite covers the deterministic machinery — code sandbox (including its
-security policy), RAG retrieval, simulated adapters, cost accounting and graph wiring.
-**It needs no API key and spends no tokens**, so you can verify the system works before
-running it:
-
-```bash
-python tests/test_workforce.py      # or: python -m pytest tests -v
-```
+Courier and social credentials are entered **in the app**, not here, and are
+stored per shop.
 
 ---
 
-## The interface
-
-Eight panels, all reading the same underlying stores the agents write to:
-
-| Tab | What it shows |
-|---|---|
-| 📊 **Dashboard** | Lifecycle stage tracker, agent roster with run counts, business KPIs, current plan |
-| ⚡ **Live trace** | Every agent start/end, tool call, hand-off, LLM call and error, filterable by agent and event type |
-| 🔀 **Agent comms** | The message bus — every task the Supervisor delegated and every structured payload returned |
-| 🕸️ **Execution graph** | The rendered LangGraph state diagram (Mermaid + PNG download) |
-| 💰 **Cost** | Token usage and USD cost, broken down per agent and per call, with the rate card |
-| 📜 **Logs** | Filterable log stream, error report with tracebacks, downloadable |
-| 🧠 **Memory** | Structured tables, semantic documents, and a **retrieval test** that runs the same RAG query an agent runs |
-| 📄 **Report** | The final rendered report + archive of all past reports, downloadable as Markdown |
-
-**Human-in-the-loop controls** appear at the top of the page whenever the graph is
-suspended: **Approve** / **Request changes** (with feedback → the agent rewrites) /
-**Reject**. Plus **Retry** and **New session** in the sidebar.
-
----
-
-## Demo script
-
-A ~6 minute walkthrough of one complete business lifecycle.
-
-**1. Idea research** — in the sidebar, ask:
-> *"I have 30,000 taka and I can cook. What food business should I start in Dhaka?"*
-
-Watch the **Live trace**: the Supervisor plans, routes to Market Research, which runs
-four real web searches and returns a ranked niche with a competitor price band.
-
-**2. Photo-to-business-plan** — upload a photo of a food item or product and ask:
-> *"Is this worth selling? What should I charge?"*
-
-Product Vision identifies it from the image, then re-searches the market *for that
-specific product*, and returns a GO / NO-GO. The Pricing agent picks it up and computes
-margin and break-even in the Python sandbox — open the **Agent comms** tab to see the
-`competitor_price_low/high` field flow from Market Research straight into Pricing.
-
-**3. Inventory** — open *Stock intake* in the sidebar, enter a product name, quantity
-and unit cost, then ask:
-> *"I bought this much stock — record it and tell me what to reorder."*
-
-**4. Marketing + approval gate** — ask:
-> *"Write and publish ads for this."*
-
-The workflow **pauses**. The ad preview appears at the top of the page. Click
-**Request changes**, type feedback (e.g. *"make the Bangla less formal, lead with the
-price"*), and watch the agent rewrite and come back for approval again. Then **Approve**.
-
-**5. Customer listening** — ask:
-> *"What are customers saying?"*
-
-The Engagement agent reads the inbox (simulated by default — Bangla, Banglish and
-English messages), classifies sentiment and intent, extracts pre-orders, and flags
-**demand for products not in the catalog**.
-
-**6. Reporting** — ask:
-> *"Give me this week's report and what I should change."*
-
-The Reporting agent pulls across every earlier stage via RAG, recomputes the financials
-in Python, and writes the report with a revised plan. Show the **Memory → Retrieval
-test** tab, query *"what price did we decide and why"*, and demonstrate that it returns
-the Pricing agent's reasoning from several stages ago — this is the shared-memory
-mechanism, made inspectable.
-
-**7. Close** — show the **Cost** tab (per-agent token spend for the whole run) and the
-**Execution graph**.
-
----
-
-## Live vs simulated integrations
-
-| Integration | Status | Notes |
-|---|---|---|
-| Claude (reasoning + vision) | **Live** | Required |
-| Web search | **Live** | Tavily if keyed, else DuckDuckGo free tier |
-| Code execution | **Live** | Restricted local sandbox |
-| RAG / vector memory | **Live** | In-process, offline |
-| SQLite business database | **Live** | — |
-| Meta Graph API (FB / IG) | Live *if keyed*, else **simulated** | Needs business verification |
-| YouTube | **Simulated** publishing | Uploads need OAuth user consent, not just an API key |
-| Pathao / Steadfast | Live *if keyed*, else **simulated** | Needs a merchant account |
-
-Simulated adapters return responses in the **same shape** as the live ones, so agent
-logic never branches on which mode is active. The `simulated` flag is surfaced in the
-trace, the database, the ad preview and the final report — nothing silently passes fake
-data off as real. Adding the API key to `.env` switches the adapter to live with **no
-code change**.
-
----
-
-## Project structure
+## Project layout
 
 ```
-serve.py                   Business Suite workspace entry point (port 8000)
-web/design/                The design bundle, served as authored
-web/design/index.orig.html Pristine bundle — patches are re-applied from this
-web/patch_design.py        Adds the offline + data hooks to the bundle
-web/bridge.py              Maps shared memory onto the design's data shapes
-app.py                     Streamlit entry point (port 8501, fallback)
-ui/theme.py                Design tokens + components for the Streamlit UI
-ui/pages.py                Streamlit section renderers
-ui/panels.py               Panel render functions
-docs/architecture.md       Full architecture write-up
+serve.py               every route; the only place the web talks to the graph
 src/lucida/
-  config.py                Settings + LIVE/SIMULATED capability flags
-  pricing.py               Token accounting + USD cost estimation
-  llm.py                   Claude client factory
-  observability.py         Logging, trace bus, error containment
-  state.py                 LangGraph state schema
-  supervisor.py            Planner / router / aggregator
-  graph.py                 Graph assembly + runtime
-  memory/{db,vector,shared}.py
-  tools/{web_search,vision,code_exec,social,courier}.py
-  agents/{base,schemas,+ 8 agents}.py
-data/                      SQLite DBs, vector store, uploads (git-ignored)
+  graph.py             the state machine, and the runtime that drives it
+  supervisor.py        planning and routing
+  state.py             what travels between agents
+  llm.py               model construction and the failover chain
+  agents/              the eight specialists, one file each
+  memory/              db.py (SQLite), vector.py (semantic), shared.py (both)
+  tools/               search, images, couriers, channels, delivery pricing,
+                       connections, currency, sandboxed calculation
+  observability.py     the event bus every screen reads from
+web/
+  app_ui.py            chat, studio, workforce, products, delivery, connect
+  screens.py           sign-in, sign-up, verification, account
+  admin.py             the operator's view
+  bridge.py            shop data → the dashboard's shapes
+  auth.py              accounts, bcrypt, verification, Google linking
+  design/              the dashboard bundle, served as authored
 ```
 
 ---
 
-## Design notes
+## What is honest about the current state
 
-- **Star topology, not a pipeline.** Every agent returns to the Supervisor, so customer
-  signal can send the workflow backwards into research or pricing.
-- **Memory, not just messages.** Findings persist in SQLite + a vector store, so the
-  Reporting agent can retrieve the Pricing agent's reasoning from three stages earlier —
-  across sessions and process restarts.
-- **Python owns the arithmetic, the model owns the judgement.** Margins and break-even
-  are recomputed deterministically at the model's chosen price.
-- **Approval is a graph interrupt, not a UI dialog.** LangGraph `interrupt()` + a SQLite
-  checkpointer means a paused run survives a process restart, and `request_changes` is a
-  real revision loop rather than a binary gate.
-- **Recomputed, not trusted.** Low-stock alerts, sentiment breakdowns and financials are
-  recalculated from the database after the model responds, so what's displayed can't
-  drift from the record.
-- **Failures degrade, they don't crash.** Every agent runs inside a containment boundary;
-  a failure becomes state the Supervisor can route around.
+**Working and verified end to end:** chat with history, photo → vision,
+research with a source picker, ad generation and editing, product management,
+delivery quoting and booking against Pathao's live API, the live workforce
+graph, task assignment, and the admin view.
 
----
+**Waiting on credentials, not code:** Meta (app + App Review), YouTube (OAuth
+client), Steadfast (key pair), email (SMTP).
 
-## Troubleshooting
+**Known weak:** ad artwork, while it runs on the free keyless model — it gets
+the colour and the setting right and often invents the object. Uploading your
+own photo is the reliable path.
 
-**"ANTHROPIC_API_KEY is not set"** — copy `.env.example` to `.env`, add your key, restart.
-
-**Web search returns simulated results** — no Tavily key *and* DuckDuckGo was
-unreachable (rate limit or no network). Add `TAVILY_API_KEY` for reliable search.
-
-**Product Vision says no image was uploaded** — attach the photo in the sidebar *before*
-clicking Run; images are read at submit time.
-
-**Approval buttons don't appear** — they render at the top of the main page, above the
-tabs, only while the graph is suspended.
-
-**Reset everything** — delete the `data/` directory. It is regenerated on next start.
-(This wipes the business database, memory and checkpoints.)
-
-**Port already in use** — `streamlit run app.py --server.port 8502`.
-
----
-
-## Deliverables
-
-- Source code — this repository
-- Architecture diagram — [`docs/architecture.md`](docs/architecture.md) (Mermaid, renders on GitHub)
-- Setup instructions — this README
-- Live demo — [demo script](#demo-script) above
+**Deliberately absent:** the admin view reads counts, never contents. It can
+tell you a shop has forty messages; it cannot show you one. That line is
+drawn in the module and printed on the page.
