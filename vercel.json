@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "serve.py": {
+      "memory": 1024,
+      "maxDuration": 300
+    }
+  },
+  "env": {
+    "LUCIDA_DATA_DIR": "/tmp/lucida-data",
+    "AIW_HTTPS": "1"
+  }
+}

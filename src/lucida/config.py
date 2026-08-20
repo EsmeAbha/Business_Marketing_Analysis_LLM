@@ -57,7 +57,42 @@ ACCOUNTS_DB = DATA_DIR / "accounts.db"
 SHOPS_DIR = DATA_DIR / "shops"
 AVATAR_DIR = DATA_DIR / "avatars"
 
-for _d in (DATA_DIR, UPLOAD_DIR, VECTOR_DIR, SHOPS_DIR, AVATAR_DIR):
+def _ensure_writable(base: Path) -> Path:
+    """Make the data directory, falling back to a temp one if we cannot.
+
+    Serverless hosts mount the deployment read-only except for /tmp, and this
+    runs at import — so raising here means the application cannot even be
+    loaded, with a stack trace that says nothing about the real cause. The
+    fallback keeps it importable; what it cannot do is make the data last,
+    which is why LUCIDA_DATA_DIR should point at a real volume in production.
+    """
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        probe = base / ".writable"
+        probe.write_text("", encoding="utf-8")
+        probe.unlink()
+        return base
+    except OSError:
+        import tempfile
+        fallback = Path(tempfile.gettempdir()) / "lucida-data"
+        fallback.mkdir(parents=True, exist_ok=True)
+        print(f"WARNING: {base} is not writable — falling back to {fallback}. "
+              f"Data here does not survive a restart. Set LUCIDA_DATA_DIR to "
+              f"a mounted volume.")
+        return fallback
+
+
+DATA_DIR = _ensure_writable(DATA_DIR)
+UPLOAD_DIR = DATA_DIR / "uploads"
+VECTOR_DIR = DATA_DIR / "vectors"
+DB_PATH = DATA_DIR / "lucida.db"
+CHECKPOINT_PATH = DATA_DIR / "checkpoints.db"
+LOG_PATH = DATA_DIR / "lucida.log"
+ACCOUNTS_DB = DATA_DIR / "accounts.db"
+SHOPS_DIR = DATA_DIR / "shops"
+AVATAR_DIR = DATA_DIR / "avatars"
+
+for _d in (UPLOAD_DIR, VECTOR_DIR, SHOPS_DIR, AVATAR_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 
