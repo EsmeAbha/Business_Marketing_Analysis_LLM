@@ -12,7 +12,11 @@ langchain-google-genai>=2.0.7    # needed for photo understanding (Groq has no v
 langchain-anthropic>=0.3.3       # optional alternative for text + vision
 
 # --- UI ---
-streamlit>=1.41.0
+# streamlit — the original UI, retired. serve.py is the server now,
+# and nothing under src/, web/ or serve.py imports it. Left out
+# because it is ~60 MB of dependencies a serverless build has to
+# carry for nothing.
+# streamlit>=1.41.0
 
 # --- Data / validation ---
 pydantic>=2.9.0
@@ -20,7 +24,7 @@ python-dotenv>=1.0.1
 truststore>=0.10.0          # use the OS cert store; fixes TLS-inspected networks
 
 # --- Web workspace (serve.py) ---
-# starlette + uvicorn come in with streamlit; listed so serve.py's deps are
+# starlette + uvicorn are the server's own dependencies, listed so they are
 # explicit rather than incidental.
 starlette>=0.40.0
 uvicorn>=0.30.0
@@ -34,5 +38,8 @@ requests>=2.32.0
 Pillow>=10.4.0              # image handling for the Product Vision Agent
 
 # --- Vector memory (RAG) ---
-chromadb>=0.5.20            # optional; falls back to a bundled numpy store
+# chromadb — optional. The bundled numpy store is used when it is
+# absent, which keeps the deployed size down. Uncomment for larger
+# semantic memories where its indexing earns its weight.
+# chromadb>=0.5.20
 numpy>=1.26.0

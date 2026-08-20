@@ -1,0 +1,11 @@
+[project]
+name = "lucida"
+version = "1.0.0"
+description = "An AI workforce for a small shop: one supervisor, eight specialists"
+requires-python = ">=3.12"
+
+[tool.vercel]
+# Without this the build picks up app.py — the retired Streamlit entry point,
+# which exports no ASGI application — and fails. The server is serve.py, and
+# `app` there is the Starlette instance every route is registered on.
+entrypoint = "serve:app"
