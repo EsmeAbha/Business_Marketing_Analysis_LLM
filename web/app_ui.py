@@ -43,14 +43,16 @@ FONT_LINK = (
     'family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
 )
 
+# The dashboard leads: it is what the owner opens to see where the shop
+# stands, and the doing screens follow from there.
 NAV = [
+    ("/board", "Dashboard", "Stock, money, customers, runs"),
     ("/", "Chat", "Ask your team anything"),
     ("/studio", "Ad studio", "Make posters and ad copy"),
     ("/workforce", "Workforce", "Watch them work, hand out a job"),
     ("/products", "Products", "What you sell, and what it weighs"),
     ("/delivery", "Delivery", "Weigh it, price it, book the courier"),
     ("/connect", "Connect", "Channels and couriers"),
-    ("/board", "Dashboard", "Stock, money, customers, runs"),
 ]
 
 
