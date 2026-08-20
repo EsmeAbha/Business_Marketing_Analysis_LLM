@@ -1727,9 +1727,42 @@ async def api_health(request):
 # The session cookie is signed with this. A generated key is fine for local
 # use but logs everyone out on restart, so a real deployment should set
 # AIW_SECRET_KEY and keep it stable.
-SECRET_KEY = os.environ.get("AIW_SECRET_KEY") or secrets.token_hex(32)
-if not os.environ.get("AIW_SECRET_KEY"):
-    logger.info("no AIW_SECRET_KEY set — sessions reset when this restarts")
+def _secret_key() -> str:
+    """The key session cookies are signed with, kept across restarts.
+
+    It used to be minted fresh whenever the process started, which meant
+    every restart silently invalidated every cookie and signed everyone out —
+    once a deploy, and repeatedly during development. The environment wins if
+    it is set; otherwise one is generated once and kept beside the data, so
+    it survives a restart and travels with the volume.
+    """
+    from_env = os.environ.get("AIW_SECRET_KEY", "").strip()
+    if from_env:
+        return from_env
+
+    path = DATA_DIR / "session.key"
+    try:
+        if path.exists():
+            saved = path.read_text(encoding="utf-8").strip()
+            if len(saved) >= 32:
+                return saved
+        key = secrets.token_hex(32)
+        path.write_text(key, encoding="utf-8")
+        try:                      # not readable by other users on the box
+            path.chmod(0o600)
+        except OSError:
+            pass
+        logger.info("generated a session key at %s", path)
+        return key
+    except OSError as exc:
+        # A read-only data directory is not a reason to refuse to start; it
+        # just means sessions last only as long as this process.
+        logger.warning("could not keep a session key (%s) — sessions will "
+                       "reset when this restarts", exc)
+        return secrets.token_hex(32)
+
+
+SECRET_KEY = _secret_key()
 
 app = Starlette(
     debug=False,

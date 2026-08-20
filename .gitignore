@@ -7,6 +7,11 @@ env/
 .streamlit/secrets.toml
 
 # Runtime state — regenerated on first run
+# The key session cookies are signed with. Committing it would let anyone
+# with the repository forge a signed-in session for any account.
+data/session.key
+data/*.key
+
 data/lucida.db
 data/checkpoints.db
 data/checkpoints.db-shm
