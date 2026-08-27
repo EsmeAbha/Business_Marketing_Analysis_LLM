@@ -286,10 +286,24 @@ def test_new_accounts_need_no_email_verification():
     assert not auth.is_verified({"email_verified": 0})
 
 
-def test_default_free_provider_prefers_google():
-    from lucida.config import settings
+def test_the_text_provider_defaults_to_google():
+    # The *default*, not whatever this machine's .env happens to say. Reading
+    # the live `settings` made this a test of the developer's own config: it
+    # passed only while AIW_PROVIDER was google, and failed the moment the
+    # provider was legitimately changed.
+    import os
 
-    assert settings.provider == "google"
+    from lucida.config import Settings
+
+    previous = os.environ.pop("AIW_PROVIDER", None)
+    try:
+        assert Settings().provider == "google"
+        os.environ["AIW_PROVIDER"] = "GroQ"
+        assert Settings().provider == "groq", "the name is normalised"
+    finally:
+        os.environ.pop("AIW_PROVIDER", None)
+        if previous is not None:
+            os.environ["AIW_PROVIDER"] = previous
 
 
 # --- Cost accounting -------------------------------------------------------
