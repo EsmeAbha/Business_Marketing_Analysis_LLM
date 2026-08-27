@@ -18,10 +18,12 @@ Run:  python serve.py         (then open http://127.0.0.1:8000)
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import os
 import re
+import sqlite3
 import secrets
 import sys
 from pathlib import Path
@@ -43,10 +45,11 @@ from starlette.staticfiles import StaticFiles
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from lucida.config import (  # noqa: E402
-    AVATAR_DIR, DATA_DIR, UPLOAD_DIR, settings,
+    AVATAR_DIR, DATA_DIR, SHOPS_DIR, UPLOAD_DIR, settings,
 )
 from lucida.graph import WorkforceRuntime  # noqa: E402
 from lucida.memory import memory  # noqa: E402
+from lucida.memory.db import Database  # noqa: E402
 from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
@@ -1789,26 +1792,94 @@ SECRET_KEY = _secret_key()
 _TELEGRAM_POLL_TASK: asyncio.Task | None = None
 
 
+def _bot_shop_id() -> str | None:
+    """Which shop the Telegram bot speaks for.
+
+    One token is one bot, and a bot can only represent one shop — a customer
+    asking "what do you sell" must get one answer, not one per account on the
+    installation. `AIW_BOT_SHOP` names it explicitly (account id or sign-in
+    name). With nothing set, the shop with the most products wins, because a
+    shop with a catalogue is the one actually trading.
+    """
+    wanted = os.environ.get("AIW_BOT_SHOP", "").strip()
+    accounts = auth.list_accounts() if hasattr(auth, "list_accounts") else []
+    if wanted:
+        for a in accounts:
+            if wanted in (a.get("id"), a.get("email")):
+                return a["id"]
+        return wanted  # treat it as a raw shop id
+
+    best, best_products = None, -1
+    for a in accounts:
+        shop = SHOPS_DIR / str(a["id"]) / "shop.db"
+        if not shop.exists():
+            continue
+        try:
+            con = sqlite3.connect(str(shop))
+            n = con.execute(
+                "SELECT COUNT(*) FROM products WHERE COALESCE(sell_price,0) > 0"
+            ).fetchone()[0]
+            con.close()
+        except Exception:  # noqa: BLE001
+            n = 0
+        if n > best_products:
+            best, best_products = a["id"], n
+    return best
+
+
 async def _start_telegram_poll_loop() -> None:
     """Keep the Telegram bot alive by polling for new messages.
 
     This project does not use Telegram webhooks, so there must be a background
     task on startup. Without it, the bot never calls getUpdates on its own and
     silently sits idle even with a valid token.
+
+    The loop keeps its **own** database handle rather than using the shared
+    `memory` singleton. That singleton is rebound to whichever owner is making
+    the current web request, so polling through it answered customers out of
+    whatever shop happened to be signed in — or, with nobody signed in, out of
+    no shop at all, which is why the bot replied with an empty catalogue.
     """
     global _TELEGRAM_POLL_TASK
     if _TELEGRAM_POLL_TASK is not None and not _TELEGRAM_POLL_TASK.done():
         return
+    if not channels.telegram_ready():
+        logger.info("telegram: no bot token, poll loop not started")
+        return
+
+    shop_id = _bot_shop_id()
+    if not shop_id:
+        logger.warning("telegram: no shop to answer for yet, poll loop idle")
+        return
+
+    shop_db = Database(SHOPS_DIR / str(shop_id) / "shop.db")
+    logger.info("telegram: bot answering for shop %s every 10s", shop_id)
 
     async def _loop() -> None:
         while True:
             try:
-                await asyncio.to_thread(inbox.sync, memory.db, limit=20)
-            except Exception as exc:  # noqa: BLE001
+                result = await asyncio.to_thread(inbox.sync, shop_db, limit=20)
+                if result.stored or result.answered:
+                    logger.info("telegram poll: %s", result.describe())
+            except Exception as exc:  # noqa: BLE001 — the loop must not die
                 logger.warning("telegram poll failed: %s", exc)
             await asyncio.sleep(10)
 
     _TELEGRAM_POLL_TASK = asyncio.create_task(_loop())
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(_app):
+    """Start the Telegram poll loop with the server, and stop it with it."""
+    await _start_telegram_poll_loop()
+    try:
+        yield
+    finally:
+        task = _TELEGRAM_POLL_TASK
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
 
 app = Starlette(
@@ -1884,7 +1955,7 @@ app = Starlette(
         # the design's own relative script paths resolve unchanged.
         Mount("/", StaticFiles(directory=str(DESIGN_DIR)), name="design"),
     ],
-    on_startup=[_start_telegram_poll_loop],
+    lifespan=_lifespan,
 )
 
 

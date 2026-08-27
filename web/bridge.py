@@ -136,6 +136,45 @@ _SENTIMENT = {
 }
 
 
+def _transcript(latest: dict) -> str:
+    """One thread rendered as it was actually said.
+
+    `inbox.conversation` already returns every turn oldest-first; until now the
+    Customers screen only ever showed the most recent customer line, so a
+    conversation the bot had answered looked one-sided.
+    """
+    platform = str(latest.get("platform") or "")
+    thread_id = str(latest.get("thread_id") or "")
+    if not thread_id:
+        return str(latest.get("message") or "")
+
+    turns = inbox.conversation(memory.db, platform, thread_id)
+    if not turns:
+        return str(latest.get("message") or "")
+
+    who = str(latest.get("sender_name") or "Customer")
+    shop = (memory.profile() or {}).get("business_name") or "Shop"
+    lines = []
+    for t in turns:
+        text = str(t.get("message") or "").strip()
+        if text:
+            lines.append(f"{who}:  {text}")
+        reply = str(t.get("reply_text") or "").strip()
+        if reply:
+            # Keep the reply readable inside one bubble.
+            lines.append(f"{shop}:  " + " ".join(reply.split()))
+    blank = chr(10) + chr(10)   # a blank line between turns
+    joined = blank.join(lines)
+    return joined if lines else str(latest.get("message") or "")
+
+
+def _thread_note(latest: dict) -> str:
+    n = int(latest.get("in_thread") or 1)
+    platform = str(latest.get("platform") or "message").title()
+    answered = "answered" if latest.get("replied") else "waiting for a reply"
+    return (f"{n} message{'s' if n != 1 else ''} on {platform} — {answered}.")
+
+
 def threads() -> list[dict]:
     """Customer conversations for the Customers page.
 
@@ -168,13 +207,15 @@ def threads() -> list[dict]:
                 "history": str(m.get("intent") or m.get("kind") or "message"
                                ).replace("_", " "),
                 "preview": (m.get("message") or "")[:110],
-                "message": m.get("message") or "",
+                # The whole back-and-forth, not just the newest line. A reply
+                # the bot already sent is part of the conversation, and the
+                # owner cannot judge what to say next without seeing it.
+                "message": _transcript(m),
                 "state": ("Answered" if answered
                           else "Waiting for your reply"),
                 "stateFg": ACCENT if answered else AMBER,
                 "mark": ACCENT if answered else AMBER,
-                "read": (f"Arrived on {m.get('platform')} as a "
-                         f"{m.get('kind') or 'message'}."),
+                "read": _thread_note(m),
                 "tags": tags,
                 "draft": (m.get("reply_text") if m.get("replied")
                           else m.get("draft_reply")) or "",
