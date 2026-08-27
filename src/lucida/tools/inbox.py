@@ -139,6 +139,14 @@ def auto_answer(db, limit: int = 20) -> int:
     prices come from the database, so the bot cannot promise something the
     shop does not have — see `shopbot`.
 
+    One answer per person, not one per message: somebody who sends "hi",
+    "hello", "you there?" wants a reply, not three. But every message is
+    still *read*, in the order it arrived, because the conversation carries
+    state. A customer who sends "/review" and then "5, lovely candle" inside
+    one poll would otherwise have the "/review" thrown away unread, and the
+    rating would arrive with nothing waiting for it — which is exactly what
+    made leaving a review look broken.
+
     A send that fails leaves the message unanswered on purpose: the owner
     needs to see it is still outstanding rather than believe it was handled.
     """
@@ -151,41 +159,58 @@ def auto_answer(db, limit: int = 20) -> int:
         "SELECT * FROM social_messages WHERE platform='telegram' AND replied=0 "
         "ORDER BY id LIMIT ?", (limit,))
 
-    # One answer per person, not one per message. Somebody who sends "hi",
-    # "hello", "you there?" wants a reply, not three. The earlier messages are
-    # marked handled without sending, so they stop queueing up behind the
-    # newest one.
-    latest: dict[str, dict] = {}
-    superseded: list[int] = []
+    # The key is the person, and it is also what the bot remembers a
+    # conversation under, so a thread's memory cannot drift away from the
+    # messages that belong to it.
+    people: dict[str, list[dict]] = {}
     for m in rows:
         key = str(m.get("sender_id") or m.get("thread_id") or m["id"])
-        if key in latest:
-            superseded.append(latest[key]["id"])
-        latest[key] = m
-    for old_id in superseded:
-        db.execute("UPDATE social_messages SET replied=1, reply_text=? WHERE id=?",
-                   ("(covered by a later reply)", old_id))
+        people.setdefault(key, []).append(m)
 
     sent = 0
-    for msg in latest.values():
-        try:
-            reply = shopbot.answer(db, str(msg["message"] or ""),
-                                   str(msg["sender_name"] or "there"))
-        except Exception as exc:  # noqa: BLE001 — one bad message must not stop the rest
-            logger.warning("shopbot could not answer message %s: %s", msg["id"], exc)
+    for chat_id, msgs in people.items():
+        reply, answered = None, None
+        for msg in msgs:
+            try:
+                reply = shopbot.answer(db, str(msg["message"] or ""),
+                                       str(msg["sender_name"] or "there"),
+                                       chat_id=chat_id)
+                answered = msg
+            except Exception as exc:  # noqa: BLE001 — one bad message must not stop the rest
+                logger.warning("shopbot could not answer message %s: %s",
+                               msg["id"], exc)
+        if reply is None or answered is None:
             continue
         if not reply.handled or not reply.text.strip():
             continue
-        result = channels.send_telegram(str(msg["sender_id"]), reply.text)
+
+        result = channels.send_telegram(str(answered["sender_id"]), reply.text)
         if not result.ok:
-            logger.warning("shopbot send failed, leaving unanswered: %s", result.error)
+            logger.warning("shopbot send failed, leaving unanswered: %s",
+                           result.error)
             continue
-        db.execute(
-            "UPDATE social_messages SET replied=1, reply_text=?, reply_at=? WHERE id=?",
-            (reply.text, _now(), msg["id"]))
+
+        # Everything before the last one was read and shaped this reply, so
+        # it is settled rather than still waiting — but only the message the
+        # reply actually answers records the text that was sent.
+        for msg in msgs:
+            if msg["id"] == answered["id"]:
+                db.execute(
+                    "UPDATE social_messages SET replied=1, reply_text=?,"
+                    " reply_at=? WHERE id=?",
+                    (reply.text, _now(), msg["id"]))
+            else:
+                db.execute(
+                    "UPDATE social_messages SET replied=1, reply_text=?"
+                    " WHERE id=?",
+                    ("(read, and answered together with the next one)",
+                     msg["id"]))
         sent += 1
-        logger.info("shopbot answered %s (%s)", msg["sender_name"], reply.intent)
+        logger.info("shopbot answered %s (%s)", answered["sender_name"],
+                    reply.intent)
     return sent
+
+
 
 
 def threads(db, limit: int = 60) -> list[dict[str, Any]]:
