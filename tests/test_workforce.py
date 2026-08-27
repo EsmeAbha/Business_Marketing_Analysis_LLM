@@ -14,6 +14,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT))  # `web` lives at the project root
@@ -243,12 +245,37 @@ def test_unknown_courier_is_rejected():
     assert not booking.ok and "unknown provider" in booking.error
 
 
-def test_default_admin_account_allows_direct_login():
+def test_admin_password_comes_from_the_environment(monkeypatch):
+    """The admin password is configured, never baked into this source tree.
+
+    It used to be the constant "admin1234", which on a public deploy meant
+    anyone who could read the repo had the admin account — and because the
+    seeding ran at import, changing it in the UI lasted until the next
+    restart and no longer.
+    """
     from web import auth
 
-    admin = auth.authenticate("admin", "admin1234")
+    monkeypatch.setenv("AIW_ADMIN_PASSWORD", "a-configured-admin-password")
+    auth.ensure_default_admin()
+
+    admin = auth.authenticate("admin", "a-configured-admin-password")
     assert admin["email"] == "admin"
     assert auth.is_verified(admin)
+
+    with pytest.raises(auth.AuthError):
+        auth.authenticate("admin", "admin1234")
+
+
+def test_no_admin_is_seeded_when_none_is_configured(monkeypatch):
+    """A fresh install with nothing declared gets no default way in."""
+    from web import auth
+
+    monkeypatch.delenv("AIW_ADMIN_PASSWORD", raising=False)
+    monkeypatch.setattr(auth, "DEFAULT_ADMIN_EMAIL", "admin-probe-unseeded")
+    auth.ensure_default_admin()
+
+    with pytest.raises(auth.AuthError):
+        auth.authenticate("admin-probe-unseeded", "anything at all")
 
 
 def test_name_is_a_valid_login():

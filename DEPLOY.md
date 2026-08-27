@@ -29,8 +29,22 @@ are serverless, have no persistent disk, and time requests out early.
 | `AIW_PUBLIC_URL` | Your real address, e.g. `https://app.example.com`. OAuth redirects are built from it. |
 | `GROQ_API_KEY`, `GOOGLE_API_KEY` | The models. |
 | `AIW_SMTP_*` | Verification emails. Without them, codes print on screen. |
+| `AIW_ADMIN_PASSWORD` | The built-in `admin` account's password. **Unset means no admin is seeded at all** — there is no default. |
+| `AIW_ADMIN_EMAIL` | What that account is called. Defaults to `admin`. |
+| `LUCIDA_ADMIN_EMAILS` | Comma-separated addresses given admin rights, so an ordinary account can be the operator. |
 
 Never commit `.env`. Set these as the host's own secrets.
+
+## The admin account
+
+There is no default password. `AIW_ADMIN_PASSWORD` is what creates the
+built-in `admin` account, and rotating it is a matter of changing the
+variable and redeploying — the account's password is set from it on every
+start.
+
+Leaving it unset is the better end state: sign up normally and put your own
+address in `LUCIDA_ADMIN_EMAILS`. A deploy with no admin password has no
+standing credential to guess.
 
 ## Fly.io
 
