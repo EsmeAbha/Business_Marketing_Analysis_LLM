@@ -1,0 +1,379 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><title>Lucida — Project README</title><style>
+@page { size: A4; margin: 18mm 16mm 16mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+       font-size: 10pt; line-height: 1.6; color: #18181B; margin: 0; }
+h1 { font-size: 26pt; font-weight: 800; letter-spacing: -0.035em;
+     margin: 0 0 14px; color: #000; }
+h2 { font-size: 14.5pt; font-weight: 700; letter-spacing: -0.02em;
+     margin: 24px 0 9px; padding-bottom: 6px;
+     border-bottom: 2px solid #7B1E22; color: #000; break-after: avoid; }
+h3 { font-size: 11pt; font-weight: 700; margin: 16px 0 5px; color: #000;
+     break-after: avoid; }
+p { margin: 0 0 9px; }
+ul, ol { margin: 0 0 10px; padding-left: 18px; }
+li { margin-bottom: 3px; }
+blockquote { border-left: 3px solid #7B1E22; background: #FAFAFA;
+             margin: 12px 0; padding: 10px 14px; border-radius: 0 7px 7px 0;
+             font-size: 9.4pt; break-inside: avoid; }
+blockquote p:last-child { margin-bottom: 0; }
+code { font-family: "Consolas", "SF Mono", monospace; font-size: 8.6pt;
+       background: #F4F4F5; padding: 1px 4px; border-radius: 3px; }
+pre { background: #FAFAFA; border: 1px solid #E4E4E7; border-radius: 8px;
+      padding: 12px 14px; overflow-x: auto; font-size: 8.4pt;
+      line-height: 1.45; break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 8.4pt; }
+table { width: 100%; border-collapse: collapse; margin: 9px 0 14px;
+        font-size: 9pt; break-inside: avoid; }
+th { text-align: left; font-size: 7.6pt; font-weight: 700; color: #71717A;
+     text-transform: uppercase; letter-spacing: 0.05em;
+     padding: 0 9px 6px 0; border-bottom: 1px solid #E4E4E7; }
+td { padding: 7px 9px 7px 0; border-bottom: 1px solid #F4F4F5;
+     vertical-align: top; }
+td:last-child, th:last-child { padding-right: 0; }
+a { color: #7B1E22; text-decoration: none; }
+hr { border: none; border-top: 1px solid #E4E4E7; margin: 22px 0; }
+</style></head><body><h1 id="lucida">Lucida</h1>
+<p>An AI workforce for a small shop. One supervisor routes work to eight
+specialists — research, photos, pricing, stock, ads, customers, delivery,
+reporting — and they share one memory of the business. The owner talks to it
+in plain language, or sends a photo of what they make.</p>
+<p>It is built for a shop in Dhaka: Bengali and Banglish messages, taka, Pathao
+and Steadfast couriers, weight-based delivery pricing, and a free model tier
+that has to survive a daily cap.</p>
+<hr />
+<h2 id="contents">Contents</h2>
+<ul>
+<li><a href="#how-it-works">How it works</a></li>
+<li><a href="#the-screens">The screens</a></li>
+<li><a href="#where-the-data-lives">Where the data lives</a></li>
+<li><a href="#models-and-what-happens-when-one-dies">Models, and what happens when one dies</a></li>
+<li><a href="#integrations">Integrations</a></li>
+<li><a href="#running-it">Running it</a></li>
+<li><a href="#configuration">Configuration</a></li>
+<li><a href="#project-layout">Project layout</a></li>
+<li><a href="#what-is-honest-about-the-current-state">What is honest about the current state</a></li>
+</ul>
+<hr />
+<h2 id="how-it-works">How it works</h2>
+<h3 id="the-star">The star</h3>
+<p>A LangGraph state machine. Every request enters at the <strong>supervisor</strong>, which
+reads it, plans, and hands to one specialist. That specialist works, writes
+what it learned to shared memory, and returns to the supervisor, which picks
+the next one or finishes.</p>
+<pre><code>                       Product Vision
+                            │
+      Market Research       │       Pricing
+                   ╲        │        ╱
+                    ╲       │       ╱
+   Reporting ─────── SUPERVISOR ─────── Stock
+                    ╱       │       ╲
+                   ╱        │        ╲
+        Delivery           │          Ad Creative
+                       Customers
+</code></pre>
+<p>It is a star, not a pipeline: a question about stock does not drag six agents
+along with it. The supervisor decides, and the route it took is recorded.</p>
+<table>
+<thead>
+<tr>
+<th>Specialist</th>
+<th>What it owns</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Market Research</td>
+<td>What sells, what rivals charge, what people are asking for</td>
+</tr>
+<tr>
+<td>Product Vision</td>
+<td>Reads a photo and says what the product is and whether it is worth selling</td>
+</tr>
+<tr>
+<td>Pricing</td>
+<td>Unit cost, price, margin, break-even</td>
+</tr>
+<tr>
+<td>Stock</td>
+<td>Quantities, reorder levels, what runs out first</td>
+</tr>
+<tr>
+<td>Ad Creative</td>
+<td>Writes platform-specific copy and publishes it, after approval</td>
+</tr>
+<tr>
+<td>Customers</td>
+<td>Reads DMs and comments, sentiment, unmet demand, drafts replies</td>
+</tr>
+<tr>
+<td>Delivery</td>
+<td>Quotes a parcel and books the courier, after approval</td>
+</tr>
+<tr>
+<td>Reporting</td>
+<td>Writes the day up in the owner's own numbers</td>
+</tr>
+</tbody>
+</table>
+<h3 id="gates">Gates</h3>
+<p>Anything irreversible or costly — publishing an ad, spending money, booking a
+courier — stops and waits. The run suspends at a LangGraph interrupt, the
+owner sees it on the dashboard, and approving resumes the graph from exactly
+that point rather than starting over.</p>
+<h3 id="memory">Memory</h3>
+<p>Two halves, both per shop:</p>
+<ul>
+<li><strong>Structured</strong> — SQLite, 24 tables: products, inventory, orders, pricing
+  history, social messages, campaigns, deliveries, chat threads, competitors.</li>
+<li><strong>Semantic</strong> — a small vector store of what agents learned, so later runs
+  recall earlier conclusions.</li>
+</ul>
+<h3 id="watching-it-happen">Watching it happen</h3>
+<p><code>/api/events</code> holds one connection open and pushes each step as it is
+recorded. The Workforce screen draws the run live: a card lights when its
+agent starts, handoffs appear as numbered arrows in order, and every step
+scrolls into a feed with its timestamp and cost.</p>
+<hr />
+<h2 id="the-screens">The screens</h2>
+<table>
+<thead>
+<tr>
+<th>Screen</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Dashboard</strong> <code>/board</code></td>
+<td>Where the shop stands. Sales, stock cover, promises, what needs a decision. Has its own operator view with the execution graph, runs, memory and cost.</td>
+</tr>
+<tr>
+<td><strong>Chat</strong> <code>/</code></td>
+<td>Ask anything. Conversations are kept and can be reopened. Send a photo and Product Vision reads it. A research question asks <em>where</em> to look before spending anything.</td>
+</tr>
+<tr>
+<td><strong>Ad studio</strong> <code>/studio</code></td>
+<td>Generate a poster and ad copy, or upload your own picture and edit it — rotate, flip, crop, filters, shapes, text.</td>
+</tr>
+<tr>
+<td><strong>Workforce</strong> <code>/workforce</code></td>
+<td>The graph, live. Click a specialist to hand it a job directly, over the supervisor's head.</td>
+</tr>
+<tr>
+<td><strong>Products</strong> <code>/products</code></td>
+<td>What you sell, what it costs, and <strong>what it weighs</strong>. Weight is what every delivery quote is worked out from.</td>
+</tr>
+<tr>
+<td><strong>Delivery</strong> <code>/delivery</code></td>
+<td>Pick what is going and where. The charge comes from your courier's own rates, with weight, zone, delivery and cash-on-delivery shown separately.</td>
+</tr>
+<tr>
+<td><strong>Connect</strong> <code>/connect</code></td>
+<td>Messenger, Facebook, Instagram, YouTube, Steadfast, Pathao. Credentials are checked against the live API before they are stored.</td>
+</tr>
+<tr>
+<td><strong>Service admin</strong> <code>/admin</code></td>
+<td>Operators only. Every shop on the installation and what it is using.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="where-the-data-lives">Where the data lives</h2>
+<pre><code>data/
+├── accounts.db          every owner: sign-in name, bcrypt hash, business
+├── lucida.db            the trace — every step every agent has taken
+├── checkpoints.db       LangGraph state, so a paused run can resume
+├── session.key          cookie signing key (gitignored)
+└── shops/
+    └── &lt;account-id&gt;/
+        ├── shop.db          this shop's business, alone
+        └── knowledge.jsonl  this shop's semantic memory
+</code></pre>
+<p><strong>Isolation is by file, not by a column.</strong> Every agent shares one <code>memory</code>
+singleton; the web layer rebinds it to the signed-in owner's directory before
+any agent runs. No query has to remember a <code>WHERE owner_id = ?</code>, and a
+forgotten filter cannot leak one shop into another.</p>
+<p>The trace is the exception — one file for the whole machine — so session ids
+carry a hash of the owner and the dashboard matches on that prefix.</p>
+<hr />
+<h2 id="models-and-what-happens-when-one-dies">Models, and what happens when one dies</h2>
+<p>Free tiers are rationed and providers retire models without warning. Both
+have happened during this project, so the chain is built for it:</p>
+<pre><code>your model → the other Groq models → Google (if a key is set)
+</code></pre>
+<p>A model moves the chain along when it is <strong>capped</strong> (429), <strong>retired</strong> (404),
+or <strong>returns the right JSON but not as a tool call</strong> — a real intermittent
+failure that used to kill a whole run. Only when everything is exhausted does
+the owner see a message, and it says when to come back rather than showing a
+provider traceback.</p>
+<p>Photo reading runs on Google, because Groq serves no multimodal model.</p>
+<hr />
+<h2 id="integrations">Integrations</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Groq</strong></td>
+<td>Text. Free tier, daily caps per model.</td>
+</tr>
+<tr>
+<td><strong>Google AI Studio</strong></td>
+<td>Photo reading, and the fallback when Groq is spent. Free.</td>
+</tr>
+<tr>
+<td><strong>Pathao</strong></td>
+<td><strong>Live.</strong> Books real parcels and prices them from Pathao's own rate card.</td>
+</tr>
+<tr>
+<td><strong>Steadfast</strong></td>
+<td>Ready — paste the key pair from your merchant portal.</td>
+</tr>
+<tr>
+<td><strong>DuckDuckGo</strong></td>
+<td>Web search, no key, searches your own country's index.</td>
+</tr>
+<tr>
+<td><strong>Tavily</strong></td>
+<td>Better search if a key is set — returns page content, not one-line snippets.</td>
+</tr>
+<tr>
+<td><strong>Pollinations</strong></td>
+<td>Ad artwork, no key. Free Gemini keys get no image quota, so this is the default.</td>
+</tr>
+<tr>
+<td><strong>Telegram</strong></td>
+<td><strong>Live.</strong> A real customer messages the bot; the Customers agent reads and classifies it, and the owner replies from the browser. No review process, no domain.</td>
+</tr>
+<tr>
+<td><strong>Messenger / Facebook / Instagram</strong></td>
+<td>Built and tested against the Graph API. Needs a Meta app, App Review <em>and</em> Business Verification before it reaches real customers.</td>
+</tr>
+<tr>
+<td><strong>YouTube</strong></td>
+<td>Needs an OAuth client. An API key cannot upload.</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>Not used. Sign-in is a name and a password; there is no verification step.</td>
+</tr>
+</tbody>
+</table>
+<p>Anything not connected runs against a <strong>simulated</strong> adapter that is labelled
+as such everywhere it appears, and nothing simulated is ever written to the
+shop's records as though a customer sent it.</p>
+<hr />
+<h2 id="running-it">Running it</h2>
+<pre><code class="language-bash">python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt    # Windows
+# .venv/bin/pip install -r requirements.txt      # macOS / Linux
+
+cp .env.example .env        # then add GOOGLE_API_KEY
+python serve.py
+</code></pre>
+<p>Then open <strong>http://127.0.0.1:8000</strong>.</p>
+<p>Tests:</p>
+<pre><code class="language-bash">python tests/test_workforce.py
+</code></pre>
+<p>Deployment — persistent disk, one instance, long request timeouts — is in
+<a href="DEPLOY.md">DEPLOY.md</a>.</p>
+<hr />
+<h2 id="configuration">Configuration</h2>
+<p>Everything lives in <code>.env</code>, which is gitignored.</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GOOGLE_API_KEY</code></td>
+<td>The text models and photo understanding. Required.</td>
+</tr>
+<tr>
+<td><code>GROQ_API_KEY</code></td>
+<td>Alternative text provider (<code>AIW_PROVIDER=groq</code>). No vision model.</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_BOT_TOKEN</code></td>
+<td>The live customer channel. From @BotFather.</td>
+</tr>
+<tr>
+<td><code>GOOGLE_API_KEY</code></td>
+<td>Photo reading, and the cross-provider fallback.</td>
+</tr>
+<tr>
+<td><code>AIW_SECRET_KEY</code></td>
+<td>Signs session cookies. Generated and kept if unset.</td>
+</tr>
+<tr>
+<td><code>AIW_SMTP_*</code></td>
+<td>Unused — kept for a future password-reset flow.</td>
+</tr>
+<tr>
+<td><code>TAVILY_API_KEY</code></td>
+<td>Better web search.</td>
+</tr>
+<tr>
+<td><code>META_APP_ID</code> / <code>META_APP_SECRET</code></td>
+<td>Turns Connect into one-click sign-in.</td>
+</tr>
+<tr>
+<td><code>YOUTUBE_CLIENT_ID</code> / <code>_SECRET</code></td>
+<td>YouTube uploads.</td>
+</tr>
+<tr>
+<td><code>LUCIDA_ADMIN_EMAILS</code></td>
+<td>Who sees <code>/admin</code>. Never a database column.</td>
+</tr>
+<tr>
+<td><code>LUCIDA_DATA_DIR</code></td>
+<td>Where the data lives. Point at a volume in production.</td>
+</tr>
+</tbody>
+</table>
+<p>Courier and social credentials are entered <strong>in the app</strong>, not here, and are
+stored per shop.</p>
+<hr />
+<h2 id="project-layout">Project layout</h2>
+<pre><code>serve.py               every route; the only place the web talks to the graph
+src/lucida/
+  graph.py             the state machine, and the runtime that drives it
+  supervisor.py        planning and routing
+  state.py             what travels between agents
+  llm.py               model construction and the failover chain
+  agents/              the eight specialists, one file each
+  memory/              db.py (SQLite), vector.py (semantic), shared.py (both)
+  tools/               search, images, couriers, channels, delivery pricing,
+                       connections, currency, sandboxed calculation
+  observability.py     the event bus every screen reads from
+web/
+  app_ui.py            chat, studio, workforce, products, delivery, connect
+  screens.py           sign-in, sign-up, account
+  admin.py             the operator's view
+  bridge.py            shop data → the dashboard's shapes
+  auth.py              accounts, bcrypt, Google linking
+  design/              the dashboard bundle, served as authored
+</code></pre>
+<hr />
+<h2 id="what-is-honest-about-the-current-state">What is honest about the current state</h2>
+<p><strong>Working and verified end to end:</strong> chat with history, photo → vision,
+research with a source picker, ad generation and editing, product management,
+delivery quoting and booking against Pathao's live API, the live workforce
+graph, task assignment, and the admin view.</p>
+<p><strong>Waiting on credentials, not code:</strong> Meta (app + App Review), YouTube (OAuth
+client), Steadfast (key pair), email (SMTP).</p>
+<p><strong>Known weak:</strong> ad artwork, while it runs on the free keyless model — it gets
+the colour and the setting right and often invents the object. Uploading your
+own photo is the reliable path.</p>
+<p><strong>Deliberately absent:</strong> the admin view reads counts, never contents. It can
+tell you a shop has forty messages; it cannot show you one. That line is
+drawn in the module and printed on the page.</p></body></html>
