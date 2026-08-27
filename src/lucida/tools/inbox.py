@@ -38,6 +38,7 @@ class SyncResult:
     fetched: int = 0
     stored: int = 0          # genuinely new
     skipped: int = 0         # already had them
+    answered: int = 0        # replied to automatically by the shop bot
     simulated: bool = True
     per_platform: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
@@ -47,6 +48,7 @@ class SyncResult:
         parts = ", ".join(f"{k}: {v}" for k, v in self.per_platform.items())
         return (f"{mark}{self.stored} new of {self.fetched} fetched"
                 + (f" ({parts})" if parts else "")
+                + (f"; {self.answered} answered automatically" if self.answered else "")
                 + (f"; problems: {'; '.join(self.errors)}" if self.errors else ""))
 
 
@@ -78,13 +80,15 @@ def store_message(db, msg: dict[str, Any]) -> bool:
 def sync(db, limit: int = 25, include_comments: bool = True) -> SyncResult:
     """Pull from every platform that has something to give."""
     result = SyncResult()
-    readers = [
-        ("messenger", channels.read_messenger),
-        ("instagram", channels.read_instagram),
-        # Telegram last so a Meta outage cannot stop the one channel that is
-        # actually reachable by a real customer today.
-        ("telegram", channels.read_telegram),
-    ]
+    # Telegram is the shop's customer channel. Messenger and Instagram are
+    # only read once their Page token exists — until App Review grants
+    # pages_messaging they can return nothing, and polling them each sync only
+    # costs time. The readers stay wired so a token is all that is needed.
+    readers = [("telegram", channels.read_telegram)]
+    if channels.meta_ready():
+        readers.append(("messenger", channels.read_messenger))
+    if channels.instagram_ready():
+        readers.append(("instagram", channels.read_instagram))
 
     for name, read in readers:
         box = read(limit)
@@ -123,8 +127,49 @@ def sync(db, limit: int = 25, include_comments: bool = True) -> SyncResult:
             result.stored += new
 
     result.skipped = result.fetched - result.stored
+    result.answered = auto_answer(db)
     logger.info("inbox sync: %s", result.describe())
     return result
+
+
+def auto_answer(db, limit: int = 20) -> int:
+    """Answer new customer messages the shop can answer from its own records.
+
+    Only Telegram, and only messages nobody has replied to. Stock levels and
+    prices come from the database, so the bot cannot promise something the
+    shop does not have — see `shopbot`.
+
+    A send that fails leaves the message unanswered on purpose: the owner
+    needs to see it is still outstanding rather than believe it was handled.
+    """
+    from . import shopbot
+
+    if not channels.telegram_ready():
+        return 0
+
+    rows = db.query(
+        "SELECT * FROM social_messages WHERE platform='telegram' AND replied=0 "
+        "ORDER BY id LIMIT ?", (limit,))
+    sent = 0
+    for msg in rows:
+        try:
+            reply = shopbot.answer(db, str(msg["message"] or ""),
+                                   str(msg["sender_name"] or "there"))
+        except Exception as exc:  # noqa: BLE001 — one bad message must not stop the rest
+            logger.warning("shopbot could not answer message %s: %s", msg["id"], exc)
+            continue
+        if not reply.handled or not reply.text.strip():
+            continue
+        result = channels.send_telegram(str(msg["sender_id"]), reply.text)
+        if not result.ok:
+            logger.warning("shopbot send failed, leaving unanswered: %s", result.error)
+            continue
+        db.execute(
+            "UPDATE social_messages SET replied=1, reply_text=?, reply_at=? WHERE id=?",
+            (reply.text, _now(), msg["id"]))
+        sent += 1
+        logger.info("shopbot answered %s (%s)", msg["sender_name"], reply.intent)
+    return sent
 
 
 def threads(db, limit: int = 60) -> list[dict[str, Any]]:

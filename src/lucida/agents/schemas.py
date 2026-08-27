@@ -52,6 +52,15 @@ class NicheOption(BaseModel):
     estimated_margin_pct: float = Field(default=0.0, description="Best estimate of gross margin %.")
 
 
+class SupplyOption(BaseModel):
+    """Somewhere the owner could actually buy stock or ingredients."""
+
+    where: str = Field(description="Market, wholesaler or supplier, named as specifically as the evidence allows.")
+    what: str = Field(default="", description="What to buy there.")
+    typical_cost: str = Field(default="", description="Wholesale/bulk cost if the evidence shows one.")
+    note: str = Field(default="", description="Minimum order, travel, season, or why this one.")
+
+
 class MarketResearchResult(BaseModel):
     summary: str
     recommended_niche: str
@@ -60,6 +69,18 @@ class MarketResearchResult(BaseModel):
     competitor_price_high: float = Field(default=0.0)
     key_risks: list[str] = Field(default_factory=list)
     sources_used: list[str] = Field(default_factory=list)
+
+    # --- sourcing and demand -------------------------------------------
+    where_to_buy: list[SupplyOption] = Field(
+        default_factory=list,
+        description="Where the owner can buy stock or ingredients. Name real, local places.")
+    demand_level: str = Field(
+        default="", description="high, steady, seasonal or low — with the evidence for it.")
+    suggested_first_order: str = Field(
+        default="",
+        description="How much to buy first, in units, and the reasoning. Small enough to survive being wrong.")
+    restock_signal: str = Field(
+        default="", description="What should trigger the next, larger order.")
 
 
 # --- Product Vision --------------------------------------------------------

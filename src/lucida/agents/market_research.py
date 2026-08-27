@@ -28,6 +28,18 @@ Rules:
   closest comparable and flag the assumption in `summary`.
 - Consider local buying power, delivery logistics, and perishability where relevant.
 - Be concrete. "Homemade frozen paratha for working families in Dhaka" beats "food".
+
+Sourcing and demand — the owner has to act on this, so it must be practical:
+- `where_to_buy` must name real, local places a person can reach: a named wholesale
+  market, a bazar, a supplier type. "Karwan Bazar for vegetables" is useful;
+  "a local supplier" is not. If the evidence names none, say so in `note` rather
+  than inventing a company.
+- `demand_level` is one of high, steady, seasonal or low, and must cite what in the
+  evidence supports it.
+- `suggested_first_order` is a number of units and the reason. Err small: a first
+  order the owner can afford to be wrong about is worth more than an optimal one.
+- `restock_signal` is the observable thing that should trigger a bigger order —
+  for example selling out inside a week, or repeat buyers.
 """
 
 
@@ -96,7 +108,11 @@ below it. Ground your reasoning in the evidence above."""
                 f"Market research recommendation: {result.recommended_niche}. "
                 f"{result.summary} Competitor price band: "
                 f"{result.competitor_price_low}-{result.competitor_price_high} {settings.currency}. "
-                f"Key risks: {'; '.join(result.key_risks)}"
+                f"Key risks: {'; '.join(result.key_risks)}. "
+                f"Demand: {result.demand_level}. "
+                f"Where to buy: "
+                f"{'; '.join(o.where for o in result.where_to_buy) or 'not established'}. "
+                f"Suggested first order: {result.suggested_first_order}"
             ),
             kind="market_research",
             extra={
@@ -114,6 +130,15 @@ below it. Ground your reasoning in the evidence above."""
             f"Competitor prices run {result.competitor_price_low:.0f}–"
             f"{result.competitor_price_high:.0f} {settings.currency}."
         )
+        if result.demand_level:
+            summary += f" Demand looks **{result.demand_level}**."
+        if result.where_to_buy:
+            places = "; ".join(
+                f"{o.where}" + (f" ({o.typical_cost})" if o.typical_cost else "")
+                for o in result.where_to_buy[:3])
+            summary += f" 🛒 Buy from: {places}."
+        if result.suggested_first_order:
+            summary += f" First order: {result.suggested_first_order}"
         if simulated_any:
             summary += " (Some evidence came from the SIMULATED search adapter.)"
 
@@ -135,10 +160,13 @@ below it. Ground your reasoning in the evidence above."""
         queries = [
             f"{topic} business {location} demand 2026",
             f"{topic} competitors {location} price",
+            # Where to buy is a different question from who is selling, and the
+            # owner cannot start without an answer to it.
+            f"{topic} wholesale market {location} where to buy bulk price",
             f"best selling {topic} products online {location}",
             f"{topic} profit margin startup cost small business",
         ]
-        return queries[:2] if settings.compact_prompts else queries
+        return queries[:3] if settings.compact_prompts else queries
 
     def _profile_location(self) -> str:
         from ..memory import memory

@@ -21,6 +21,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import secrets
 import sys
 from pathlib import Path
@@ -380,7 +381,27 @@ async def product_save(request):
         memory.db.set_stock(product_id, int(qty),
                             int(_num("reorder_level", float) or 5))
 
-    request.session["product_note"] = f"Saved {name}."
+    # A photo, if one was chosen. Saved under the shop's own upload directory
+    # and recorded on the product, so the catalogue, the ad studio and the
+    # customer bot all have a picture to work from.
+    photo = form.get("photo")
+    saved_photo = ""
+    if photo is not None and getattr(photo, "filename", ""):
+        raw = await photo.read()
+        if raw:
+            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+            stem = re.sub(r"[^A-Za-z0-9._-]", "-", Path(str(photo.filename)).name)[:60]
+            dest = UPLOAD_DIR / f"product-{product_id}-{stem}"
+            dest.write_bytes(raw)
+            memory.db.execute("UPDATE products SET photo_path=? WHERE id=?",
+                              (str(dest), product_id))
+            memory.db.execute(
+                "INSERT INTO media_assets (product_id, kind, source, path, bytes, created_at)"
+                " VALUES (?,?,?,?,?,datetime('now'))",
+                (product_id, "photo", "owner", str(dest), len(raw)))
+            saved_photo = " Photo saved."
+
+    request.session["product_note"] = f"Saved {name}.{saved_photo}"
     return RedirectResponse("/products", status_code=303)
 
 
@@ -1200,10 +1221,13 @@ async def media(request):
     if current_account(request) is None:
         return JSONResponse({"error": "not signed in"}, 401)
     name = Path(request.path_params["name"]).name      # no traversal
-    path = imagegen.MEDIA_DIR / name
-    if not path.exists():
-        return JSONResponse({"error": "not found"}, status_code=404)
-    return FileResponse(path)
+    # Two sources, one route: artwork the studio generated, and photos the
+    # owner uploaded against a product. Both are the shop's own images.
+    for folder in (imagegen.MEDIA_DIR, UPLOAD_DIR):
+        path = folder / name
+        if path.exists() and path.is_file():
+            return FileResponse(path)
+    return JSONResponse({"error": "not found"}, status_code=404)
 
 
 async def board(request):
