@@ -1216,6 +1216,89 @@ def test_an_exhausted_quota_reads_as_english_not_a_traceback():
     assert calls == ["gemini-flash-latest", "claude-opus-5"], calls
 
 
+
+# --- Busy, paused, and wrecked are three different things ------------------
+#
+# `is_running` used to ask the checkpoint whether it had a next node. A run
+# suspended for an approval keeps one, and so does a run that died mid-flight
+# — so after a crash the session read as "working" for ever, the owner was
+# told "your team is already working", and nothing on the screen could clear
+# it. That is a lock-out, not a status.
+
+
+def _runtime():
+    from lucida.graph import WorkforceRuntime
+
+    return WorkforceRuntime()
+
+
+def test_a_session_nobody_is_working_on_is_not_running():
+    rt = _runtime()
+    assert not rt.is_running(rt.new_session_id())
+
+
+def test_a_crashed_run_releases_the_session():
+    # The exact shape of the lock-out: the graph blows up mid-run, and the
+    # owner must still be able to hand out the next job.
+    rt = _runtime()
+    session = "sess-crash-test"
+
+    def explode(*args, **kwargs):
+        raise RuntimeError("the provider ran out of quota mid-run")
+
+    class _Wreckage:
+        # What LangGraph leaves behind: the node it never got to run.
+        next = ("supervisor",)
+
+    rt.app.stream = explode
+    out = list(rt._stream({}, session))
+    rt.snapshot = lambda sid: _Wreckage()
+
+    assert any(o.get("node") == "__error__" for o in out), out
+    assert rt.is_suspended(session), "the checkpoint keeps the pending node"
+    assert not rt.is_running(session), "a dead run must not hold the session"
+    assert not rt.pending_approval(session), "and it is not a gate either"
+
+
+def test_a_finished_run_releases_the_session():
+    rt = _runtime()
+    session = "sess-done-test"
+
+    rt.app.stream = lambda *a, **k: iter(())
+    list(rt._stream({}, session))
+    assert not rt.is_running(session)
+
+
+def test_a_run_holds_the_session_only_while_it_streams():
+    rt = _runtime()
+    session = "sess-live-test"
+    seen = []
+
+    def one_chunk(*args, **kwargs):
+        yield {"supervisor": {"ok": True}}
+
+    rt.app.stream = one_chunk
+    for _ in rt._stream({}, session):
+        seen.append(rt.is_running(session))
+
+    assert seen and all(seen), "it should read as running while it streams"
+    assert not rt.is_running(session), "and stop the moment it is done"
+
+
+def test_suspended_is_asked_of_the_checkpoint_not_the_marker():
+    # The two answers must be able to disagree: that disagreement is what
+    # separates a paused graph from a busy one.
+    rt = _runtime()
+    session = "sess-suspend-test"
+
+    class _Snap:
+        next = ("supervisor",)
+
+    rt.snapshot = lambda sid: _Snap()
+    assert rt.is_suspended(session), "the checkpoint still holds work"
+    assert not rt.is_running(session), "but nobody is working on it"
+
+
 if __name__ == "__main__":
     import traceback
 
