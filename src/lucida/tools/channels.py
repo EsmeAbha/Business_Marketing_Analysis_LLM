@@ -509,26 +509,85 @@ def _telegram_get(method: str, params: dict) -> tuple[dict | None, str]:
     return body, ""
 
 
+def _telegram_offset(db) -> int:
+    """Highest Telegram update id already processed for this shop."""
+    if db is None:
+        return 0
+    try:
+        db.execute(
+            """CREATE TABLE IF NOT EXISTS telegram_sync_state (
+                   id INTEGER PRIMARY KEY CHECK (id=1),
+                   last_update_id INTEGER NOT NULL DEFAULT 0,
+                   updated_at TEXT)"""
+        )
+    except Exception:  # noqa: BLE001
+        pass
+    rows = db.query("SELECT last_update_id FROM telegram_sync_state WHERE id=1")
+    if not rows:
+        db.execute(
+            "INSERT INTO telegram_sync_state (id, last_update_id, updated_at) VALUES (1,0,?)",
+            (_now(),),
+        )
+        return 0
+    try:
+        return int((rows[0].get("last_update_id") or 0))
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def _save_telegram_offset(db, update_id: int) -> None:
+    if db is None or update_id <= 0:
+        return
+    try:
+        db.execute(
+            """INSERT INTO telegram_sync_state (id, last_update_id, updated_at)
+               VALUES (1, ?, ?)
+               ON CONFLICT(id) DO UPDATE SET
+                 last_update_id = excluded.last_update_id,
+                 updated_at = excluded.updated_at""",
+            (int(update_id), _now()),
+        )
+    except Exception:  # noqa: BLE001
+        rows = db.query("SELECT 1 FROM telegram_sync_state WHERE id=1")
+        if rows:
+            db.execute(
+                "UPDATE telegram_sync_state SET last_update_id=?, updated_at=? WHERE id=1",
+                (int(update_id), _now()),
+            )
+        else:
+            db.execute(
+                "INSERT INTO telegram_sync_state (id, last_update_id, updated_at) VALUES (1, ?, ?)",
+                (int(update_id), _now()),
+            )
+
+
 def read_telegram(limit: int = 25) -> Inbox:
     """Customer messages sent to the bot.
 
-    Updates are read without confirming an offset, so Telegram keeps returning
-    them for its 24-hour retention window. That is intentional: `store_message`
-    is idempotent on (platform, external_id), so re-reading costs nothing, and
-    not advancing the offset means a sync that crashes half way cannot lose a
-    customer's message.
+    Telegram keeps only a short retention window for old updates, so we advance
+    a stored `last_update_id` after each sync. That prevents replaying the same
+    message and allows the next message in the conversation to be processed.
     """
     if not telegram_ready():
         return Inbox([], simulated=True)
 
-    data, err = _telegram_get("getUpdates", {"limit": max(1, min(limit, 100)),
-                                             "timeout": 0})
+    db = _shop_db() if "_shop_db" in globals() else None
+    last_seen = _telegram_offset(db)
+    params = {"limit": max(1, min(limit, 100)), "timeout": 0}
+    if last_seen > 0:
+        params["offset"] = last_seen + 1
+
+    data, err = _telegram_get("getUpdates", params)
     if err:
         logger.warning("telegram read failed: %s", err)
         return Inbox([], simulated=False, error=err)
 
     out: list[dict[str, Any]] = []
+    max_update_id = last_seen
     for update in data.get("result", []):
+        update_id = int(update.get("update_id") or 0)
+        if update_id > max_update_id:
+            max_update_id = update_id
         msg = update.get("message") or update.get("edited_message") or {}
         text = (msg.get("text") or msg.get("caption") or "").strip()
         if not text:
@@ -557,6 +616,8 @@ def read_telegram(limit: int = 25) -> Inbox:
                 msg.get("date", 0), tz=timezone.utc).isoformat(timespec="seconds")
                 if msg.get("date") else _now(),
         })
+    if max_update_id > last_seen:
+        _save_telegram_offset(db, max_update_id)
     logger.info("telegram: %d customer message(s)", len(out))
     return Inbox(out, simulated=False)
 
