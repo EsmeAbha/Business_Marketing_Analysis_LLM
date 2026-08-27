@@ -1576,12 +1576,24 @@ def products_page(account: dict, products: list[dict], editing: str = "",
               if current else "")
     title = f"Edit {e(current['name'])}" if current else "Add a product"
 
+    photo_now = ""
+    if current and current.get("photo_path"):
+        from pathlib import Path as _P
+        photo_now = (
+            f"<div style='margin-top:8px;display:flex;align-items:center;gap:10px'>"
+            f"<img src='/media/{e(_P(str(current['photo_path'])).name)}' alt='' "
+            f"style='width:64px;height:64px;object-fit:cover;border-radius:8px;"
+            f"border:1px solid rgba(140,150,175,.3)'>"
+            f"<span class='muted' style='font-size:12px'>Current photo. "
+            f"Choosing a new file replaces it.</span></div>")
+
     form = (
         f"<div class='card' style='max-width:1000px'>"
         f"<h3 style='margin:0 0 4px;font-size:15px'>{title}</h3>"
         f"<p class='muted' style='margin:0 0 16px'>Weight is the one your "
         f"courier bills on: one piece, in grams, packed as you send it.</p>"
-        f"<form method='post' action='/products/save' class='pform'>{hidden}"
+        f"<form method='post' action='/products/save' class='pform' "
+        f"enctype='multipart/form-data'>{hidden}"
         f"<div class='field wide'><label for='pn'>Name</label>"
         f"<input id='pn' name='name' required value='{val('name')}'></div>"
         f"<div class='field'><label for='pc'>Category</label>"
@@ -1601,6 +1613,9 @@ def products_page(account: dict, products: list[dict], editing: str = "",
         f"<div class='field'><label for='pr'>Warn me below</label>"
         f"<input id='pr' name='reorder_level' type='number' min='0' "
         f"value='{val('reorder_level', 5)}'></div>"
+        f"<div class='field wide'><label for='pp'>Photo of this product</label>"
+        f"<input id='pp' name='photo' type='file' accept='image/*'>"
+        f"{photo_now}</div>"
         f"<div class='wide' style='margin-top:4px'>"
         f"<button class='btn' type='submit'>"
         f"{'Save changes' if current else 'Add it'}</button>{cancel}"
@@ -1613,8 +1628,38 @@ def products_page(account: dict, products: list[dict], editing: str = "",
         "Your team fills this in as it learns; you can correct any of it.</p>"
         "</div>"
     )
+    # What the stock on hand is actually worth. Recomputed on every render from
+    # the rows themselves, so editing a quantity or a price updates it — the
+    # owner asked to change stock and see profit move, and this is that.
+    stock_value = sum((p.get("quantity") or 0) * (p.get("unit_cost") or 0)
+                      for p in products)
+    revenue = sum((p.get("quantity") or 0) * (p.get("sell_price") or 0)
+                  for p in products)
+    profit = revenue - stock_value
+    margin = (profit / revenue * 100) if revenue else 0.0
+    priced = [p for p in products if (p.get("sell_price") or 0) > 0]
+    out_now = [p for p in priced if not (p.get("quantity") or 0)]
+
+    def _tile(label, value, tone=""):
+        return (f"<div style='flex:1;min-width:150px'>"
+                f"<div class='muted' style='font-size:11px;text-transform:uppercase;"
+                f"letter-spacing:.05em'>{e(label)}</div>"
+                f"<div style='font-size:20px;font-weight:700;{tone}'>{e(value)}</div></div>")
+
+    totals = (
+        f"<div class='card' style='max-width:1000px;display:flex;flex-wrap:wrap;"
+        f"gap:18px;margin-bottom:14px'>"
+        + _tile("Stock at cost", f"{stock_value:,.0f} {cur}")
+        + _tile("If it all sells", f"{revenue:,.0f} {cur}")
+        + _tile("Profit in that", f"{profit:,.0f} {cur}",
+                "color:#16a34a" if profit > 0 else "")
+        + _tile("Blended margin", f"{margin:.1f}%")
+        + _tile("Out of stock", f"{len(out_now)} of {len(priced)}",
+                "color:#b45309" if out_now else "")
+        + f"</div>")
+
     body = (
-        f"<div class='body'>{banner}"
+        f"<div class='body'>{banner}{totals}"
         f"<div class='plist'>"
         f"<div class='phead'><span>Product</span><span>Weight</span>"
         f"<span>Costs</span><span>Sells for</span><span>In stock</span>"
