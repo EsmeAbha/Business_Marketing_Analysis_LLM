@@ -77,6 +77,13 @@ deploys itself.
 3. Variables: `LUCIDA_DATA_DIR=/data`, `AIW_HTTPS=1`, plus your keys
 4. Settings → make sure replicas stay at **1**
 
+`railway.json` in the repo root already pins the parts that are easy to get
+wrong by clicking: the Dockerfile as the builder rather than an inferred
+buildpack, one replica, and `/api/health` as the health check with five
+minutes to come up — the image installs the whole model stack before it can
+answer. The volume and the secrets are the two things it cannot declare for
+you, because neither belongs in a committed file.
+
 ## A plain VPS (Hetzner, DigitalOcean, Vultr)
 
 Cheapest overall and nothing is hidden, but TLS, restarts and backups are
