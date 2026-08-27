@@ -88,16 +88,28 @@ scrolls into a feed with its timestamp and cost.
 
 ## The screens
 
+Six, and the rail holds exactly these six.
+
 | Screen | What it is for |
 |---|---|
-| **Dashboard** `/board` | Where the shop stands. Sales, stock cover, promises, what needs a decision. Has its own operator view with the execution graph, runs, memory and cost. |
-| **Chat** `/` | Ask anything. Conversations are kept and can be reopened. Send a photo and Product Vision reads it. A research question asks *where* to look before spending anything. |
-| **Ad studio** `/studio` | Generate a poster and ad copy, or upload your own picture and edit it — rotate, flip, crop, filters, shapes, text. |
-| **Workforce** `/workforce` | The graph, live. Click a specialist to hand it a job directly, over the supervisor's head. |
-| **Products** `/products` | What you sell, what it costs, and **what it weighs**. Weight is what every delivery quote is worked out from. |
-| **Delivery** `/delivery` | Pick what is going and where. The charge comes from your courier's own rates, with weight, zone, delivery and cash-on-delivery shown separately. |
-| **Connect** `/connect` | Messenger, Facebook, Instagram, YouTube, Steadfast, Pathao. Credentials are checked against the live API before they are stored. |
+| **Home** `/` | Where the shop stands — sales, stock cover, promises — and anything waiting on you. An approval the workforce is suspended on is answered here, and nothing else moves until it is. |
+| **Chat** `/chat` | Ask anything. Conversations are kept and can be reopened. Send a photo and Product Vision reads it. A research question asks *where* to look before spending anything. The **ad studio** opens from here. |
+| **Products** `/products` | What you sell, what it costs, and **what it weighs**. Weight is what every delivery quote is worked out from, so **delivery pricing** opens from here. |
+| **Customers** `/customers` | Both sides of every conversation the bot held on your behalf, and the reviews it asked for afterwards. |
+| **Workforce** `/workforce` | The graph, live. Click a specialist to hand it a job directly, over the supervisor's head. Below it, the operator's view: recent runs, what the team wrote down, and what the model calls cost. |
+| **Settings** `/settings` | Channels and couriers, and your own account. Credentials are checked against the live API before they are stored. |
 | **Service admin** `/admin` | Operators only. Every shop on the installation and what it is using. |
+
+Anything that is a step inside a job rather than a place you set out for is
+reached from the screen that owns it. `/studio` and `/delivery` are still
+real addresses; they are simply not competing for a slot in the rail.
+
+Earlier builds shipped four overlapping interfaces — a Streamlit workspace,
+these server-rendered pages, and two React design mockups. The mockups drew
+real figures behind unwired placeholder buttons, and one of them was the
+first entry in the rail, so the most likely first click in the app landed
+somewhere nothing happened. They have been removed; `/board`, `/connect` and
+`/account` redirect to whichever screen took the work over.
 
 ---
 
@@ -228,12 +240,12 @@ src/lucida/
                        connections, currency, sandboxed calculation
   observability.py     the event bus every screen reads from
 web/
-  app_ui.py            chat, studio, workforce, products, delivery, connect
-  screens.py           sign-in, sign-up, account
+  app_ui.py            every signed-in screen, and the rail they share
+  screens.py           sign-in, sign-up, email confirmation
   admin.py             the operator's view
-  bridge.py            shop data → the dashboard's shapes
+  bridge.py            shop data → the shapes the screens render
   auth.py              accounts, bcrypt, Google linking
-  design/              the dashboard bundle, served as authored
+  static/              the favicon; there are no other static assets
 ```
 
 ---

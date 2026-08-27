@@ -43,16 +43,18 @@ FONT_LINK = (
     'family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">'
 )
 
-# The dashboard leads: it is what the owner opens to see where the shop
-# stands, and the doing screens follow from there.
+# Five places, named for what the owner came to do. Everything else is
+# reached from inside the one that owns it: the ad studio from Chat, the
+# workforce from Home, delivery from Products. A rail with nine entries made
+# the owner choose before they had read anything, and most of those choices
+# led to the same screen.
 NAV = [
-    ("/board", "Dashboard", "Stock, money, customers, runs"),
-    ("/", "Chat", "Ask your team anything"),
-    ("/studio", "Ad studio", "Make posters and ad copy"),
-    ("/workforce", "Workforce", "Watch them work, hand out a job"),
-    ("/products", "Products", "What you sell, and what it weighs"),
-    ("/delivery", "Delivery", "Weigh it, price it, book the courier"),
-    ("/connect", "Connect", "Channels and couriers"),
+    ("/", "Home", "What needs you today"),
+    ("/chat", "Chat", "Ask your team anything"),
+    ("/products", "Products", "What you sell, stock and delivery"),
+    ("/customers", "Customers", "Messages and reviews"),
+    ("/workforce", "Workforce", "Watch your agents work"),
+    ("/settings", "Settings", "Channels, couriers, your account"),
 ]
 
 
@@ -453,9 +455,16 @@ def history_rail(threads: list[dict], current: int | None) -> str:
             f"<b>{t.get('turns', 0)}</b></a>"
             for t in threads
         )
+    # The ad studio sits here rather than in the rail: making a poster is
+    # something you decide to do part-way through a conversation about what
+    # to sell, not a place you set out for.
     return (
         f"<div class='hist'><h5>Conversations"
-        f"<a href='/chat/new'>+ New</a></h5>{rows}</div>"
+        f"<a href='/chat/new'>+ New</a></h5>{rows}"
+        f"<h5 style='margin-top:16px'>Make something"
+        f"<a href='/studio'>Open</a></h5>"
+        f"<div class='none'>Turn a photo into a poster and ad copy.</div>"
+        f"</div>"
     )
 
 
@@ -1411,8 +1420,13 @@ document.addEventListener('DOMContentLoaded', () => {
 """
 
 
-def workforce_page(account: dict, busy: bool = False) -> str:
-    """The team at work: the graph moves as they move, and you can hand out a job."""
+def workforce_page(account: dict, busy: bool = False,
+                   ops: dict | None = None) -> str:
+    """The team at work: the graph moves as they move, and you can hand out a job.
+
+    `ops` carries the read-only operator panels - runs, memory and spend.
+    They are optional so the page still renders without a snapshot.
+    """
     nodes = "".join(
         f"<div class='node' id='n-{n[0]}' style='left:{n[3]}%;top:{n[4]}%'>"
         f"<b><span class='dot'></span>{e(n[1])}</b>"
@@ -1463,11 +1477,15 @@ def workforce_page(account: dict, busy: bool = False) -> str:
         f"</div></div></div></div>"
         f"</div>"
 
-        f"</div></div>"
+        f"</div>"
+        + operator_panels((ops or {}).get("runs") or [],
+                          (ops or {}).get("memRecords") or [],
+                          (ops or {}).get("costBars") or [])
+        + "</div>"
     )
     js = f"window.__TEAM = {team_json};\n" + WORKFORCE_JS
     return shell("Workforce", account, "/workforce", head, body,
-                 WORKFORCE_CSS + NOTE_CSS, js)
+                 WORKFORCE_CSS + NOTE_CSS + OPERATOR_CSS, js)
 
 
 NOTE_CSS = f"""
@@ -1626,7 +1644,10 @@ def products_page(account: dict, products: list[dict], editing: str = "",
         "<div class='head'><h1>Products</h1>"
         "<p>What you sell, what each piece costs you, and what it weighs. "
         "Your team fills this in as it learns; you can correct any of it.</p>"
-        "</div>"
+        "<p style='margin-top:10px'>"
+        "<a class='btn btn-quiet' style='text-decoration:none;"
+        "display:inline-block' href='/delivery'>Price a delivery &rarr;</a>"
+        "</p></div>"
     )
     # What the stock on hand is actually worth. Recomputed on every render from
     # the rows themselves, so editing a quantity or a price updates it — the
@@ -2057,14 +2078,23 @@ def connect_form(account: dict, platform: str, has_oauth: bool,
                  CONNECT_CSS)
 
 
-def connect_page(account: dict, channels: dict, image_provider: str,
-                 db_backend: str, has_llm: bool,
-                 oauth: dict | None = None, note: str = "") -> str:
+def settings_page(account: dict, channels: dict, image_provider: str,
+                  db_backend: str, has_llm: bool,
+                  oauth: dict | None = None, note: str = "",
+                  shop_stats: dict | None = None,
+                  telegram_on: bool = False) -> str:
+    """Everything the owner configures, on one page.
+
+    Channels and the account used to be two screens in two different
+    chromes - the account one had no rail at all, so opening it felt like
+    leaving the app.
+    """
     oauth = oauth or {}
     head = (
-        "<div class='head'><h1>Connect your accounts</h1>"
-        "<p>Everything works without these — your team just cannot read or "
-        "post to a platform it has no key for.</p></div>"
+        "<div class='head'><h1>Settings</h1>"
+        "<p>Your channels, your couriers and your account. Everything works "
+        "without a channel connected - your team just cannot read or post to "
+        "a platform it has no key for.</p></div>"
     )
 
     brand = {
@@ -2138,7 +2168,14 @@ def connect_page(account: dict, channels: dict, image_provider: str,
             f"{e(state)}</span>{action}</div></div>"
         )
 
+    tg_note = ("Your bot is live and answering customers" if telegram_on
+               else "Set a bot token from @BotFather to go live")
     extras = (
+        f"<div class='fact'><div class='icon' style='background:#229ED9'>TG"
+        f"</div>"
+        f"<div><h3>Telegram</h3><p>{e(tg_note)}</p>"
+        f"<span class='pill {'ok' if telegram_on else 'warn'}'>"
+        f"{'Working' if telegram_on else 'Not set up'}</span></div></div>"
         f"<div class='fact'><div class='icon' style='background:{ACCENT}'>AI</div>"
         f"<div><h3>Ad artwork</h3><p>{e(image_provider)}</p>"
         f"<span class='pill ok'>Working</span></div></div>"
@@ -2160,4 +2197,565 @@ def connect_page(account: dict, channels: dict, image_provider: str,
             f"stand-in inbox so you can see the flow — every result is "
             f"labelled as such, and nothing is written to your records as "
             f"though a real customer sent it.</p></div>")
-    return shell("Connect", account, "/connect", head, body, CONNECT_CSS)
+    body = (body.removesuffix("</div>")
+            + _account_section(account, shop_stats) + "</div>")
+    return shell("Settings", account, "/settings", head, body,
+                 CONNECT_CSS + SETTINGS_CSS)
+
+
+# ---------------------------------------------------------------------------
+# Home
+# ---------------------------------------------------------------------------
+#
+# What the owner sees first, and the only screen allowed to interrupt them.
+# The approval gate lives here because it is the one thing that stops the
+# workforce dead: until it is answered, nothing else the team does matters.
+# It had no home in this UI at all before — the only card that could answer a
+# gate was in a design mockup whose buttons were never wired to anything.
+
+HOME_CSS = """
+.ktiles { display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px; }
+.ktile { background:%(surface)s; border:1px solid %(border)s;
+  border-radius:16px; padding:18px 20px; min-width:0; }
+.ktile span { display:block; font-size:12px; color:%(muted)s;
+  font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+.ktile b { display:block; font-size:27px; font-weight:800;
+  letter-spacing:-.03em; margin:7px 0 4px; }
+.ktile small { color:%(muted)s; font-size:12.5px; }
+
+.gate { border:1px solid %(accent)s; background:%(accentTint)s;
+  border-radius:16px; padding:20px 22px; margin-top:16px; }
+.gate .from { font-size:12px; color:%(accent)s; font-weight:700;
+  letter-spacing:.04em; text-transform:uppercase; }
+.gate h2 { margin:6px 0 0; font-size:18px; letter-spacing:-.02em; }
+.gate p { margin:8px 0 0; font-size:14px; color:%(body)s; line-height:1.6; }
+.gate .acts { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+
+.two { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:16px; margin-top:16px; }
+.two h3 { margin:0 0 12px; font-size:15px; letter-spacing:-.015em; }
+.line { display:flex; align-items:center; gap:11px; padding:10px 0;
+  border-top:1px solid %(sunken)s; min-width:0; }
+.line.first { border-top:none; }
+.line .dot { width:30px; height:30px; border-radius:9px; flex:none;
+  display:grid; place-items:center; font-size:12px; font-weight:600; }
+.line .who { min-width:0; flex:1; }
+.line b { display:block; font-size:13.5px; font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.line small { color:%(muted)s; font-size:12.5px; display:block;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.none { color:%(muted)s; font-size:13.5px; line-height:1.6; margin:0; }
+.more { display:inline-block; margin-top:12px; font-size:13px;
+  color:%(accent)s; font-weight:600; }
+.quick { display:flex; gap:10px; margin-top:18px; flex-wrap:wrap; }
+.quick a { text-decoration:none; display:inline-block; }
+@media (max-width: 860px) {
+  .ktiles, .two { grid-template-columns:1fr; }
+}
+""" % {"surface": SURFACE, "border": BORDER, "muted": MUTED, "body": BODY,
+       "accent": ACCENT, "accentTint": ACCENT_TINT, "sunken": SUNKEN}
+
+HOME_JS = """
+document.querySelectorAll('[data-decide]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var was = b.textContent;
+    b.disabled = true;
+    b.textContent = 'Sending...';
+    fetch('/api/decide', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({decision: b.dataset.decide})
+    }).then(function (r) {
+      if (!r.ok) { throw new Error('failed'); }
+      location.reload();
+    }).catch(function () {
+      b.disabled = false;
+      b.textContent = was;
+      var n = document.getElementById('gatenote');
+      if (n) { n.textContent = 'That did not go through. Try again.'; }
+    });
+  });
+});
+"""
+
+
+def home_page(account: dict, day: dict, kpi: dict, gates: list,
+              threads: list, stock: list) -> str:
+    """Where the shop stands, and the one thing that might be waiting."""
+    tiles = "".join(
+        f"<div class='ktile'><span>{e(label)}</span><b>{e(value)}</b>"
+        f"<small>{e(note)}</small></div>"
+        for label, value, note in (
+            ("Sales today", kpi.get("salesToday") or DASHED,
+             kpi.get("salesTodayNote") or ""),
+            ("Promised", kpi.get("preorderUnits") or DASHED,
+             kpi.get("preorderNote") or ""),
+            ("Stock cover", kpi.get("coverDays") or DASHED,
+             kpi.get("coverNote") or ""),
+        )
+    )
+
+    gate = ""
+    for g in gates:
+        who = e(g.get("by") or "")
+        gate += (
+            f"<div class='gate'>"
+            f"<div class='from'>{e(g.get('tag') or 'Decision')}"
+            f"{' &middot; ' + who if who else ''}</div>"
+            f"<h2>{e(g.get('title'))}</h2>"
+            f"<p>{e(g.get('body'))}</p>"
+            f"<div class='acts'>"
+            f"<button class='btn' data-decide='approve'>"
+            f"{e(g.get('yes') or 'Go ahead')}</button>"
+            f"<button class='btn btn-quiet' data-decide='reject'>Not now"
+            f"</button></div>"
+            f"<p class='none' id='gatenote' style='margin-top:10px'>"
+            f"{e(g.get('hint') or '')}</p>"
+            f"</div>"
+        )
+
+    low = [r for r in stock if str(r.get("todo") or "").strip()][:4]
+    stock_rows = "".join(
+        f"<div class='line{' first' if i == 0 else ''}'>"
+        f"<div class='dot' style='background:{r.get('thumbBg') or SUNKEN};"
+        f"color:{r.get('thumbFg') or INK}'>{e(r.get('initial') or '?')}</div>"
+        f"<div class='who'><b>{e(r.get('name'))}</b>"
+        f"<small>{e(r.get('qty'))} &middot; {e(r.get('cover'))}</small></div>"
+        f"</div>"
+        for i, r in enumerate(low)
+    ) or ("<p class='none'>Nothing is running low. Your team says so here "
+          "before anything sells out.</p>")
+
+    unanswered = [t for t in threads
+                  if "answer" not in str(t.get("state") or "").lower()]
+    shown = (unanswered or threads)[:4]
+    msg_rows = "".join(
+        f"<div class='line{' first' if i == 0 else ''}'>"
+        f"<div class='dot' style='background:{SUNKEN};color:{BODY}'>"
+        f"{e(t.get('initials') or '?')}</div>"
+        f"<div class='who'><b>{e(t.get('name'))}</b>"
+        f"<small>{e(t.get('preview'))}</small></div>"
+        f"</div>"
+        for i, t in enumerate(shown)
+    ) or ("<p class='none'>No customer messages yet. Connect a channel in "
+          "Settings and your team starts answering them.</p>")
+
+    head = (f"<div class='head'><h1>Home</h1>"
+            f"<p>{e(day.get('line') or '')}</p></div>")
+    body = (
+        f"<div class='body'>"
+        f"<div class='ktiles'>{tiles}</div>"
+        f"{gate}"
+        f"<div class='two'>"
+        f"<div class='card'><h3>Running low</h3>{stock_rows}"
+        f"<a class='more' href='/products'>Open products &rarr;</a></div>"
+        f"<div class='card'><h3>Latest from customers</h3>{msg_rows}"
+        f"<a class='more' href='/customers'>Open customers &rarr;</a></div>"
+        f"</div>"
+        f"<div class='quick'>"
+        f"<a class='btn' href='/chat'>Ask your team</a>"
+        f"<a class='btn btn-quiet' href='/studio'>Make a poster</a>"
+        f"<a class='btn btn-quiet' href='/workforce'>Watch your team work</a>"
+        f"</div>"
+        f"</div>"
+    )
+    return shell("Home", account, "/", head, body, HOME_CSS, HOME_JS)
+
+
+# ---------------------------------------------------------------------------
+# Customers
+# ---------------------------------------------------------------------------
+#
+# Both halves of what a customer leaves behind: the conversation the bot held
+# on the shop's behalf, and the review it asked for afterwards. Reviews were
+# being recorded and displayed nowhere at all, which made asking for them
+# pointless — the owner could not read a single one.
+
+CUSTOMERS_CSS = """
+.tabs { display:flex; gap:8px; margin-bottom:16px; }
+.tab { padding:8px 15px; border-radius:999px; border:1px solid %(border)s;
+  background:%(surface)s; font-size:13.5px; color:%(body)s; cursor:pointer; }
+.tab.on { background:%(accentTint)s; border-color:%(accent)s;
+  color:%(accent)s; font-weight:600; }
+
+/* The list on the left, one conversation window on the right. The window is
+   a fixed height on purpose: every customer gets the same one, so switching
+   between them does not move the reply box or resize the page. A long thread
+   scrolls inside it rather than stretching it. */
+.inbox { display:grid; grid-template-columns:296px minmax(0,1fr); gap:16px;
+  height:%(windowH)s; }
+.people { border:1px solid %(border)s; border-radius:16px;
+  background:%(surface)s; overflow-y:auto; }
+.person { display:flex; align-items:center; gap:11px; width:100%%;
+  padding:13px 15px; border:none; border-bottom:1px solid %(sunken)s;
+  background:none; text-align:left; cursor:pointer; }
+.person:last-child { border-bottom:none; }
+.person:hover { background:%(rail)s; }
+.person.on { background:%(accentTint)s; }
+.person .face { width:34px; height:34px; border-radius:10px; flex:none;
+  background:%(sunken)s; color:%(body)s; display:grid; place-items:center;
+  font-size:13px; font-weight:600; }
+.person.on .face { background:%(accent)s; color:#fff; }
+.person .who { min-width:0; flex:1; }
+.person b { display:block; font-size:13.5px; font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.person small { display:block; font-size:12px; color:%(muted)s;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.person .flag { width:7px; height:7px; border-radius:999px; flex:none;
+  background:%(amber)s; }
+
+.window { border:1px solid %(border)s; border-radius:16px;
+  background:%(surface)s; display:flex; flex-direction:column;
+  min-width:0; overflow:hidden; }
+.pane { display:none; flex-direction:column; height:100%%; min-height:0; }
+.pane.on { display:flex; }
+.pane .bar { display:flex; align-items:center; gap:10px; padding:14px 18px;
+  border-bottom:1px solid %(sunken)s; flex:none; }
+.pane .bar h3 { margin:0; font-size:14.5px; letter-spacing:-.01em; }
+.meta { font-size:12.5px; color:%(muted)s; }
+.talk { flex:1; min-height:0; overflow-y:auto; padding:16px 18px;
+  font-size:13.5px; line-height:1.7; color:%(body)s;
+  white-space:pre-wrap; overflow-wrap:anywhere; }
+.reply { display:flex; gap:9px; padding:14px 18px; flex:none;
+  border-top:1px solid %(sunken)s; }
+.reply input { flex:1; }
+.blank { display:grid; place-items:center; height:100%%; padding:30px;
+  text-align:center; }
+
+.stars { color:%(amber)s; font-size:14px; letter-spacing:2px; }
+.rev { border-top:1px solid %(sunken)s; padding:14px 0; }
+.rev.first { border-top:none; padding-top:0; }
+.rev p { margin:6px 0 0; font-size:13.5px; color:%(body)s; line-height:1.6; }
+.none { color:%(muted)s; font-size:13.5px; line-height:1.6; margin:0; }
+.hide { display:none; }
+
+@media (max-width: 860px) {
+  .inbox { grid-template-columns:1fr; height:auto; }
+  .people { max-height:230px; }
+  .window { height:%(windowH)s; }
+}
+""" % {"border": BORDER, "surface": SURFACE, "body": BODY, "muted": MUTED,
+       "accent": ACCENT, "accentTint": ACCENT_TINT, "sunken": SUNKEN,
+       "rail": RAIL, "amber": AMBER, "windowH": "620px"}
+
+CUSTOMERS_JS = """
+document.querySelectorAll('.tab').forEach(function (t) {
+  t.addEventListener('click', function () {
+    document.querySelectorAll('.tab').forEach(function (o) {
+      o.classList.toggle('on', o === t);
+    });
+    document.querySelectorAll('[data-panel]').forEach(function (p) {
+      p.classList.toggle('hide', p.dataset.panel !== t.dataset.tab);
+    });
+  });
+});
+
+// Switching customer swaps what is inside the one window; it never changes
+// the window. The transcript starts at the newest line, which is the part
+// you are replying to.
+function showPerson(id) {
+  document.querySelectorAll('.person').forEach(function (p) {
+    p.classList.toggle('on', p.dataset.person === id);
+  });
+  document.querySelectorAll('.pane').forEach(function (p) {
+    var on = p.dataset.pane === id;
+    p.classList.toggle('on', on);
+    if (on) {
+      var talk = p.querySelector('.talk');
+      if (talk) { talk.scrollTop = talk.scrollHeight; }
+    }
+  });
+}
+document.querySelectorAll('.person').forEach(function (p) {
+  p.addEventListener('click', function () { showPerson(p.dataset.person); });
+});
+var first = document.querySelector('.person');
+if (first) { showPerson(first.dataset.person); }
+
+document.querySelectorAll('[data-reply]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var box = document.getElementById('r-' + b.dataset.reply);
+    var text = ((box && box.value) || '').trim();
+    if (!text) { if (box) { box.focus(); } return; }
+    b.disabled = true;
+    b.textContent = 'Sending...';
+    fetch('/api/reply', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message_id: b.dataset.reply, text: text})
+    }).then(function (r) {
+      if (!r.ok) { throw new Error('failed'); }
+      location.reload();
+    }).catch(function () {
+      b.disabled = false;
+      b.textContent = 'Send';
+      box.value = '';
+      box.placeholder = 'That did not send. Try again.';
+    });
+  });
+});
+"""
+
+
+def customers_page(account: dict, threads: list, reviews: list) -> str:
+    """A list of customers, and one conversation window they all share.
+
+    Every customer's window is the same size and in the same place, so moving
+    down the list does not move the page under you. Whoever is still waiting
+    on a reply is listed first, because they are the reason to open this
+    screen at all.
+    """
+    def waiting(t: dict) -> bool:
+        return "answer" not in str(t.get("state") or "").lower()
+
+    ordered = sorted(threads, key=lambda t: (not waiting(t)))
+
+    people, panes = "", ""
+    for t in ordered:
+        # Only a real inbox message can be answered from here; a comment
+        # carries a "c" prefix and is replied to where it was left.
+        rid = str(t.get("id") or "")
+        state = str(t.get("state") or "New")
+        people += (
+            f"<button class='person' data-person='{e(rid)}'>"
+            f"<div class='face'>{e(t.get('initials') or '?')}</div>"
+            f"<div class='who'><b>{e(t.get('name'))}</b>"
+            f"<small>{e(t.get('preview'))}</small></div>"
+            f"{'' if not waiting(t) else '<span class=flag></span>'}"
+            f"</button>"
+        )
+        box = (
+            f"<div class='reply'>"
+            f"<input id='r-{e(rid)}' placeholder='Write a reply...'>"
+            f"<button class='btn' data-reply='{e(rid)}'>Send</button></div>"
+            if rid.isdigit() else
+            f"<div class='reply'><span class='meta'>Reply to this one on "
+            f"{e(t.get('channel'))}, where it was left.</span></div>"
+        )
+        panes += (
+            f"<div class='pane' data-pane='{e(rid)}'>"
+            f"<div class='bar'>"
+            f"<div style='flex:1;min-width:0'><h3>{e(t.get('name'))}</h3>"
+            f"<div class='meta'>{e(t.get('channel'))} &middot; "
+            f"{e(t.get('t'))}</div></div>"
+            f"<span class='pill {'ok' if not waiting(t) else 'warn'}'>"
+            f"{e(state)}</span></div>"
+            f"<div class='talk'>{e(t.get('message') or t.get('preview'))}</div>"
+            f"{box}</div>"
+        )
+
+    if ordered:
+        n = len(ordered)
+        wait_n = sum(1 for t in ordered if waiting(t))
+        count = (f"<p class='meta' style='margin:0 0 12px'>"
+                 f"{n} customer{'' if n == 1 else 's'}"
+                 f"{f' &middot; {wait_n} waiting on you' if wait_n else ''}"
+                 f"</p>")
+        inbox_html = (f"{count}<div class='inbox'>"
+                      f"<div class='people'>{people}</div>"
+                      f"<div class='window'>{panes}</div></div>")
+    else:
+        inbox_html = (
+            "<div class='inbox'><div class='people'></div>"
+            "<div class='window'><div class='blank'><p class='none'>"
+            "No messages yet. Your team answers customers on Telegram by "
+            "itself, and both sides of every conversation appear here. "
+            "Settings shows whether the bot is live.</p></div></div></div>"
+        )
+
+    revs = ""
+    for i, r in enumerate(reviews):
+        rating = int(r.get("rating") or 0)
+        stars = ("★" * rating + "☆" * (5 - rating)) if rating else ""
+        product = e(r.get("product_name") or "")
+        revs += (
+            f"<div class='rev{' first' if i == 0 else ''}'>"
+            f"<b>{e(r.get('customer') or 'A customer')}</b> "
+            f"<span class='stars'>{stars}</span>"
+            f"{f'<span class=meta> &middot; {product}</span>' if product else ''}"
+            f"<p>{e(r.get('comment') or '')}</p></div>"
+        )
+    if not revs:
+        revs = ("<p class='none'>No reviews yet. Your team asks for one "
+                "after an order, and whatever the customer sends back "
+                "appears here.</p>")
+
+    head = ("<div class='head'><h1>Customers</h1>"
+            "<p>What they asked, what your team answered, and what they "
+            "thought of it afterwards.</p></div>")
+    body = (
+        f"<div class='body'>"
+        f"<div class='tabs'>"
+        f"<button class='tab on' data-tab='talk'>Messages</button>"
+        f"<button class='tab' data-tab='revs'>Reviews</button></div>"
+        f"<div data-panel='talk'>{inbox_html}</div>"
+        f"<div data-panel='revs' class='hide'><div class='card'>{revs}</div>"
+        f"</div></div>"
+    )
+    return shell("Customers", account, "/customers", head, body,
+                 CUSTOMERS_CSS, CUSTOMERS_JS)
+
+
+
+
+# ---------------------------------------------------------------------------
+# The operator's view
+# ---------------------------------------------------------------------------
+#
+# What the agents did, what they wrote down, and what it cost. These three
+# panels used to exist only inside the design mockup, which rendered real
+# figures behind dead buttons. They belong with the live graph on Workforce,
+# which is the screen an operator actually opens.
+
+OPERATOR_CSS = """
+.ops { margin-top:22px; display:grid; gap:16px;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); }
+.ops h3 { margin:0 0 4px; font-size:15px; letter-spacing:-.015em; }
+.ops .lede { margin:0 0 12px; font-size:12.5px; color:%(muted)s; }
+.op { padding:10px 0; border-top:1px solid %(sunken)s; min-width:0; }
+.op.first { border-top:none; }
+.op b { display:block; font-size:13.5px; font-weight:600; }
+.op small { display:block; font-size:12.5px; color:%(muted)s;
+  overflow-wrap:anywhere; }
+.bar { height:6px; border-radius:999px; background:%(sunken)s;
+  margin-top:6px; overflow:hidden; }
+.bar i { display:block; height:100%%; border-radius:999px; }
+.opfoot { margin:12px 0 0; font-size:12.5px; color:%(muted)s; }
+""" % {"muted": MUTED, "sunken": SUNKEN}
+
+
+def operator_panels(runs: list, records: list, costs: list) -> str:
+    """Runs, memory and spend — read-only, and honest when empty."""
+    run_rows = "".join(
+        f"<div class='op{' first' if i == 0 else ''}'>"
+        f"<b>{e(r.get('label'))}</b><small>{e(r.get('meta'))}</small></div>"
+        for i, r in enumerate(runs[:6])
+    ) or ("<p class='none'>Nothing has run yet. Ask your team a question and "
+          "the run appears here.</p>")
+
+    mem_rows = "".join(
+        f"<div class='op{' first' if i == 0 else ''}'>"
+        f"<b>{e(m.get('key'))}</b><small>{e(m.get('value'))}</small>"
+        f"<small>{e(m.get('store'))} &middot; {e(m.get('by'))}</small></div>"
+        for i, m in enumerate(records[:6])
+    ) or ("<p class='none'>Your team has not written anything down yet. What "
+          "it learns about your shop is listed here.</p>")
+
+    cost_rows = "".join(
+        f"<div class='op{' first' if i == 0 else ''}'>"
+        f"<b>{e(c.get('name'))}</b>"
+        f"<small>{e(c.get('tok'))} tokens &middot; {e(c.get('cost'))}</small>"
+        f"<div class='bar'><i style='width:{int(c.get('pct') or 2)}%;"
+        f"background:{c.get('color') or ACCENT}'></i></div></div>"
+        for i, c in enumerate(costs[:6])
+    ) or ("<p class='none'>No model calls billed yet.</p>")
+
+    return (
+        f"<div class='ops'>"
+        f"<div class='card'><h3>Recent runs</h3>"
+        f"<p class='lede'>Every question, and how far it got.</p>"
+        f"{run_rows}</div>"
+        f"<div class='card'><h3>What it remembers</h3>"
+        f"<p class='lede'>The shared memory every agent reads and writes.</p>"
+        f"{mem_rows}</div>"
+        f"<div class='card'><h3>What it cost</h3>"
+        f"<p class='lede'>Model spend this session, per agent.</p>"
+        f"{cost_rows}</div>"
+        f"</div>"
+    )
+
+
+# ---------------------------------------------------------------------------
+# The account, inside Settings
+# ---------------------------------------------------------------------------
+#
+# These forms post to the same endpoints the standalone account screen used.
+# Only their surroundings changed: they sit in the rail now, so changing your
+# password no longer means leaving the workspace and coming back.
+
+SETTINGS_CSS = """
+.sec { margin:26px 0 12px; font-size:15px; font-weight:700;
+  letter-spacing:-.015em; }
+.pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:0 14px; }
+.acct { max-width:980px; }
+.acct .card { margin-bottom:14px; }
+.acct h3 { margin:0 0 4px; font-size:15px; letter-spacing:-.015em; }
+.acct .lede { margin:0 0 14px; font-size:12.5px; color:%(muted)s; }
+.acct .go { margin-top:4px; }
+@media (max-width: 860px) { .pair { grid-template-columns:1fr; } }
+""" % {"muted": MUTED}
+
+
+def _account_section(account: dict, shop_stats: dict | None = None) -> str:
+    """Who you are, what your shop is called, and how to sign out."""
+    account = account or {}
+    stage = account.get("business_stage") or "starting"
+    stats = shop_stats or {}
+    learned = " · ".join(f"{v} {k}" for k, v in stats.items() if v) \
+        or "nothing recorded yet"
+
+    def field(name: str, label: str, value: str = "") -> str:
+        return (f"<div class='field'><label for='{name}'>{e(label)}</label>"
+                f"<input id='{name}' name='{name}' value='{e(value)}'></div>")
+
+    return (
+        f"<div class='acct'>"
+        f"<div class='sec'>Your shop and your account</div>"
+
+        f"<div class='card'>"
+        f"<h3>Your details</h3>"
+        f"<p class='lede'>Your team uses these as facts about the business, "
+        f"not as guesses.</p>"
+        f"<form method='post' action='/account'>"
+        f"<div class='pair'>"
+        f"{field('owner_name', 'Your name', account.get('owner_name') or '')}"
+        f"{field('business_name', 'Shop name', account.get('business_name') or '')}"
+        f"</div><div class='pair'>"
+        f"{field('location', 'Where you sell', account.get('location') or '')}"
+        f"{field('currency', 'Currency', account.get('currency') or 'BDT')}"
+        f"</div>"
+        f"{field('what_you_sell', 'What you sell', account.get('what_you_sell') or '')}"
+        f"<div class='field'><label for='business_stage'>Where you are</label>"
+        f"<select id='business_stage' name='business_stage'>"
+        f"<option value='starting'{' selected' if stage == 'starting' else ''}>"
+        f"Starting out - help me work out what to sell</option>"
+        f"<option value='running'{' selected' if stage == 'running' else ''}>"
+        f"Already selling - help me run it</option></select></div>"
+        f"<button class='btn go' type='submit'>Save changes</button>"
+        f"</form></div>"
+
+        f"<div class='card'>"
+        f"<h3>Your photo</h3>"
+        f"<p class='lede'>Shown at the bottom of the rail.</p>"
+        f"<form method='post' action='/account/avatar' "
+        f"enctype='multipart/form-data'>"
+        f"<div class='field'><input type='file' name='avatar' "
+        f"accept='image/*' required></div>"
+        f"<button class='btn btn-quiet go' type='submit'>Upload photo</button>"
+        f"</form></div>"
+
+        f"<div class='card'>"
+        f"<h3>Password</h3>"
+        f"<form method='post' action='/account/password'>"
+        f"<div class='pair'>"
+        f"<div class='field'><label for='current'>Current password</label>"
+        f"<input id='current' name='current' type='password' required "
+        f"autocomplete='current-password'></div>"
+        f"<div class='field'><label for='new'>New password</label>"
+        f"<input id='new' name='new' type='password' required minlength='8' "
+        f"autocomplete='new-password'></div></div>"
+        f"<button class='btn btn-quiet go' type='submit'>Change password"
+        f"</button></form></div>"
+
+        f"<div class='card'>"
+        f"<h3>Your shop's memory</h3>"
+        f"<p class='lede'>Everything your team has learned lives in a "
+        f"database of its own, separate from every other account: "
+        f"{e(learned)}.</p>"
+        f"<form method='post' action='/logout'>"
+        f"<button class='btn btn-quiet go' type='submit'>Sign out</button>"
+        f"</form></div>"
+        f"</div>"
+    )

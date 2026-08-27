@@ -1,16 +1,23 @@
-"""Lucida — serves the Business Suite design, backed by the real workforce.
+"""Lucida — one workspace for the shop, backed by the real workforce.
 
-The design bundle in `web/design/` is served as authored: its own markup, its
-own React runtime, its own fonts. Nothing is redrawn here. The server's only
-job is to hand the page real data and to accept the actions it sends back.
+Every screen is rendered here, server-side, from `web/app_ui.py`. There is no
+client-side framework and no design bundle: the page the owner sees is built
+from the same shared memory the agents write to, so it cannot show a figure
+the shop did not record.
 
-How the data gets in
---------------------
-`web/patch_design.py` rewrites each data constant in the design to prefer
-`window.LUCIDA.<key>`, falling back to the design's original literal when the
-key is absent or empty. This server injects that object inline, before the
-runtime boots — so there is no loading flash and no fetch race. An empty
-database means empty keys, which means the design renders exactly as drawn.
+Six places, and why there are only six
+--------------------------------------
+Home, Chat, Products, Customers, Workforce, Settings. The app used to carry
+four separate interfaces — a Streamlit workspace, a server-rendered set of
+pages, and two React design mockups whose buttons were unwired placeholders.
+They disagreed about what the sections were even called, and the mockup was
+the first thing in the rail, so the most likely first click landed somewhere
+nothing worked. The mockups are gone; the addresses they held redirect to
+whichever real screen took the work over.
+
+Anything that is a step inside a job, rather than a place you set out for,
+is reached from the screen that owns it: the ad studio from Chat, delivery
+pricing from Products, the operator's runs and spend from Workforce.
 
 Run:  python serve.py         (then open http://127.0.0.1:8000)
 """
@@ -26,6 +33,7 @@ import re
 import sqlite3
 import secrets
 import sys
+from urllib.parse import quote
 from pathlib import Path
 
 import uvicorn
@@ -40,7 +48,6 @@ from starlette.responses import (  # noqa: E402
     StreamingResponse,
 )
 from starlette.routing import Mount, Route
-from starlette.staticfiles import StaticFiles
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
@@ -54,7 +61,7 @@ from lucida.tools import inbox  # noqa: E402
 from lucida.observability import bus, get_logger  # noqa: E402
 
 from lucida.tools import (  # noqa: E402
-    channels, connections, delivery_pricing, imagegen, research,
+    channels, connections, delivery_pricing, imagegen, research, shopbot,
 )
 from lucida.tools.courier import courier  # noqa: E402
 from web import (  # noqa: E402
@@ -76,8 +83,7 @@ def page(markup: str, status: int = 200) -> HTMLResponse:
         "Pragma": "no-cache",
     })
 
-DESIGN_DIR = Path(__file__).parent / "web" / "design"
-INDEX = DESIGN_DIR / "index.html"
+STATIC_DIR = Path(__file__).parent / "web" / "static"
 
 runtime = WorkforceRuntime()
 
@@ -307,7 +313,7 @@ async def api_delivery_book(request):
 
 async def favicon(request):
     """The tab icon. Its absence was a 404 on every single page load."""
-    return FileResponse(DESIGN_DIR / "favicon.svg",
+    return FileResponse(STATIC_DIR / "favicon.svg",
                         media_type="image/svg+xml",
                         headers={"Cache-Control": "public, max-age=86400"})
 
@@ -479,7 +485,8 @@ async def workforce_page(request):
         return RedirectResponse("/login", status_code=303)
     session_id = _session_for(account["id"])
     return page(app_ui.workforce_page(
-        _who(account), busy=runtime.is_running(session_id)))
+        _who(account), busy=runtime.is_running(session_id),
+        ops=_snapshot(session_id, account)))
 
 
 async def api_events(request):
@@ -798,14 +805,10 @@ async def account_page(request):
         )
         notice = "Saved."
 
-    stats = memory.stats()
-    friendly = {
-        "products": stats.get("products", 0),
-        "customer messages": stats.get("conversations", 0),
-        "campaigns": stats.get("campaigns", 0),
-        "things remembered": stats.get("knowledge_documents", 0),
-    }
-    return page(screens.account_page(account, error, notice, friendly))
+    # The forms live in Settings now, so both the saved case and a plain
+    # visit end up there rather than on a page with no navigation.
+    target = "/settings" + (f"?notice={notice}" if notice else "")
+    return RedirectResponse(target, status_code=303)
 
 
 async def account_avatar(request):
@@ -815,11 +818,11 @@ async def account_avatar(request):
     form = await request.form()
     upload = form.get("avatar")
     if upload is None or not getattr(upload, "filename", ""):
-        return RedirectResponse("/account?notice=Choose+a+photo+first.",
+        return RedirectResponse("/settings?notice=Choose+a+photo+first.",
                                 status_code=303)
     suffix = Path(str(upload.filename)).suffix.lower()
     if suffix not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
-        return RedirectResponse("/account?notice=Use+a+JPG,+PNG+or+WEBP.",
+        return RedirectResponse("/settings?notice=Use+a+JPG,+PNG+or+WEBP.",
                                 status_code=303)
     dest = AVATAR_DIR / f"{account['id']}{suffix}"
     for old in AVATAR_DIR.glob(f"{account['id']}.*"):
@@ -827,7 +830,7 @@ async def account_avatar(request):
             old.unlink(missing_ok=True)
     dest.write_bytes(await upload.read())
     auth.set_avatar(account["id"], str(dest))
-    return RedirectResponse("/account?notice=Photo+updated.", status_code=303)
+    return RedirectResponse("/settings?notice=Photo+updated.", status_code=303)
 
 
 async def account_password(request):
@@ -839,9 +842,10 @@ async def account_password(request):
         auth.change_password(account["id"], str(form.get("current") or ""),
                              str(form.get("new") or ""))
     except auth.AuthError as exc:
-        return page(screens.account_page(account, str(exc)),
-                            status_code=400)
-    return RedirectResponse("/account?notice=Password+changed.", status_code=303)
+        return RedirectResponse(f"/settings?error={quote(str(exc))}",
+                                status_code=303)
+    return RedirectResponse("/settings?notice=Password+changed.",
+                            status_code=303)
 
 
 async def avatar(request):
@@ -898,8 +902,50 @@ def _who(account: dict) -> dict:
     }
 
 
+def _moved(target: str):
+    """A handler that sends an old address to its new one.
+
+    The rail lost four entries; the addresses behind them did not stop
+    existing, and a bookmark landing on a 404 is a worse answer than a
+    redirect to where the screen went.
+    """
+    async def go(request):
+        return RedirectResponse(target, status_code=308)
+    return go
+
+
+async def home(request):
+    """Where the shop stands, and anything waiting on the owner.
+
+    This is what /board used to be. The old one was a design mockup: it drew
+    real figures, but every button in it was an unwired placeholder, so the
+    approval gate it showed could not actually be answered.
+    """
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    session_id = _session_for(account["id"])
+    snap = _snapshot(session_id, account)
+    return page(app_ui.home_page(
+        _who(account), snap.get("dayLine") or {}, snap.get("kpi") or {},
+        snap.get("decisions") or [], snap.get("threads") or [],
+        snap.get("stock") or []))
+
+
+async def customers(request):
+    """Both sides of every conversation, and the reviews they left."""
+    account = current_account(request)
+    if account is None:
+        return RedirectResponse("/login", status_code=303)
+    session_id = _session_for(account["id"])
+    snap = _snapshot(session_id, account)
+    return page(app_ui.customers_page(
+        _who(account), snap.get("threads") or [],
+        shopbot.reviews(memory.db)))
+
+
 async def chat(request):
-    """The main screen: a conversation, with the composer where it belongs."""
+    """The conversation with the workforce, and the composer that starts it."""
     account = current_account(request)
     if account is None:
         return RedirectResponse("/login", status_code=303)
@@ -917,7 +963,7 @@ async def chat_new(request):
     if current_account(request) is None:
         return RedirectResponse("/login", status_code=303)
     request.session["thread_id"] = memory.db.new_thread()
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/chat", status_code=303)
 
 
 async def chat_open(request):
@@ -927,7 +973,7 @@ async def chat_open(request):
     tid = int(request.path_params["thread_id"])
     if memory.db.query("SELECT 1 FROM chat_threads WHERE id=?", (tid,)):
         request.session["thread_id"] = tid
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/chat", status_code=303)
 
 
 async def chat_delete(request):
@@ -938,7 +984,7 @@ async def chat_delete(request):
     memory.db.delete_thread(tid)
     if request.session.get("thread_id") == tid:
         request.session.pop("thread_id", None)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/chat", status_code=303)
 
 
 async def studio(request):
@@ -950,18 +996,28 @@ async def studio(request):
         imagegen.quality_note()))
 
 
-async def connect(request):
+async def settings_view(request):
+    """Channels, couriers and the account, on one page."""
     account = current_account(request)
     if account is None:
         return RedirectResponse("/login", status_code=303)
     backend = ("Turso (hosted)" if settings.uses_remote_db
                else "A private SQLite file on this machine")
-    note = request.session.pop("connect_note", "")
-    return page(app_ui.connect_page(
+    note = (request.session.pop("connect_note", "")
+            or request.query_params.get("notice", "")
+            or request.query_params.get("error", ""))
+    stats = memory.stats()
+    return page(app_ui.settings_page(
         _who(account), connections.status(memory.db), imagegen.status(),
         backend, bool(settings.has_llm),
         oauth={p: connections.can_oauth(p) for p in connections.PLATFORMS},
-        note=note))
+        note=note, telegram_on=channels.telegram_ready(),
+        shop_stats={
+            "products": stats.get("products", 0),
+            "customer messages": stats.get("conversations", 0),
+            "campaigns": stats.get("campaigns", 0),
+            "things remembered": stats.get("knowledge_documents", 0),
+        }))
 
 
 def _redirect_uri(request, platform: str) -> str:
@@ -1233,25 +1289,6 @@ async def media(request):
     return JSONResponse({"error": "not found"}, status_code=404)
 
 
-async def board(request):
-    """The design, with a snapshot of real data injected ahead of the runtime."""
-    account = current_account(request)
-    if account is None:
-        return RedirectResponse("/login", status_code=303)
-    session_id = _session_for(account["id"])
-
-    html = INDEX.read_text(encoding="utf-8")
-    payload = json.dumps(_snapshot(session_id, account),
-                         ensure_ascii=False, default=str)
-    # `</script>` inside JSON would close the tag early; escape the only
-    # sequence that can do that.
-    payload = payload.replace("</", "<\\/")
-    inject = (
-        f"<script>window.LUCIDA = Object.assign(window.LUCIDA || {{}}, "
-        f"{payload});</script>\n"
-    )
-    html = html.replace('<script src="./support.js">', inject + '<script src="./support.js">', 1)
-    return HTMLResponse(html)
 
 
 async def api_state(request):
@@ -1852,7 +1889,14 @@ async def _start_telegram_poll_loop() -> None:
         logger.warning("telegram: no shop to answer for yet, poll loop idle")
         return
 
-    shop_db = Database(SHOPS_DIR / str(shop_id) / "shop.db")
+    # AIW_BOT_SHOP may name a shop that has not been created yet - on a
+    # first deploy the data volume is empty, and the name in the environment
+    # is a plan rather than a fact. Opening a database under a directory that
+    # does not exist raises, and this runs inside the lifespan, so the whole
+    # server would fail to start over a bot that has nothing to answer for.
+    shop_dir = SHOPS_DIR / str(shop_id)
+    shop_dir.mkdir(parents=True, exist_ok=True)
+    shop_db = Database(shop_dir / "shop.db")
     logger.info("telegram: bot answering for shop %s every 10s", shop_id)
 
     async def _loop() -> None:
@@ -1870,8 +1914,17 @@ async def _start_telegram_poll_loop() -> None:
 
 @contextlib.asynccontextmanager
 async def _lifespan(_app):
-    """Start the Telegram poll loop with the server, and stop it with it."""
-    await _start_telegram_poll_loop()
+    """Start the Telegram poll loop with the server, and stop it with it.
+
+    A bot that cannot start is a shop that answers its own customers by
+    hand. A server that cannot start is a shop with no workspace at all, and
+    a health check that never passes - so this is logged and stepped over
+    rather than raised.
+    """
+    try:
+        await _start_telegram_poll_loop()
+    except Exception as exc:  # noqa: BLE001 - never block the server booting
+        logger.error("telegram poll loop could not start: %s", exc)
     try:
         yield
     finally:
@@ -1896,13 +1949,19 @@ app = Starlette(
         )
     ],
     routes=[
-        Route("/", chat),
+        Route("/", home),
+        Route("/chat", chat),
+        Route("/customers", customers),
+        Route("/settings", settings_view),
+        # Where the old addresses went, so a bookmark still lands somewhere.
+        Route("/board", _moved("/")),
+        Route("/connect", _moved("/settings")),
+        Route("/account", _moved("/settings")),
         Route("/chat/new", chat_new),
         Route("/chat/{thread_id:int}", chat_open),
         Route("/chat/{thread_id:int}/delete", chat_delete,
               methods=["POST", "GET"]),
         Route("/studio", studio),
-        Route("/connect", connect),
         Route("/connect/{platform}", connect_start),
         Route("/connect/{platform}/save", connect_save,
               methods=["POST"]),
@@ -1920,7 +1979,6 @@ app = Starlette(
               methods=["POST"]),
         Route("/favicon.ico", favicon),
         Route("/favicon.svg", favicon),
-        Route("/board", board),
         Route("/media/{name}", media),
         Route("/api/studio/generate", api_studio_generate,
               methods=["POST"]),
@@ -1933,7 +1991,7 @@ app = Starlette(
         Route("/verify/resend", verify_resend, methods=["POST"]),
         Route("/auth/google", google_start),
         Route("/auth/google/callback", google_callback),
-        Route("/account", account_page, methods=["GET", "POST"]),
+        Route("/account", account_page, methods=["POST"]),
         Route("/account/avatar", account_avatar, methods=["POST"]),
         Route("/account/password", account_password, methods=["POST"]),
         Route("/avatar/{account_id}", avatar),
@@ -1951,20 +2009,12 @@ app = Starlette(
         Route("/api/events", api_events),
         Route("/api/assign", api_assign, methods=["POST"]),
         Route("/api/health", api_health),
-        # Serves support.js, image-slot.js and vendor/ alongside the page, so
-        # the design's own relative script paths resolve unchanged.
-        Mount("/", StaticFiles(directory=str(DESIGN_DIR)), name="design"),
     ],
     lifespan=_lifespan,
 )
 
 
 if __name__ == "__main__":
-    if not INDEX.exists():
-        raise SystemExit(
-            f"design bundle missing at {INDEX}\n"
-            "Run: python web/patch_design.py"
-        )
     print("Lucida — Business Suite  ->  http://127.0.0.1:8000")
     print(f"  email     : {mailer.status()}")
     print(f"  google    : {google_oauth.status()}")
