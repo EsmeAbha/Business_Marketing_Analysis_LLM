@@ -184,7 +184,8 @@ def auto_answer(db, limit: int = 20) -> int:
         if not reply.handled or not reply.text.strip():
             continue
 
-        result = channels.send_telegram(str(answered["sender_id"]), reply.text)
+        result = channels.send_telegram(str(answered["sender_id"]), reply.text,
+                                        buttons=reply.buttons)
         if not result.ok:
             logger.warning("shopbot send failed, leaving unanswered: %s",
                            result.error)
