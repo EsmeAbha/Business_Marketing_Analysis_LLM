@@ -627,9 +627,9 @@ async def signup(request):
                if account.get("business_stage") == "starting"
                else "Owner already sells and wants day-to-day management."),
     )
+    # Signed in immediately — the session cookie is the whole ceremony.
     request.session["account_id"] = account["id"]
-    _send_verification(request, account)
-    return RedirectResponse("/verify", status_code=303)
+    return RedirectResponse("/", status_code=303)
 
 
 def _send_verification(request, account) -> None:
@@ -879,8 +879,6 @@ async def chat(request):
     account = current_account(request)
     if account is None:
         return RedirectResponse("/login", status_code=303)
-    if not auth.is_verified(account):
-        return RedirectResponse("/verify", status_code=303)
     tid = _thread_for(request, account)
     history = [
         {"role": m["role"], "text": m["text"]}
@@ -1213,8 +1211,6 @@ async def board(request):
     account = current_account(request)
     if account is None:
         return RedirectResponse("/login", status_code=303)
-    if not auth.is_verified(account):
-        return RedirectResponse("/verify", status_code=303)
     session_id = _session_for(account["id"])
 
     html = INDEX.read_text(encoding="utf-8")
