@@ -275,6 +275,15 @@ def authenticate(email: str, password: str) -> dict[str, Any]:
     return _row_to_account(row)  # type: ignore[return-value]
 
 
+def list_accounts() -> list[dict[str, Any]]:
+    """Every account, newest activity first. Password hashes never included."""
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM accounts ORDER BY COALESCE(last_login_at, created_at) DESC"
+        ).fetchall()
+    return [a for a in (_row_to_account(r) for r in rows) if a]
+
+
 def get_account(account_id: str) -> dict[str, Any] | None:
     with _connect() as conn:
         return _row_to_account(
