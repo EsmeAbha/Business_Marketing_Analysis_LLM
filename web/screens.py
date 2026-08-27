@@ -202,6 +202,82 @@ GOOGLE_CSS = f"""
 """
 
 
+# ---------------------------------------------------------------------------
+# Password reveal
+# ---------------------------------------------------------------------------
+
+
+# Icons are inline for the same reason GOOGLE_MARK is: the pages carry no
+# script or icon bundle, and one <svg> costs less than a dependency.
+EYE_ON = (
+    "<svg class='on' width='17' height='17' viewBox='0 0 24 24' fill='none' "
+    "stroke='currentColor' stroke-width='2' stroke-linecap='round' "
+    "stroke-linejoin='round' aria-hidden='true'>"
+    "<path d='M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z'/>"
+    "<circle cx='12' cy='12' r='3'/></svg>"
+)
+EYE_OFF = (
+    "<svg class='off' width='17' height='17' viewBox='0 0 24 24' fill='none' "
+    "stroke='currentColor' stroke-width='2' stroke-linecap='round' "
+    "stroke-linejoin='round' aria-hidden='true'>"
+    "<path d='M9.88 9.88a3 3 0 1 0 4.24 4.24'/>"
+    "<path d='M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68'/>"
+    "<path d='M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61'/>"
+    "<path d='M2 2l20 20'/></svg>"
+)
+
+PASSWORD_CSS = f"""
+.pw {{ position:relative; }}
+/* Room for the button, so a long password never runs under it. */
+.pw input {{ padding-right:42px; }}
+.pw button {{ position:absolute; top:1px; right:1px; bottom:1px; width:40px;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  border:none; background:none; color:{MUTED}; cursor:pointer;
+  border-radius:0 9px 9px 0; }}
+.pw button:hover {{ color:{INK}; }}
+.pw button:focus-visible {{ outline:none; color:{INK};
+  box-shadow:0 0 0 3px {RING}; }}
+/* Without script the toggle does nothing, so it is not shown until the
+   script removes the attribute. */
+.pw button[hidden] {{ display:none; }}
+.pw .off {{ display:none; }}
+.pw.shown .on {{ display:none; }}
+.pw.shown .off {{ display:block; }}
+"""
+
+# Not an f-string: the braces below are JavaScript's, not format fields.
+PASSWORD_JS = """<script>
+document.querySelectorAll('.pw > button').forEach(function (btn) {
+  btn.hidden = false;
+  btn.addEventListener('click', function () {
+    var wrap = btn.parentNode, input = wrap.querySelector('input');
+    var show = input.type === 'password';
+    // Switching type resets the caret in most browsers; put it back.
+    var start = input.selectionStart, end = input.selectionEnd;
+    input.type = show ? 'text' : 'password';
+    wrap.classList.toggle('shown', show);
+    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    input.focus();
+    try { input.setSelectionRange(start, end); } catch (e) {}
+  });
+});
+</script>"""
+
+
+def _password_field(autocomplete: str, label: str = "Password",
+                    extra: str = "") -> str:
+    return (
+        f"<div class='field'><label for='password'>{_e(label)}</label>"
+        f"<div class='pw'>"
+        f"<input id='password' name='password' type='password' required "
+        f"autocomplete='{autocomplete}'{extra}>"
+        f"<button type='button' hidden aria-pressed='false' "
+        f"aria-controls='password' aria-label='Show password'>"
+        f"{EYE_ON}{EYE_OFF}</button></div></div>"
+    )
+
+
 def _google_block(enabled: bool) -> str:
     if not enabled:
         return ""
@@ -227,15 +303,14 @@ def login_page(error: str = "", email: str = "", notice: str = "",
         # plain name before the form is even submitted.
         f"<input id='email' name='email' type='text' required "
         f"autocomplete='username' value='{_e(email)}'></div>"
-        f"<div class='field'><label for='password'>Password</label>"
-        f"<input id='password' name='password' type='password' required "
-        f"autocomplete='current-password'></div>"
+        f"{_password_field('current-password')}"
         f"<button class='btn' type='submit'>Sign in</button></form>"
         f"<p class='note' style='margin-top:18px;text-align:center;'>"
         f"New here? <a href='/signup'>Create an account</a></p>"
         f"</div></div></div>"
     )
-    return _page("Sign in", body, SPLIT_CSS + GOOGLE_CSS)
+    return _page("Sign in", body + PASSWORD_JS,
+                 SPLIT_CSS + GOOGLE_CSS + PASSWORD_CSS)
 
 
 # ---------------------------------------------------------------------------
