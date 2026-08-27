@@ -69,6 +69,11 @@ _WHEN = re.compile(
 _PRONOUN = re.compile(r"\b(it|that|this|those|ta|ti|oita|eita)\b", re.I)
 
 _STARS = re.compile(r"\b([1-5])\b\s*(?:/\s*5|star|stars|★)?", re.I)
+#: What a tapped star button sends back.
+_RATE_TAP = re.compile(r"^\s*/rate\s+([1-5])\b", re.I)
+
+#: The keyboard itself. One row, so it fits a phone without wrapping.
+STAR_BUTTONS = [[(f"{n} {'★' * n}", f"/rate {n}") for n in range(1, 6)]]
 
 # --- addresses -------------------------------------------------------------
 #
@@ -106,6 +111,10 @@ class BotReply:
     intent: str
     handled: bool = True
     used_model: bool = False
+    #: Rows of (label, payload) offered as tappable buttons. A rating is a
+    #: thing to pick, not to spell: asking someone to type "4" invites "four",
+    #: "4/5", "four stars" and a silence when they cannot be bothered.
+    buttons: list[list[tuple[str, str]]] | None = None
 
 
 def _now() -> str:
@@ -341,10 +350,12 @@ def _product_text(row: dict, qty: int = 1) -> str:
     return f"Yes, we have it. {row['name']} is {_money(price)}."
 
 
-def record_review(db, customer: str, text: str, product: str = "") -> int:
-    """Store a review. Rating is parsed if the customer gave one."""
-    m = _STARS.search(text or "")
-    rating = int(m.group(1)) if m else 0
+def record_review(db, customer: str, text: str, product: str = "",
+                  rating: int | None = None) -> int:
+    """Store a review. The rating is parsed from the words unless given."""
+    if rating is None:
+        m = _STARS.search(text or "")
+        rating = int(m.group(1)) if m else 0
     db.execute(
         """CREATE TABLE IF NOT EXISTS reviews (
                id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -464,8 +475,25 @@ def answer(db, message: str, customer: str = "there", chat_id: str = "") -> BotR
     # This runs before anything tries to read the line as a product, because
     # "lovely candle, smells great" is an opinion, and answering it with a
     # price is how a review gets lost.
+    tap = _RATE_TAP.match(text)
+    if tap:
+        score = int(tap.group(1))
+        rid = record_review(db, customer, "", str(state.get("last_product") or ""),
+                            rating=score)
+        set_state(db, chat_id, awaiting="review_why", pending_review=rid)
+        return BotReply(
+            f"Thank you - {score} out of 5. What made it that score? Send a "
+            f"line and the owner will read it.", "review")
+
     if str(state.get("awaiting") or "").startswith("review"):
-        if intent in ("review", "other", "smalltalk"):
+        # We asked "what made it that score?", so whatever comes back is the
+        # answer. Reading it for intent first meant a review that happened to
+        # mention delivery — "lovely smell, delivery was quick" — was taken
+        # for a delivery question and the customer's words were thrown away.
+        # Only a fresh command is a change of subject.
+        answering_us = (state.get("awaiting") == "review_why"
+                        and not text.startswith("/"))
+        if answering_us or intent in ("review", "other", "smalltalk"):
             if state.get("awaiting") == "review_why":
                 add_review_words(db, int(state.get("pending_review") or 0), text)
                 set_state(db, chat_id, awaiting="", pending_review=0)
@@ -535,8 +563,8 @@ def answer(db, message: str, customer: str = "there", chat_id: str = "") -> BotR
             return BotReply("Thank you, that means a lot. The owner will see it.",
                             intent)
         set_state(db, chat_id, awaiting="review")
-        return BotReply("How did we do? Send a rating out of 5 and a line about why.",
-                        intent)
+        return BotReply("How did we do? Tap a star, then tell me why.",
+                        intent, buttons=STAR_BUTTONS)
 
     # --- a full address, which is what an order actually needs ------------
     if address:

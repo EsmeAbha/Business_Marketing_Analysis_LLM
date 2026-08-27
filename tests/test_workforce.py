@@ -1076,8 +1076,8 @@ def _telegram_shop(monkey):
     monkey.append((channels, "telegram_ready", channels.telegram_ready))
     monkey.append((channels, "send_telegram", channels.send_telegram))
     channels.telegram_ready = lambda: True
-    channels.send_telegram = lambda cid, text: (sent.append((cid, text))
-                                                or _Result())
+    channels.send_telegram = lambda cid, text, buttons=None: (
+        sent.append((cid, text, buttons)) or _Result())
     return _shop(), sent
 
 
@@ -1297,6 +1297,167 @@ def test_suspended_is_asked_of_the_checkpoint_not_the_marker():
     rt.snapshot = lambda sid: _Snap()
     assert rt.is_suspended(session), "the checkpoint still holds work"
     assert not rt.is_running(session), "but nobody is working on it"
+
+
+
+# --- Leaving a review by tapping a star ------------------------------------
+#
+# "/review doesn't work" survived two fixes to the bot, because the bot was
+# never the problem: read_telegram dropped every message beginning with "/"
+# as Telegram protocol chatter, so the command was thrown away before the
+# shop ever saw it.
+
+
+def _telegram_updates(updates, answered=None):
+    """Point channels at a fixed set of updates instead of the network."""
+    from lucida.tools import channels
+
+    def fake_get(method, params):
+        if method == "answerCallbackQuery":
+            if answered is not None:
+                answered.append(params.get("callback_query_id"))
+            return {"ok": True, "result": True}, ""
+        return {"ok": True, "result": updates}, ""
+
+    return fake_get
+
+
+def _message(uid, text, chat=551):
+    return {"update_id": uid, "message": {
+        "message_id": uid, "date": 1756000000, "text": text,
+        "from": {"id": chat, "first_name": "Karim", "is_bot": False},
+        "chat": {"id": chat}}}
+
+
+def test_the_commands_the_shop_answers_are_not_thrown_away():
+    from lucida.tools import channels
+
+    ready, get = channels.telegram_ready, channels._telegram_get
+    try:
+        channels.telegram_ready = lambda: True
+        channels._telegram_get = _telegram_updates([
+            _message(1, "hello"),
+            _message(2, "/review"),
+            _message(3, "/start"),
+            _message(4, "/settings"),   # Telegram's own, not the customer's
+        ])
+        read = channels.read_telegram(db=_shop())
+    finally:
+        channels.telegram_ready, channels._telegram_get = ready, get
+
+    said = [m["message"] for m in read.messages]
+    assert "/review" in said, said
+    assert "/start" in said, said
+    assert "/settings" not in said, "protocol chatter should still be dropped"
+
+
+def test_a_tapped_button_arrives_as_what_it_meant():
+    from lucida.tools import channels
+
+    answered = []
+    ready, get = channels.telegram_ready, channels._telegram_get
+    try:
+        channels.telegram_ready = lambda: True
+        channels._telegram_get = _telegram_updates([{
+            "update_id": 9, "callback_query": {
+                "id": "cb-99", "data": "/rate 4",
+                "from": {"id": 551, "first_name": "Karim"},
+                "message": {"chat": {"id": 551}}}}], answered)
+        read = channels.read_telegram(db=_shop())
+    finally:
+        channels.telegram_ready, channels._telegram_get = ready, get
+
+    assert [m["message"] for m in read.messages] == ["/rate 4"]
+    assert read.messages[0]["sender_id"] == "551"
+    # A button that keeps spinning reads as a shop that missed the tap.
+    assert answered == ["cb-99"], answered
+
+
+def test_review_offers_stars_to_tap():
+    from lucida.tools import shopbot
+
+    db = _shop()
+    reply = shopbot.answer(db, "/review", "Karim", chat_id="rv1")
+    assert reply.buttons, "a rating is a thing to pick, not to spell"
+    labels = [label for label, _ in reply.buttons[0]]
+    payloads = [data for _, data in reply.buttons[0]]
+    assert len(labels) == 5, labels
+    assert payloads == [f"/rate {n}" for n in range(1, 6)], payloads
+
+
+def test_a_tapped_star_and_the_words_make_one_review():
+    from lucida.tools import shopbot
+
+    db = _shop()
+    _say(db, "rv2", "do you have coconut soy candles?", "/review", "/rate 4",
+         "lovely smell, delivery was quick")
+
+    stored = shopbot.reviews(db)
+    assert len(stored) == 1, stored
+    assert stored[0]["rating"] == 4, stored
+    assert "lovely smell" in stored[0]["comment"], stored
+    # The product under discussion is recorded with it.
+    assert stored[0]["product_name"] == "Coconut Soy Candle", stored
+
+
+def test_the_answer_to_our_own_question_is_not_reread_as_a_question():
+    # "delivery was quick" is a review that mentions delivery, not a delivery
+    # enquiry — and the shop had just asked what made it that score.
+    from lucida.tools import shopbot
+
+    db = _shop()
+    *_, reply = _say(db, "rv3", "/review", "/rate 5",
+                     "delivery was quick and the price is good")
+    assert "thank you" in reply.text.lower(), reply.text
+    assert shopbot.reviews(db)[0]["comment"].startswith("delivery was quick")
+
+
+def test_a_typed_rating_still_works():
+    # Not everyone taps. The old path must survive.
+    from lucida.tools import shopbot
+
+    db = _shop()
+    _say(db, "rv4", "/review", "5 khub bhalo")
+    stored = shopbot.reviews(db)
+    assert len(stored) == 1 and stored[0]["rating"] == 5, stored
+    assert "khub bhalo" in stored[0]["comment"], stored
+
+
+def test_the_stars_reach_the_customer():
+    # The buttons are useless unless auto_answer hands them to the sender.
+    from lucida.tools import channels, inbox
+
+    sent = []
+    ready, send = channels.telegram_ready, channels.send_telegram
+    try:
+        channels.telegram_ready = lambda: True
+
+        class _Ok:
+            ok, error, simulated = True, "", False
+
+            def describe(self):
+                return "ok"
+
+        def fake_send(chat_id, text, buttons=None):
+            sent.append((text, buttons))
+            return _Ok()
+
+        channels.send_telegram = fake_send
+        db = _shop()
+        db.execute(
+            "INSERT INTO social_messages (platform, kind, thread_id, sender_id,"
+            " sender_name, message, received_at, replied)"
+            " VALUES (?,?,?,?,?,?,?,0)",
+            ("telegram", "dm", "808", "808", "Karim", "/review",
+             "2026-08-27T10:00:00"))
+        inbox.auto_answer(db)
+    finally:
+        channels.telegram_ready, channels.send_telegram = ready, send
+
+    assert sent, "the shop should have replied"
+    text, buttons = sent[-1]
+    assert buttons, "the star keyboard must travel with the reply"
+    assert len(buttons[0]) == 5, buttons
 
 
 if __name__ == "__main__":
