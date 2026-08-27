@@ -561,7 +561,7 @@ def _save_telegram_offset(db, update_id: int) -> None:
             )
 
 
-def read_telegram(limit: int = 25) -> Inbox:
+def read_telegram(limit: int = 25, db=None) -> Inbox:
     """Customer messages sent to the bot.
 
     Telegram keeps only a short retention window for old updates, so we advance
@@ -571,7 +571,10 @@ def read_telegram(limit: int = 25) -> Inbox:
     if not telegram_ready():
         return Inbox([], simulated=True)
 
-    db = _shop_db() if "_shop_db" in globals() else None
+    # The caller's database, not the global singleton: the poll loop runs
+    # with no signed-in owner, and storing the offset somewhere other than
+    # where the messages go means it never advances.
+    db = db if db is not None else _shop_db()
     last_seen = _telegram_offset(db)
     params = {"limit": max(1, min(limit, 100)), "timeout": 0}
     if last_seen > 0:

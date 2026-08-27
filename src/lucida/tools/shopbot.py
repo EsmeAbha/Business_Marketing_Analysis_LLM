@@ -32,13 +32,17 @@ logger = get_logger("tools.shopbot")
 
 # What the customer is trying to do. Deliberately a small, closed set: every
 # one of these can be answered from the shop's own records.
-INTENTS = ("catalogue", "price", "availability", "review", "order", "greeting", "other")
+INTENTS = ("catalogue", "price", "availability", "delivery", "review", "order",
+           "greeting", "other")
 
 _GREETING = re.compile(r"^\s*(/start|hi+|hey+|hello|salam|assalamu|আসসালাম|হ্যালো)\b", re.I)
 _CATALOGUE = re.compile(
     r"\b(what.*(sell|have|available)|product|menu|list|catalog|ki ki|ache|আছে|কি কি)\b", re.I)
 _PRICE = re.compile(r"\b(price|cost|koto|kto|dam|taka|৳|dhaka|how much|দাম|কত)\b", re.I)
 _REVIEW = re.compile(r"\b(/review|review|feedback|rating|rate|stars?|★|মতামত|রিভিউ)\b", re.I)
+_DELIVERY = re.compile(
+    "(deliver|delivery|shipping|courier|pathao|pouchabe|dibe|"
+    "charge koto|kivabe pabo|home delivery)", re.I)
 _ORDER = re.compile(r"\b(/order|order|buy|nibo|nebo|chai|want|লাগবে|নিবো)\b", re.I)
 _STARS = re.compile(r"([1-5])\s*(?:/\s*5|star|stars|★)?", re.I)
 
@@ -139,40 +143,30 @@ def classify(text: str) -> str:
 
 
 def _catalogue_text(db) -> str:
+    """Just the names and the prices."""
     in_stock, out = catalogue(db)
     if not in_stock and not out:
-        return ("We are still setting up our product list. "
-                "Please check back shortly.")
-
-    lines = []
-    if in_stock:
-        lines.append("Available now:")
-        for r in in_stock:
-            qty = int(r.get("quantity") or 0)
-            low = "  (only a few left)" if qty <= int(r.get("reorder_level") or 0) else ""
-            lines.append(f"• {r['name']} — {_money(r.get('sell_price'))}{low}")
-    if out:
-        lines.append("")
-        lines.append("Out of stock right now:")
-        for r in out:
-            lines.append(f"• {r['name']} — back soon")
-    lines.append("")
-    lines.append("Reply with a product name for details, or /review to leave feedback.")
-    return "\n".join(lines)
+        return "We are still setting up our list - check back shortly."
+    lines = [f"{r['name']} - {_money(r.get('sell_price'))}" for r in in_stock]
+    lines += [f"{r['name']} - sold out" for r in out]
+    return chr(10).join(lines)
 
 
 def _product_text(row: dict) -> str:
+    """One line, the way a shopkeeper answers.
+
+    How many are on the shelf is the shop's business, not the customer's.
+    They asked whether they can buy it and what it costs, so that is what
+    comes back. A count only appears as "the last few", and only because it
+    changes whether someone should hurry.
+    """
     qty = int(row.get("quantity") or 0)
     price = _money(row.get("sell_price"))
     if qty <= 0:
-        return (f"{row['name']} is **out of stock** at the moment.\n"
-                f"The price when it returns is {price}. "
-                f"Tell us if you would like to be told when it is back.")
-    scarce = qty <= int(row.get("reorder_level") or 0)
-    tail = "  Only a few left." if scarce else ""
-    return (f"{row['name']} — {price}\n"
-            f"In stock: yes ({qty} available).{tail}\n"
-            f"Reply with how many you would like and we will hold them for you.")
+        return f"Sorry, {row['name']} is sold out right now."
+    if qty <= int(row.get("reorder_level") or 0):
+        return f"Yes, we have it. {row['name']} is {price} - only the last few left."
+    return f"Yes, we have it. {row['name']} is {price}."
 
 
 def record_review(db, customer: str, text: str, product: str = "") -> int:
@@ -199,6 +193,93 @@ def reviews(db, limit: int = 50) -> list[dict]:
         return []
 
 
+
+# ---------------------------------------------------------------------------
+# Delivery
+# ---------------------------------------------------------------------------
+
+# A usable address needs a street or house line AND an area. "Dhaka" alone is
+# a city, not somewhere a rider can go, so it is deliberately not enough.
+_AREA_WORDS = re.compile(
+    "(dhanmondi|gulshan|banani|uttara|mirpur|mohakhali|bashundhara|badda|"
+    "motijheel|tejgaon|rampura|khilgaon|shyamoli|farmgate|azimpur|lalmatia|"
+    "jatrabari|savar|narayanganj|gazipur|chattogram|chittagong|sylhet|"
+    r"khulna|rajshahi|barisal|rangpur|mymensingh|dhaka|comilla|bogura)", re.I)
+# A count only counts when the customer led with it ("2 coconut candles")
+# or attached it to a counting word ("3 pcs", "x2"). A bare number in the
+# middle of a line is a house number far more often than a quantity.
+_QTY_LEAD = re.compile(r"^\s*(\d{1,3})\b", re.I)
+_QTY_WORD = re.compile(r"(\d{1,3})\s*(?:x|pcs|pc|pieces?|ta|ti)\b", re.I)
+_QTY_X = re.compile(r"x\s*(\d{1,3})", re.I)
+
+_STREET = re.compile(
+    r"(road|rd|house|flat|block|sector|lane|street|avenue|apt|floor|"
+    r"building|bari|holding|\d{1,4})", re.I)
+
+
+def address_in(text: str) -> str:
+    """The address the customer gave, or '' if it is not one yet."""
+    t = (text or "").strip()
+    if len(t) < 12:
+        return ""
+    if _AREA_WORDS.search(t) and _STREET.search(t):
+        return t
+    # A long line with a comma and an area name reads like an address too.
+    if _AREA_WORDS.search(t) and "," in t and len(t) > 20:
+        return t
+    return ""
+
+
+def delivery_text(db, product: dict | None, address: str, qty: int = 1) -> str:
+    """What delivery costs to that address, priced from the courier's rates."""
+    from . import delivery_pricing
+
+    profile = db.get_profile() or {}
+    kind = delivery_pricing.classify_address(
+        area=address, city=address,
+        shop_city=str(profile.get("location") or ""),
+        shop_area=str(profile.get("location") or ""))
+
+    items = ([{"product_name": product["name"], "quantity": max(1, qty)}]
+             if product else [])
+    try:
+        q = delivery_pricing.quote(db, items, kind=kind, is_cod=True)
+    except Exception as exc:  # noqa: BLE001 — never leave a customer with a traceback
+        logger.warning("delivery quote failed: %s", exc)
+        return ("I could not work out the delivery charge just now - "
+                "the owner will confirm it shortly.")
+
+    if not q.known or not q.delivery_charge:
+        return ("We deliver there. The owner will confirm the exact charge "
+                "shortly.")
+
+    cur = settings.currency
+    if product:
+        goods = (product.get("sell_price") or 0) * max(1, qty)
+        total = goods + q.delivery_charge + (q.cod_fee or 0)
+        return (f"{product['name']} is {_money(product.get('sell_price'))}"
+                f"{f' x {qty}' if qty > 1 else ''}. "
+                f"Delivery to that address is {q.delivery_charge:,.0f} {cur}. "
+                f"Total {total:,.0f} {cur} cash on delivery.")
+    return f"Delivery to that address is {q.delivery_charge:,.0f} {cur}."
+
+
+def _qty_in(text: str) -> int:
+    """How many, but only when it is unambiguous.
+
+    A house number is a digit too. Reading "House 7" as seven candles
+    would quote the customer the wrong total, so a bare number in the
+    middle of a line is ignored.
+    """
+    t = text or ""
+    for pattern in (_QTY_LEAD, _QTY_WORD, _QTY_X):
+        m = pattern.search(t)
+        if m:
+            n = int(m.group(1))
+            return n if 1 <= n <= 200 else 1
+    return 1
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -216,26 +297,45 @@ def answer(db, message: str, customer: str = "there") -> BotReply:
     shop = (db.get_profile() or {}).get("business_name") or "our shop"
 
     if intent == "greeting":
-        in_stock, _ = catalogue(db)
         return BotReply(
-            f"Hello! Welcome to {shop}.\n\n"
-            f"We have {len(in_stock)} item(s) available today. "
-            f"Ask me what we sell, ask the price of anything, "
-            f"or send /review to leave feedback.",
-            intent)
+            f"Hello! Welcome to {shop}. Ask me about anything you are after "
+            f"and I will tell you the price.", intent)
 
     if intent == "review":
-        rid = record_review(db, customer, text)
-        m = _STARS.search(text)
-        if m or len(text) > 25:
-            return BotReply(
-                "Thank you — your review has been saved and the owner will see it. "
-                "We read every one.", intent)
-        return BotReply(
-            "We would love your feedback. Reply with a rating out of 5 and a "
-            "sentence about what you thought.", intent)
+        record_review(db, customer, text)
+        if _STARS.search(text) or len(text) > 25:
+            return BotReply("Thank you, that means a lot. The owner will see it.",
+                            intent)
+        return BotReply("How did we do? Send a rating out of 5 and a line about why.",
+                        intent)
 
     row = find_product(db, text)
+
+    # --- delivery ---------------------------------------------------------
+    # An address is only worth pricing when it is one. "Dhaka" is a city, not
+    # somewhere a rider can go, so anything short of a street plus an area is
+    # answered by asking for the rest rather than by guessing a charge.
+    address = address_in(text)
+    if address:
+        return BotReply(delivery_text(db, row, address, _qty_in(text)), "delivery")
+
+    # An area with no street is half an address. Ask for the rest rather than
+    # dropping the customer back into the product list, which is what made it
+    # look like the bot had stopped listening.
+    if _AREA_WORDS.search(text) and len(text) < 60 and not _CATALOGUE.search(text):
+        return BotReply(
+            "Almost there - send the house or road number with the area and I "
+            "will work out the delivery charge.", "delivery")
+
+    if _DELIVERY.search(text):
+        if row is not None:
+            return BotReply(
+                f"Yes, we deliver. {row['name']} is {_money(row.get('sell_price'))}. "
+                f"Send your full address - house or road, and the area - and I "
+                f"will tell you the delivery charge.", "delivery")
+        return BotReply(
+            "Yes, we deliver. Send your full address - house or road, and the "
+            "area - and I will tell you the charge.", "delivery")
 
     if intent in ("price", "availability", "order") or row is not None:
         if row is not None:
@@ -247,7 +347,7 @@ def answer(db, message: str, customer: str = "there") -> BotReply:
                 "We have nothing in stock at the moment — please check back soon.",
                 "availability")
         return BotReply(
-            "I could not find that one. Here is what we have today:\n\n"
+            "We do not have that one. We do have:\n\n"
             + _catalogue_text(db), "catalogue")
 
     if intent == "catalogue":
@@ -259,7 +359,7 @@ def answer(db, message: str, customer: str = "there") -> BotReply:
     if drafted:
         return BotReply(drafted, "other", used_model=True)
     return BotReply(
-        "Thanks for your message. Here is what we have today:\n\n"
+        "We sell:\n\n"
         + _catalogue_text(db), "catalogue")
 
 
@@ -284,7 +384,7 @@ def _model_reply(db, question: str, shop: str) -> str:
             "- Use ONLY the stock and price facts given below. Never invent a product, "
             "a price, a delivery time or a discount. If the facts do not answer the "
             "question, say you will pass it to the owner.\n"
-            "- Two or three sentences. Warm, plain, no marketing voice.\n"
+            "- ONE short sentence. A shopkeeper answering, not a brochure. Never list stock quantities and never say 'reply with how many'.\n"
             "- Reply in the same language the customer used (Bangla, Banglish or "
             "English).\n\n"
             f"SHOP FACTS\n{facts}"

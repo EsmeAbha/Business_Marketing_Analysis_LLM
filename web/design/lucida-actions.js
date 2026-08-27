@@ -385,11 +385,38 @@
 
   // The design re-renders on every navigation, so re-attach when the Stock
   // page mounts rather than only once at boot.
+
+  /* ---- find the Ad studio -------------------------------------------------
+   * The studio is a separate page, so the design's own rail cannot reach it.
+   * Owners looked for ad-making under Marketing and found nothing, so put a
+   * way in from exactly there.
+   */
+  function wireStudioLink() {
+    var heads = [...document.querySelectorAll('div,h1,h2,h3')].filter(function (n) {
+      return /^\s*Marketing\s*$/.test(n.textContent || '') && n.children.length === 0;
+    });
+    if (!heads.length) return;
+    var head = heads[0];
+    var host = head.parentElement;
+    if (!host || host.__lucidaStudio) return;
+    host.__lucidaStudio = true;
+
+    var a = document.createElement('a');
+    a.href = '/studio';
+    a.textContent = 'Open Ad studio';
+    a.style.cssText = 'display:inline-block;margin:8px 0 0;padding:7px 14px;' +
+      'background:#7B1E22;color:#fff;border-radius:999px;font-size:12.5px;' +
+      'font-weight:600;text-decoration:none;';
+    a.title = 'Make a poster and write ad copy';
+    host.appendChild(a);
+  }
+
   function wireAll() {
     applyIdentity();
     wirePhoto();
     wireProfile();
     wireDraft();
+    wireStudioLink();
     firstRunNotice();
   }
   document.addEventListener('DOMContentLoaded', wireAll);
@@ -415,7 +442,11 @@
 
     /** Send a reply to one customer message. */
     reply: function (messageId, text) {
-      text = (text || '').trim();
+      // What the owner actually typed wins. The design passes the draft it
+      // rendered, which is the text *before* any edit — sending that would
+      // put words in front of a customer that the owner had just changed.
+      var live = (window.__lucidaDraftText || '').trim();
+      text = live || (text || '').trim();
       if (!text) {
         toast('Write a reply first.', 'error');
         return;
@@ -427,6 +458,7 @@
         toast('This is a sample conversation — nothing to reply to.', 'error');
         return;
       }
+      window.__lucidaDraftText = '';   // do not carry an edit into the next thread
       post('/api/reply', { message_id: id, text: text }, 'Sending your reply…');
     },
 
