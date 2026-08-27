@@ -121,6 +121,9 @@ class WorkforceRuntime:
         self.checkpointer = SqliteSaver(self._conn)
         self.app = build_graph(self.checkpointer)
         self._lock = threading.RLock()
+        # Sessions executing *right now*. The checkpoint cannot answer this:
+        # it records where the graph got to, not whether anyone is working.
+        self._in_flight: set[str] = set()
         logger.info("workforce runtime ready with %d agents", len(_AGENTS))
 
     # --- lifecycle ---
@@ -212,6 +215,7 @@ class WorkforceRuntime:
         config = self.config_for(session_id)
         try:
             with self._lock:
+                self._in_flight.add(session_id)
                 for chunk in self.app.stream(payload, config, stream_mode="updates"):
                     for node, update in chunk.items():
                         # A suspended graph arrives as `__interrupt__` carrying a
@@ -254,6 +258,8 @@ class WorkforceRuntime:
                 "update": {"errors": [f"{type(exc).__name__}: {exc}"]},
                 "session_id": session_id,
             }
+        finally:
+            self._in_flight.discard(session_id)
 
     # --- inspection ---
 
@@ -282,6 +288,25 @@ class WorkforceRuntime:
         return None
 
     def is_running(self, session_id: str) -> bool:
+        """Is the graph executing for this session at this moment?
+
+        This used to ask the checkpoint whether it had a next node, which is a
+        different question. A checkpoint keeps its pending node when a run is
+        suspended for an approval *and* when a run dies mid-flight — so a run
+        killed by an exhausted API quota left the session marked "working"
+        permanently, and the owner could never hand out another job. Only a
+        run actually in progress registers here, and it deregisters however
+        it ends.
+        """
+        return session_id in self._in_flight
+
+    def is_suspended(self, session_id: str) -> bool:
+        """Does the checkpoint hold unfinished work — a gate, or a dead run?
+
+        True does not mean anybody is working: pair it with `is_running` to
+        tell a paused graph from a busy one, and with `pending_approval` to
+        tell a gate from wreckage.
+        """
         try:
             snap = self.snapshot(session_id)
         except Exception:  # noqa: BLE001

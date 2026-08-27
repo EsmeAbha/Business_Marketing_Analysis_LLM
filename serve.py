@@ -552,10 +552,20 @@ async def api_assign(request):
         return JSONResponse({"error": "what should they do?"}, 400)
 
     session_id = _session_for(account["id"])
+    # Three different states used to give the same answer. A run that died
+    # mid-flight leaves a pending node in the checkpoint exactly as a live one
+    # does, so "your team is already working" was shown forever after a crash
+    # and there was no way to clear it from the screen.
     if runtime.is_running(session_id):
         return JSONResponse(
             {"error": "Your team is already working. Wait for this run to "
                       "finish before handing out another job."}, 409)
+    if runtime.pending_approval(session_id):
+        return JSONResponse(
+            {"error": "Your team is waiting on you. Answer the decision on "
+                      "Home, then hand out the next job."}, 409)
+    # Anything else in the checkpoint is wreckage from a run that stopped.
+    # Starting a new one replaces it, so it must not block the owner.
 
     async with _run_lock:
         try:
