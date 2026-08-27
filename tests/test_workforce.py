@@ -175,6 +175,63 @@ def test_simulated_courier_returns_full_consignment():
     assert booking.cod_amount == 450
 
 
+def test_telegram_offset_advances_and_persists(monkeypatch):
+    from lucida.tools import channels
+
+    class DummyDB:
+        def __init__(self):
+            self._state = {"last_update_id": 10}
+
+        def query(self, sql, params=()):
+            if "SELECT last_update_id FROM telegram_sync_state" in sql:
+                return [{"last_update_id": self._state["last_update_id"]}]
+            return []
+
+        def execute(self, sql, params=()):
+            if "INSERT INTO telegram_sync_state" in sql or "UPDATE telegram_sync_state" in sql:
+                self._state["last_update_id"] = params[0]
+                return 1
+            return 0
+
+    db = DummyDB()
+    monkeypatch.setattr(channels, "_shop_db", lambda: db)
+
+    calls = {}
+
+    def fake_get(method, params):
+        calls[method] = params.copy()
+        return {
+            "ok": True,
+            "result": [{
+                "update_id": 11,
+                "message": {
+                    "message_id": 77,
+                    "date": 1720000000,
+                    "chat": {"id": 123},
+                    "from": {"id": 123, "first_name": "A"},
+                    "text": "hello",
+                },
+            }, {
+                "update_id": 12,
+                "message": {
+                    "message_id": 78,
+                    "date": 1720000001,
+                    "chat": {"id": 123},
+                    "from": {"id": 123, "first_name": "A"},
+                    "text": "second message",
+                },
+            }],
+        }, ""
+
+    monkeypatch.setattr(channels, "_telegram_get", fake_get)
+
+    box = channels.read_telegram(25)
+
+    assert box.messages
+    assert calls["getUpdates"]["offset"] == 11
+    assert db._state["last_update_id"] == 12
+
+
 def test_unknown_courier_is_rejected():
     booking = courier.book("fedex", "A", "1", "somewhere", "thing", 0)
     assert not booking.ok and "unknown provider" in booking.error
