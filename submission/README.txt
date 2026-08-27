@@ -48,12 +48,12 @@ RUNNING IT
 
     python -m venv .venv
     .venv\Scripts\pip install -r requirements.txt
-    copy .env.example .env          (then add GROQ_API_KEY)
+    copy .env.example .env          (then add GOOGLE_API_KEY)
     python serve.py
 
 Open http://127.0.0.1:8000
 
-Tests:  python tests/test_workforce.py
+Tests:  python tests/test_workforce.py   (33 tests, no API key)
 
 
 WHAT IS LIVE, AND WHAT IS NOT
@@ -61,6 +61,7 @@ WHAT IS LIVE, AND WHAT IS NOT
 
 Working, verified against real APIs:
   · Chat with saved conversations, and photo understanding
+  · Telegram as a live customer channel: read, classify, reply
   · Web research that asks where to search before spending anything
   · Ad generation and editing
   · Product catalogue with weights
@@ -69,10 +70,11 @@ Working, verified against real APIs:
   · A service admin view across every shop on the installation
 
 Built and tested, waiting on credentials rather than code:
-  · Messenger, Facebook, Instagram — need a Meta app and App Review
+  · Messenger, Facebook, Instagram — need a Meta app, App Review
+    and Business Verification. Telegram was added because it has
+    no review process: a real customer can message the shop today.
   · YouTube — needs an OAuth client
   · Steadfast — needs a merchant key pair
-  · Email verification — needs SMTP
 
 Known weak:
   · Ad artwork, while it runs on the free keyless image model

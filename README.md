@@ -72,7 +72,7 @@ that point rather than starting over.
 
 Two halves, both per shop:
 
-- **Structured** — SQLite, 22 tables: products, inventory, orders, pricing
+- **Structured** — SQLite, 24 tables: products, inventory, orders, pricing
   history, social messages, campaigns, deliveries, chat threads, competitors.
 - **Semantic** — a small vector store of what agents learned, so later runs
   recall earlier conclusions.
@@ -105,7 +105,7 @@ scrolls into a feed with its timestamp and cost.
 
 ```
 data/
-├── accounts.db          every owner: email, bcrypt hash, business, verification
+├── accounts.db          every owner: sign-in name, bcrypt hash, business
 ├── lucida.db            the trace — every step every agent has taken
 ├── checkpoints.db       LangGraph state, so a paused run can resume
 ├── session.key          cookie signing key (gitignored)
@@ -155,9 +155,10 @@ Photo reading runs on Google, because Groq serves no multimodal model.
 | **DuckDuckGo** | Web search, no key, searches your own country's index. |
 | **Tavily** | Better search if a key is set — returns page content, not one-line snippets. |
 | **Pollinations** | Ad artwork, no key. Free Gemini keys get no image quota, so this is the default. |
-| **Messenger / Facebook / Instagram** | Built and tested against the Graph API. Needs a Meta app and App Review before it reaches real customers. |
+| **Telegram** | **Live.** A real customer messages the bot; the Customers agent reads and classifies it, and the owner replies from the browser. No review process, no domain. |
+| **Messenger / Facebook / Instagram** | Built and tested against the Graph API. Needs a Meta app, App Review *and* Business Verification before it reaches real customers. |
 | **YouTube** | Needs an OAuth client. An API key cannot upload. |
-| **Email** | Needs SMTP. Without it, verification codes print on screen. |
+| **Email** | Not used. Sign-in is a name and a password; there is no verification step. |
 
 Anything not connected runs against a **simulated** adapter that is labelled
 as such everywhere it appears, and nothing simulated is ever written to the
@@ -172,7 +173,7 @@ python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt    # Windows
 # .venv/bin/pip install -r requirements.txt      # macOS / Linux
 
-cp .env.example .env        # then add GROQ_API_KEY
+cp .env.example .env        # then add GOOGLE_API_KEY
 python serve.py
 ```
 
@@ -195,10 +196,12 @@ Everything lives in `.env`, which is gitignored.
 
 | Setting | For |
 |---|---|
-| `GROQ_API_KEY` | The text models. Required. |
+| `GOOGLE_API_KEY` | The text models and photo understanding. Required. |
+| `GROQ_API_KEY` | Alternative text provider (`AIW_PROVIDER=groq`). No vision model. |
+| `TELEGRAM_BOT_TOKEN` | The live customer channel. From @BotFather. |
 | `GOOGLE_API_KEY` | Photo reading, and the cross-provider fallback. |
 | `AIW_SECRET_KEY` | Signs session cookies. Generated and kept if unset. |
-| `AIW_SMTP_*` | Sending verification emails. |
+| `AIW_SMTP_*` | Unused — kept for a future password-reset flow. |
 | `TAVILY_API_KEY` | Better web search. |
 | `META_APP_ID` / `META_APP_SECRET` | Turns Connect into one-click sign-in. |
 | `YOUTUBE_CLIENT_ID` / `_SECRET` | YouTube uploads. |
@@ -226,10 +229,10 @@ src/lucida/
   observability.py     the event bus every screen reads from
 web/
   app_ui.py            chat, studio, workforce, products, delivery, connect
-  screens.py           sign-in, sign-up, verification, account
+  screens.py           sign-in, sign-up, account
   admin.py             the operator's view
   bridge.py            shop data → the dashboard's shapes
-  auth.py              accounts, bcrypt, verification, Google linking
+  auth.py              accounts, bcrypt, Google linking
   design/              the dashboard bundle, served as authored
 ```
 
