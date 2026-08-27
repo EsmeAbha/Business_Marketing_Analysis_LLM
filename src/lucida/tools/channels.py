@@ -143,6 +143,20 @@ def youtube_ready() -> bool:
     return bool(_yt_refresh() and connections.google_app()[0])
 
 
+def telegram_ready() -> bool:
+    """Telegram needs one thing: a bot token from @BotFather.
+
+    No app review, no business verification, no domain — which is why it is
+    the channel that actually works end to end for a real customer.
+    """
+    return bool(_telegram_token())
+
+
+def _telegram_token() -> str:
+    import os
+    return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+
+
 def status() -> dict[str, str]:
     return {
         "messenger": "connected" if meta_ready()
@@ -153,6 +167,8 @@ def status() -> dict[str, str]:
                      else "needs a Page token + Instagram Business account id",
         "youtube": "connected" if youtube_ready()
                    else "needs OAuth2 refresh token — an API key cannot upload",
+        "telegram": "connected" if telegram_ready()
+                    else "needs TELEGRAM_BOT_TOKEN from @BotFather",
     }
 
 
@@ -192,7 +208,9 @@ def _post(url: str, data: dict) -> tuple[dict | None, str]:
 def read_messenger(limit: int = 25) -> Inbox:
     """Page conversations — the customer DMs the Engagement agent reads."""
     if not meta_ready():
-        return Inbox(_sample_dms("messenger", limit), simulated=True)
+        # Not connected: no messages. Inventing customers here would write
+        # fictional people into the shop's real inbox.
+        return Inbox([], simulated=True)
 
     data, err = _get(f"{GRAPH}/{_page()}/conversations", {
         "fields": "participants,updated_time,"
@@ -226,7 +244,7 @@ def read_messenger(limit: int = 25) -> Inbox:
 
 def read_instagram(limit: int = 25) -> Inbox:
     if not instagram_ready():
-        return Inbox(_sample_dms("instagram", limit), simulated=True)
+        return Inbox([], simulated=True)
 
     data, err = _get(f"{GRAPH}/{_ig()}/conversations", {
         "fields": "participants,messages.limit(10){message,from,created_time,id}",
@@ -261,8 +279,7 @@ def read_comments(platform: str, post_external_id: str,
     """Comments under one published post, on either Meta platform."""
     ready = instagram_ready() if platform == "instagram" else meta_ready()
     if not ready or not post_external_id:
-        return Inbox(_sample_comments(platform, post_external_id, limit),
-                     simulated=True)
+        return Inbox([], simulated=True)
 
     data, err = _get(f"{GRAPH}/{post_external_id}/comments", {
         "fields": "id,text,message,username,from,timestamp,created_time",
@@ -375,6 +392,9 @@ def send_dm(platform: str, recipient_id: str, message: str) -> ChannelResult:
     wrote, the send is rejected. That is Meta's policy, not a bug here, and
     the error says so rather than retrying.
     """
+    if platform == "telegram":
+        return send_telegram(recipient_id, message)
+
     if not meta_ready():
         return _simulated(platform, "dm", message)
 
@@ -461,37 +481,96 @@ def _simulated(platform: str, action: str, content: str) -> ChannelResult:
     )
 
 
-def _sample_dms(platform: str, limit: int) -> list[dict[str, Any]]:
-    seed = [
-        ("Nusrat", "Apu 24 pcs lagbe Friday er jonno. Chicken er ta ki ache?"),
-        ("Shahana", "Kal delivery ashe nai, 3 din hoye gelo."),
-        ("Rakib", "Uttara te deliver koren? Koto lagbe?"),
-        ("Mim", "Price ta ki kome hobe jodi beshi ni?"),
-    ]
-    return [
-        {
-            "platform": platform, "kind": "dm",
-            "external_id": f"sim_{platform}_dm_{i}",
-            "thread_id": f"sim_thread_{i}", "sender_id": f"sim_user_{i}",
-            "sender_name": name, "message": text, "received_at": _now(),
-        }
-        for i, (name, text) in enumerate(seed[:limit])
-    ]
+
+# ---------------------------------------------------------------------------
+# Telegram
+#
+# The one channel a real customer can use today. Meta gates `pages_messaging`
+# behind App Review and Business Verification; Telegram gates nothing, so the
+# bot is publicly reachable the moment BotFather issues the token.
+#
+# Reading uses long-poll `getUpdates` rather than a webhook, deliberately: a
+# webhook would need a public HTTPS URL, and the whole point of this channel is
+# that it works from localhost.
+# ---------------------------------------------------------------------------
+
+TELEGRAM_API = "https://api.telegram.org"
 
 
-def _sample_comments(platform: str, post_id: str,
-                     limit: int) -> list[dict[str, Any]]:
-    seed = [
-        ("shopper_bd", "Price koto?"),
-        ("mim.crafts", "Chittagong e deliver hoy?"),
-        ("rifat", "Nice! Ekta order dilam."),
-    ]
-    return [
-        {
-            "platform": platform, "kind": "comment",
-            "external_id": f"sim_{platform}_c_{i}", "post_id": post_id,
-            "sender_id": f"sim_user_{i}", "sender_name": name,
-            "message": text, "received_at": _now(),
-        }
-        for i, (name, text) in enumerate(seed[:limit])
-    ]
+def _telegram_get(method: str, params: dict) -> tuple[dict | None, str]:
+    try:
+        r = httpx.get(f"{TELEGRAM_API}/bot{_telegram_token()}/{method}",
+                      params=params, timeout=TIMEOUT)
+        body = r.json()
+    except Exception as exc:  # noqa: BLE001
+        return None, str(exc)
+    if not body.get("ok"):
+        return None, str(body.get("description") or f"telegram returned {r.status_code}")
+    return body, ""
+
+
+def read_telegram(limit: int = 25) -> Inbox:
+    """Customer messages sent to the bot.
+
+    Updates are read without confirming an offset, so Telegram keeps returning
+    them for its 24-hour retention window. That is intentional: `store_message`
+    is idempotent on (platform, external_id), so re-reading costs nothing, and
+    not advancing the offset means a sync that crashes half way cannot lose a
+    customer's message.
+    """
+    if not telegram_ready():
+        return Inbox([], simulated=True)
+
+    data, err = _telegram_get("getUpdates", {"limit": max(1, min(limit, 100)),
+                                             "timeout": 0})
+    if err:
+        logger.warning("telegram read failed: %s", err)
+        return Inbox([], simulated=False, error=err)
+
+    out: list[dict[str, Any]] = []
+    for update in data.get("result", []):
+        msg = update.get("message") or update.get("edited_message") or {}
+        text = (msg.get("text") or msg.get("caption") or "").strip()
+        if not text:
+            continue  # stickers, photos without captions: nothing to read
+        if text.startswith("/"):
+            # /start, /help and friends are Telegram protocol, not something a
+            # customer said. Storing them would skew the sentiment breakdown.
+            continue
+        sender = msg.get("from") or {}
+        if sender.get("is_bot"):
+            continue  # our own replies come back as updates too
+        chat = msg.get("chat") or {}
+        name = " ".join(x for x in (sender.get("first_name"),
+                                    sender.get("last_name")) if x).strip()
+        out.append({
+            "platform": "telegram", "kind": "dm",
+            # Unique per message; the chat id alone would collapse a whole
+            # conversation into one row.
+            "external_id": f"tg-{chat.get('id')}-{msg.get('message_id')}",
+            # Replies are addressed to the chat, so that is the thread.
+            "thread_id": str(chat.get("id") or ""),
+            "sender_id": str(chat.get("id") or ""),
+            "sender_name": name or sender.get("username") or "Customer",
+            "message": text,
+            "received_at": datetime.fromtimestamp(
+                msg.get("date", 0), tz=timezone.utc).isoformat(timespec="seconds")
+                if msg.get("date") else _now(),
+        })
+    logger.info("telegram: %d customer message(s)", len(out))
+    return Inbox(out, simulated=False)
+
+
+def send_telegram(chat_id: str, message: str) -> ChannelResult:
+    """Reply to a customer. No 24-hour window — Telegram has no such rule."""
+    if not telegram_ready():
+        return _simulated("telegram", "dm", message)
+
+    data, err = _telegram_get("sendMessage", {"chat_id": chat_id,
+                                              "text": message})
+    if err:
+        return ChannelResult(False, "telegram", "dm", False, error=err)
+    return ChannelResult(True, "telegram", "dm", False,
+                         str((data.get("result") or {}).get("message_id") or ""))
+
+

@@ -46,9 +46,9 @@ class AdCreativeAgent(BaseAgent):
     title = "Ad Creation & Publishing Agent"
     description = (
         "Generates platform-specific ad copy and creative direction, then publishes "
-        "to Facebook, Instagram and YouTube after owner approval."
+        "to Facebook after owner approval."
     )
-    tools_used = ("Meta Graph API", "YouTube API", "shared memory (RAG)")
+    tools_used = ("Meta Graph API", "shared memory (RAG)")
     requires_approval = True
     approval_checkpoint = "publish_ads"
 
@@ -59,7 +59,7 @@ class AdCreativeAgent(BaseAgent):
         outputs = state.get("agent_outputs", {})
         product, price = self._subject(outputs)
         platforms = state.get("owner_context", {}).get(
-            "platforms", ["facebook", "instagram", "youtube"]
+            "platforms", ["facebook"]
         )
 
         feedback = ""

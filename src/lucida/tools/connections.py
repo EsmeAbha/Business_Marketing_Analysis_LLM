@@ -47,15 +47,12 @@ YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
 TIMEOUT = 30
 
 # Messenger and Facebook are the same Page behind the same token — Meta does
-# not separate them — so connecting one connects the other. They are still
-# shown apart because the owner thinks of them apart, and because the App
-# Review permissions differ.
-META_PLATFORMS = ("messenger", "facebook", "instagram")
-# The couriers the shop can actually book with in Bangladesh. They take a key
-# pair rather than an OAuth round trip, so the owner pastes what their courier
-# dashboard gave them and it is checked on the spot.
-COURIERS = ("steadfast", "pathao")
-PLATFORMS = META_PLATFORMS + ("youtube",) + COURIERS
+# not separate them — so connecting one connects the other.
+META_PLATFORMS = ("messenger", "facebook")
+# The courier the shop can actually book with in Bangladesh. Pathao is the
+# only live option kept in this trimmed build.
+COURIERS = ("pathao",)
+PLATFORMS = META_PLATFORMS + COURIERS
 
 
 @dataclass
@@ -94,8 +91,6 @@ def can_oauth(platform: str) -> bool:
     """Is one click possible, or does the owner have to paste a token?"""
     if platform in META_PLATFORMS:
         return all(meta_app())
-    if platform == "youtube":
-        return all(google_app())
     return False
 
 
@@ -150,14 +145,10 @@ def credentials(db, platform: str) -> tuple[str, str]:
     if row and row.get("access_token"):
         return row["access_token"], (row.get("external_id") or "")
     if platform in META_PLATFORMS:
-        ident = (settings.meta_ig_user_id if platform == "instagram"
-                 else settings.meta_page_id)
-        return settings.meta_access_token, ident
-    if platform == "steadfast":
-        return settings.steadfast_api_key, settings.steadfast_secret_key
+        return settings.meta_access_token, settings.meta_page_id
     if platform == "pathao":
         return settings.pathao_client_id, settings.pathao_client_secret
-    return settings.youtube_refresh_token, ""
+    return "", ""
 
 
 
@@ -171,9 +162,6 @@ def pathao_credentials(db) -> tuple[str, str, str, str, bool]:
 
 def connected(db, platform: str) -> bool:
     token, ident = credentials(db, platform)
-    if platform == "youtube":
-        cid, _ = google_app()
-        return bool(token and cid)
     return bool(token and ident)
 
 

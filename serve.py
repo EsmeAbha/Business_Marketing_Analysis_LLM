@@ -584,6 +584,8 @@ async def login(request):
             screens.login_page(str(exc), email, google=google_oauth.enabled()),
             401)
     request.session["account_id"] = account["id"]
+    if account.get("email") == "admin":
+        return RedirectResponse("/admin", status_code=303)
     return RedirectResponse("/", status_code=303)
 
 
