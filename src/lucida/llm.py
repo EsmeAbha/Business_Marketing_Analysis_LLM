@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from .config import TEXT_DEFAULTS, settings
+from .config import TEXT_DEFAULTS, VISION_DEFAULTS, settings
 from .observability import get_logger
 
 logger = get_logger("llm")
@@ -177,6 +177,21 @@ def is_gone(exc: Exception) -> bool:
             or ("404" in text and "model" in text))
 
 
+def is_overloaded(exc: Exception) -> bool:
+    """The provider is up, but has no capacity for this model right now.
+
+    Google answers 503 UNAVAILABLE "experiencing high demand" and the SDK
+    retries it internally for minutes before giving up. That is not a rate
+    limit and not a retired model, so nothing here used to move the chain
+    along: the owner watched the typing dots for four minutes and then read
+    a traceback. A busy model is unusable in exactly the way a capped one
+    is, so it costs one hop, not the whole run.
+    """
+    text = str(exc).lower()
+    return ("503" in text or "unavailable" in text or "overloaded" in text
+            or "high demand" in text or "try again later" in text)
+
+
 def is_flaky_tool_call(exc: Exception) -> bool:
     """The model wrote the right answer but not as a tool call.
 
@@ -189,7 +204,8 @@ def is_flaky_tool_call(exc: Exception) -> bool:
 
 
 def should_try_next(exc: Exception) -> bool:
-    return is_rate_limited(exc) or is_gone(exc) or is_flaky_tool_call(exc)
+    return (is_rate_limited(exc) or is_gone(exc) or is_overloaded(exc)
+            or is_flaky_tool_call(exc))
 
 
 def retry_after(exc: Exception) -> str:
@@ -201,6 +217,8 @@ def retry_after(exc: Exception) -> str:
 def _why(exc: Exception) -> str:
     if is_gone(exc):
         return "has been retired"
+    if is_overloaded(exc):
+        return "is busy"
     if is_flaky_tool_call(exc):
         return "did not answer as a tool call"
     return "is over its cap"
@@ -228,23 +246,41 @@ class AllModelsBusy(ProviderError):
         )
 
 
+def _models_for(provider: str, chosen: str | None = None) -> list[str]:
+    """Every model worth trying on one provider, best first.
+
+    Groq's caps are per-model and per-day, so the whole list is worth having
+    whether or not Groq is where the owner started.
+    """
+    if provider == "groq":
+        first = chosen or TEXT_DEFAULTS["groq"][0]
+        return [first] + [m for m in GROQ_FALLBACKS if m != first]
+    fallback = (TEXT_DEFAULTS.get(provider) or [""])[0]
+    return [chosen or fallback] if (chosen or fallback) else []
+
+
 def _chain(chosen: str) -> list[tuple[str, str]]:
     """Every (provider, model) worth trying, in the order to try them.
 
-    Groq's caps are per-model and per-day, so one being exhausted says nothing
-    about the next. When the whole of Groq is spent, a Google key — if the
-    owner has added one for photo reading — keeps the shop working rather
-    than closing it until tomorrow.
+    Starts on the provider the owner chose, then leaves it. A provider that
+    is out of quota says nothing about a different company's servers, and a
+    key the owner has already added is the cheapest thing in the world to
+    try. This is the difference between a shop that answers and a shop that
+    waits for one company's free tier to reset.
     """
-    chain = [("groq", chosen)]
-    chain += [("groq", m) for m in GROQ_FALLBACKS if m != chosen]
-    if settings.google_api_key:
-        chain.append(("google", TEXT_DEFAULTS["google"][0]))
+    chain = [(settings.provider, m)
+             for m in _models_for(settings.provider, chosen)]
+    for provider in ("groq", "anthropic", "google"):
+        if provider == settings.provider or not settings.key_for(provider):
+            continue
+        for model in _models_for(provider):
+            if (provider, model) not in chain:
+                chain.append((provider, model))
     return chain
 
 
 class _Failover:
-    """A client that moves to the next model when one is capped.
+    """A client that moves to the next model when one cannot answer.
 
     Wraps rather than subclasses because each provider returns its own client
     type, and the only thing every caller uses is `.invoke`.
@@ -254,20 +290,40 @@ class _Failover:
         self._models = models
         self._max_tokens = max_tokens
 
-    def invoke(self, *args, **kwargs):
+    def _run(self, call):
+        """Walk the chain until something answers.
+
+        Plain and structured calls take the same path, because the reasons a
+        model cannot answer — capped, retired, busy, or refusing to emit a
+        tool call — are the same either way, and the structured calls are
+        most of the agents' work.
+        """
         last: Exception | None = None
         for i, (provider, model) in enumerate(self._models):
-            try:
-                return build_client(provider, model,
-                                    self._max_tokens).invoke(*args, **kwargs)
-            except Exception as exc:  # noqa: BLE001
-                if not should_try_next(exc):
-                    raise
-                last = exc
-                if i + 1 < len(self._models):
-                    logger.warning("%s %s; trying %s", model, _why(exc),
-                                   self._models[i + 1][1])
+            for attempt in (1, 2):
+                try:
+                    return call(build_client(provider, model, self._max_tokens))
+                except Exception as exc:  # noqa: BLE001
+                    if not should_try_next(exc):
+                        raise
+                    last = exc
+                    # A rejected tool call is intermittent: the same model and
+                    # the same prompt succeed on a second pass. Spending one
+                    # retry here is cheaper than giving up on a model that
+                    # works, which on a short chain means giving up entirely.
+                    if attempt == 1 and is_flaky_tool_call(exc):
+                        logger.warning(
+                            "%s did not answer as a tool call; trying it again",
+                            model)
+                        continue
+                    break
+            if i + 1 < len(self._models):
+                logger.warning("%s %s; trying %s", model, _why(last),
+                               self._models[i + 1][1])
         raise AllModelsBusy(retry_after(last) if last else "")
+
+    def invoke(self, *args, **kwargs):
+        return self._run(lambda client: client.invoke(*args, **kwargs))
 
     def with_structured_output(self, *args, **kwargs):
         """Structured calls fail over too — that is most of the agent work."""
@@ -275,59 +331,63 @@ class _Failover:
 
         class _Structured:
             def invoke(self, *a, **kw):
-                last: Exception | None = None
-                for i, (provider, model) in enumerate(outer._models):
-                    try:
-                        client = build_client(provider, model,
-                                              outer._max_tokens)
-                        return client.with_structured_output(
-                            *args, **kwargs).invoke(*a, **kw)
-                    except Exception as exc:  # noqa: BLE001
-                        if not should_try_next(exc):
-                            raise
-                        last = exc
-                        if i + 1 < len(outer._models):
-                            logger.warning(
-                                "%s %s; trying %s", model, _why(exc),
-                                outer._models[i + 1][1])
-                raise AllModelsBusy(retry_after(last) if last else "")
+                return outer._run(
+                    lambda client: client.with_structured_output(
+                        *args, **kwargs).invoke(*a, **kw))
 
         return _Structured()
+
+
 
 
 def get_llm(model: str | None = None, max_tokens: int | None = None):
     """The main text client used by the supervisor and every text agent.
 
-    On Groq this fails over between models rather than surfacing a 429: the
-    caps are per-model and per-day, so one being exhausted is not the same as
-    having no model at all.
+    Every provider fails over, not just Groq: the reason to move on is that
+    this model cannot answer, which has nothing to do with whose it is. With
+    one key the chain is one long and behaves exactly as before.
     """
     chosen = model or settings.model
     budget = max_tokens or settings.max_tokens
-
-    if settings.provider == "groq":
-        return _Failover(_chain(chosen), budget)
-    return build_client(settings.provider, chosen, budget)
+    return _Failover(_chain(chosen), budget)
 
 
 def get_fast_llm(max_tokens: int = 2000):
     """Cheaper/faster client for routing- and classification-shaped calls."""
-    return build_client(settings.provider, settings.fast_model, max_tokens)
+    return _Failover(_chain(settings.fast_model), max_tokens)
+
+
+def _vision_chain() -> list[tuple[str, str]]:
+    """Every multimodal provider the owner holds a key for, best first.
+
+    Photo understanding is the one job Groq cannot take, so it lands on
+    Google or Anthropic. Google's free tier allows twenty requests a day,
+    which one afternoon of testing spends — and when it ran out the owner
+    got the provider's own 429 traceback, because this was the last call in
+    the app that could not move to a second model.
+    """
+    first = settings.vision_provider
+    chain: list[tuple[str, str]] = []
+    if first and settings.vision_model:
+        chain.append((first, settings.vision_model))
+    for provider in ("google", "anthropic"):
+        model = VISION_DEFAULTS.get(provider)
+        if model and settings.key_for(provider) and (provider, model) not in chain:
+            chain.append((provider, model))
+    return chain
 
 
 def get_vision_llm(max_tokens: int | None = None):
     """Multimodal client for the Product Vision agent.
 
-    May be a different provider from the text agents — Groq currently serves no
-    vision model, so photo understanding falls to Google or Anthropic.
+    May be a different provider from the text agents — Groq currently serves
+    no vision model, so photo understanding falls to Google or Anthropic.
     """
     if not settings.has_vision:
         raise ProviderError(settings.vision_help)
-    return build_client(
-        settings.vision_provider,
-        settings.vision_model,
-        max_tokens or settings.max_tokens,
-    )
+    return _Failover(_vision_chain(), max_tokens or settings.max_tokens)
+
+
 
 
 def text_of(reply) -> str:

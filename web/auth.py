@@ -20,6 +20,7 @@ Two kinds of owner sign up here, and the difference matters to the agents:
 
 from __future__ import annotations
 
+import os
 import re
 import secrets
 import sqlite3
@@ -126,12 +127,33 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode()
 
 
-DEFAULT_ADMIN_EMAIL = "admin"
-DEFAULT_ADMIN_PASSWORD = "admin1234"
+# The built-in admin exists so a fresh install has a way in at all. Its
+# password is read from the environment and is deliberately not defaulted:
+# this app gets deployed to public URLs, and a password written in the source
+# is a password published to anyone who can read the repo. With
+# AIW_ADMIN_PASSWORD unset, no admin is seeded — sign up like any other owner
+# and grant yourself the rights with LUCIDA_ADMIN_EMAILS.
+DEFAULT_ADMIN_EMAIL = (os.environ.get("AIW_ADMIN_EMAIL") or "admin").strip().lower()
+
+
+def admin_password() -> str:
+    """The configured admin password, or "" when none is set."""
+    return os.environ.get("AIW_ADMIN_PASSWORD", "").strip()
 
 
 def ensure_default_admin() -> None:
-    """Create a built-in admin account so the operator can log in immediately."""
+    """Seed or rotate the built-in admin account, when one is configured.
+
+    This runs at import, so it runs again on every restart. It used to reset
+    the password each time to a constant kept in this file, which had two
+    costs: the password was public, and changing it through the UI lasted
+    only until the next deploy. Now the environment is the single source of
+    it, so rotating means changing the variable — and declaring nothing
+    seeds nothing.
+    """
+    password = admin_password()
+    if not password:
+        return
     with _lock, _connect() as conn:
         row = conn.execute(
             "SELECT id FROM accounts WHERE email=?", (DEFAULT_ADMIN_EMAIL,)
@@ -139,8 +161,8 @@ def ensure_default_admin() -> None:
         if row is not None:
             conn.execute(
                 "UPDATE accounts SET password_hash=?, email_verified=1, "
-                "auth_provider='password', last_login_at=? WHERE email=?",
-                (hash_password(DEFAULT_ADMIN_PASSWORD), _now(), DEFAULT_ADMIN_EMAIL),
+                "auth_provider='password' WHERE email=?",
+                (hash_password(password), DEFAULT_ADMIN_EMAIL),
             )
             return
         conn.execute(
@@ -151,7 +173,7 @@ def ensure_default_admin() -> None:
             (
                 uuid.uuid4().hex[:16],
                 DEFAULT_ADMIN_EMAIL,
-                hash_password(DEFAULT_ADMIN_PASSWORD),
+                hash_password(password),
                 "Admin",
                 "Admin",
                 "running",
@@ -163,6 +185,7 @@ def ensure_default_admin() -> None:
                 _now(),
             ),
         )
+    logger.info("seeded the admin account from the environment")
 
 
 ensure_default_admin()
@@ -244,22 +267,9 @@ def create_account(
 
 def authenticate(email: str, password: str) -> dict[str, Any]:
     email = (email or "").strip().lower()
-    if email == DEFAULT_ADMIN_EMAIL and password == DEFAULT_ADMIN_PASSWORD:
-        with _lock, _connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM accounts WHERE email=?", (email,)
-            ).fetchone()
-            if row is None:
-                ensure_default_admin()
-                row = conn.execute(
-                    "SELECT * FROM accounts WHERE email=?", (email,)
-                ).fetchone()
-            conn.execute(
-                "UPDATE accounts SET last_login_at=? WHERE id=?", (_now(), row["id"])
-            )
-        logger.info("admin sign-in ok")
-        return _row_to_account(row)  # type: ignore[return-value]
-
+    # The admin used to be let through here by comparing the password to a
+    # constant, which skipped the hash check entirely and could re-create the
+    # account mid-login. It is an ordinary row now and goes the ordinary way.
     with _lock, _connect() as conn:
         row = conn.execute(
             "SELECT * FROM accounts WHERE email=?", (email,)

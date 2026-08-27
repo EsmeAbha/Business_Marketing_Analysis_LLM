@@ -202,6 +202,82 @@ GOOGLE_CSS = f"""
 """
 
 
+# ---------------------------------------------------------------------------
+# Password reveal
+# ---------------------------------------------------------------------------
+
+
+# Icons are inline for the same reason GOOGLE_MARK is: the pages carry no
+# script or icon bundle, and one <svg> costs less than a dependency.
+EYE_ON = (
+    "<svg class='on' width='17' height='17' viewBox='0 0 24 24' fill='none' "
+    "stroke='currentColor' stroke-width='2' stroke-linecap='round' "
+    "stroke-linejoin='round' aria-hidden='true'>"
+    "<path d='M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z'/>"
+    "<circle cx='12' cy='12' r='3'/></svg>"
+)
+EYE_OFF = (
+    "<svg class='off' width='17' height='17' viewBox='0 0 24 24' fill='none' "
+    "stroke='currentColor' stroke-width='2' stroke-linecap='round' "
+    "stroke-linejoin='round' aria-hidden='true'>"
+    "<path d='M9.88 9.88a3 3 0 1 0 4.24 4.24'/>"
+    "<path d='M10.73 5.08A10.4 10.4 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68'/>"
+    "<path d='M6.61 6.61A13.5 13.5 0 0 0 2 12s3 7 10 7a9.7 9.7 0 0 0 5.39-1.61'/>"
+    "<path d='M2 2l20 20'/></svg>"
+)
+
+PASSWORD_CSS = f"""
+.pw {{ position:relative; }}
+/* Room for the button, so a long password never runs under it. */
+.pw input {{ padding-right:42px; }}
+.pw button {{ position:absolute; top:1px; right:1px; bottom:1px; width:40px;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  border:none; background:none; color:{MUTED}; cursor:pointer;
+  border-radius:0 9px 9px 0; }}
+.pw button:hover {{ color:{INK}; }}
+.pw button:focus-visible {{ outline:none; color:{INK};
+  box-shadow:0 0 0 3px {RING}; }}
+/* Without script the toggle does nothing, so it is not shown until the
+   script removes the attribute. */
+.pw button[hidden] {{ display:none; }}
+.pw .off {{ display:none; }}
+.pw.shown .on {{ display:none; }}
+.pw.shown .off {{ display:block; }}
+"""
+
+# Not an f-string: the braces below are JavaScript's, not format fields.
+PASSWORD_JS = """<script>
+document.querySelectorAll('.pw > button').forEach(function (btn) {
+  btn.hidden = false;
+  btn.addEventListener('click', function () {
+    var wrap = btn.parentNode, input = wrap.querySelector('input');
+    var show = input.type === 'password';
+    // Switching type resets the caret in most browsers; put it back.
+    var start = input.selectionStart, end = input.selectionEnd;
+    input.type = show ? 'text' : 'password';
+    wrap.classList.toggle('shown', show);
+    btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    input.focus();
+    try { input.setSelectionRange(start, end); } catch (e) {}
+  });
+});
+</script>"""
+
+
+def _password_field(autocomplete: str, label: str = "Password",
+                    extra: str = "") -> str:
+    return (
+        f"<div class='field'><label for='password'>{_e(label)}</label>"
+        f"<div class='pw'>"
+        f"<input id='password' name='password' type='password' required "
+        f"autocomplete='{autocomplete}'{extra}>"
+        f"<button type='button' hidden aria-pressed='false' "
+        f"aria-controls='password' aria-label='Show password'>"
+        f"{EYE_ON}{EYE_OFF}</button></div></div>"
+    )
+
+
 def _google_block(enabled: bool) -> str:
     if not enabled:
         return ""
@@ -227,15 +303,14 @@ def login_page(error: str = "", email: str = "", notice: str = "",
         # plain name before the form is even submitted.
         f"<input id='email' name='email' type='text' required "
         f"autocomplete='username' value='{_e(email)}'></div>"
-        f"<div class='field'><label for='password'>Password</label>"
-        f"<input id='password' name='password' type='password' required "
-        f"autocomplete='current-password'></div>"
+        f"{_password_field('current-password')}"
         f"<button class='btn' type='submit'>Sign in</button></form>"
         f"<p class='note' style='margin-top:18px;text-align:center;'>"
         f"New here? <a href='/signup'>Create an account</a></p>"
         f"</div></div></div>"
     )
-    return _page("Sign in", body, SPLIT_CSS + GOOGLE_CSS)
+    return _page("Sign in", body + PASSWORD_JS,
+                 SPLIT_CSS + GOOGLE_CSS + PASSWORD_CSS)
 
 
 # ---------------------------------------------------------------------------
@@ -399,123 +474,10 @@ def verify_page(
 # ---------------------------------------------------------------------------
 
 
-ACCOUNT_CSS = f"""
-.wrap {{ max-width:760px; margin:0 auto; padding:34px 24px 70px; }}
-.top {{ display:flex; align-items:center; gap:14px; margin-bottom:26px; }}
-.avatar {{ width:64px; height:64px; border-radius:20px; object-fit:cover;
-  border:1px solid {BORDER}; background:{ACCENT}; color:#F4EFE2;
-  display:grid; place-items:center; font-family:{SERIF}; font-size:26px; }}
-.sec {{ font-size:16px; font-weight:600; margin:26px 0 12px; }}
-.pill {{ display:inline-flex; align-items:center; font-size:11.5px;
-  font-weight:500; padding:3px 9px; border-radius:999px;
-  background:{ACCENT_TINT}; color:{ACCENT}; }}
-.back {{ font-size:13px; color:{BODY}; }}
-.actions {{ display:flex; gap:10px; margin-top:16px; }}
-.actions .btn {{ width:auto; }}
-"""
 
 
-def account_page(
-    account: dict[str, Any],
-    error: str = "",
-    notice: str = "",
-    shop_stats: dict[str, int] | None = None,
-) -> str:
-    stage = account.get("business_stage") or "starting"
-    avatar = account.get("avatar_path")
-    face = (
-        f"<img class='avatar' src='/avatar/{_e(account['id'])}' alt='Your photo'>"
-        if avatar else
-        f"<div class='avatar'>{_e(_initials(account))}</div>"
-    )
-    stats = shop_stats or {}
-    stat_line = " · ".join(
-        f"{v} {k}" for k, v in stats.items() if v
-    ) or "nothing recorded yet"
-
-    body = (
-        f"<div class='wrap'>"
-        f"<p class='back'><a href='/'>&larr; Back to your shop</a></p>"
-        f"<div class='top'>{face}<div>"
-        f"<h1 style='font-size:30px;'>{_e(account.get('owner_name') or 'Your account')}</h1>"
-        f"<div class='note' style='margin-top:4px;'>{_e(account.get('email'))} · "
-        f"<span class='pill'>{'Already selling' if stage == 'running' else 'Starting out'}"
-        f"</span></div></div></div>"
-        f"{_alert(notice, 'ok')}{_alert(error)}"
-
-        f"<div class='card'>"
-        f"<div class='sec' style='margin-top:0;'>Your details</div>"
-        f"<form method='post' action='/account'>"
-        f"<div class='row'>"
-        f"<div class='field'><label for='owner_name'>Your name</label>"
-        f"<input id='owner_name' name='owner_name' "
-        f"value='{_e(account.get('owner_name'))}'></div>"
-        f"<div class='field'><label for='business_name'>Shop name</label>"
-        f"<input id='business_name' name='business_name' "
-        f"value='{_e(account.get('business_name'))}'></div></div>"
-        f"<div class='row'>"
-        f"<div class='field'><label for='location'>Where you sell</label>"
-        f"<input id='location' name='location' "
-        f"value='{_e(account.get('location'))}'></div>"
-        f"<div class='field'><label for='currency'>Currency</label>"
-        f"<input id='currency' name='currency' "
-        f"value='{_e(account.get('currency') or 'BDT')}'></div></div>"
-        f"<div class='field'><label for='what_you_sell'>What you sell</label>"
-        f"<input id='what_you_sell' name='what_you_sell' "
-        f"value='{_e(account.get('what_you_sell'))}'></div>"
-        f"<div class='field'><label for='business_stage'>Where you are</label>"
-        f"<select id='business_stage' name='business_stage'>"
-        f"<option value='starting'{' selected' if stage == 'starting' else ''}>"
-        f"Starting out — help me work out what to sell</option>"
-        f"<option value='running'{' selected' if stage == 'running' else ''}>"
-        f"Already selling — help me run it</option></select>"
-        f"<div class='note' style='margin-top:5px;'>This changes where your "
-        f"team starts: research and validation, or day-to-day management.</div>"
-        f"</div>"
-        f"<div class='actions'><button class='btn' type='submit'>Save changes</button>"
-        f"</div></form></div>"
-
-        f"<div class='card' style='margin-top:16px;'>"
-        f"<div class='sec' style='margin-top:0;'>Your photo</div>"
-        f"<p class='note' style='margin:0 0 12px;'>Shown in the corner of your "
-        f"workspace. Click it any time to come back here.</p>"
-        f"<form method='post' action='/account/avatar' enctype='multipart/form-data'>"
-        f"<div class='field'><input type='file' name='avatar' accept='image/*' required>"
-        f"</div>"
-        f"<div class='actions'><button class='btn btn-quiet' type='submit'>"
-        f"Upload photo</button></div></form></div>"
-
-        f"<div class='card' style='margin-top:16px;'>"
-        f"<div class='sec' style='margin-top:0;'>Password</div>"
-        f"<form method='post' action='/account/password'>"
-        f"<div class='row'>"
-        f"<div class='field'><label for='current'>Current password</label>"
-        f"<input id='current' name='current' type='password' required "
-        f"autocomplete='current-password'></div>"
-        f"<div class='field'><label for='new'>New password</label>"
-        f"<input id='new' name='new' type='password' required minlength='8' "
-        f"autocomplete='new-password'></div></div>"
-        f"<div class='actions'><button class='btn btn-quiet' type='submit'>"
-        f"Change password</button></div></form></div>"
-
-        f"<div class='card' style='margin-top:16px;'>"
-        f"<div class='sec' style='margin-top:0;'>Your shop's memory</div>"
-        f"<p class='note' style='margin:0 0 12px;'>Everything your team has "
-        f"learned lives in a database of its own, separate from every other "
-        f"account: {_e(stat_line)}.</p>"
-        f"<form method='post' action='/logout'>"
-        f"<div class='actions'><button class='btn btn-quiet' type='submit'>"
-        f"Sign out</button></div></form></div>"
-        f"</div>"
-    )
-    return _page("Your account", body, ACCOUNT_CSS)
 
 
-def _initials(account: dict[str, Any]) -> str:
-    source = (account.get("owner_name") or account.get("business_name")
-              or account.get("email") or "?")
-    parts = [p for p in str(source).replace("@", " ").split() if p]
-    return "".join(p[0].upper() for p in parts[:2]) or "?"
 
 
 def not_found() -> str:

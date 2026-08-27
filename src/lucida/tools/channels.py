@@ -34,6 +34,7 @@ its own servers.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -561,8 +562,19 @@ def _save_telegram_offset(db, update_id: int) -> None:
             )
 
 
+#: Commands the shop itself answers. Everything else beginning with "/" is
+#: Telegram protocol chatter and is dropped — but these are the customer
+#: speaking, and dropping them meant "/review" never reached the bot at all.
+BOT_COMMANDS = ("/start", "/review", "/order", "/help", "/rate")
+
+
+def _is_ours(text: str) -> bool:
+    word = text.split()[0].split("@")[0].lower() if text.split() else ""
+    return word in BOT_COMMANDS
+
+
 def read_telegram(limit: int = 25, db=None) -> Inbox:
-    """Customer messages sent to the bot.
+    """Customer messages sent to the bot, and the buttons they tapped.
 
     Telegram keeps only a short retention window for old updates, so we advance
     a stored `last_update_id` after each sync. That prevents replaying the same
@@ -591,13 +603,26 @@ def read_telegram(limit: int = 25, db=None) -> Inbox:
         update_id = int(update.get("update_id") or 0)
         if update_id > max_update_id:
             max_update_id = update_id
+
+        # A tapped button arrives as a callback_query, not a message. It is
+        # the customer answering a question the shop asked, so it enters the
+        # inbox as what the tap meant — "/rate 5" — and travels the same path
+        # as anything they could have typed instead.
+        callback = update.get("callback_query")
+        if callback:
+            row = _from_callback(callback)
+            if row:
+                out.append(row)
+            continue
+
         msg = update.get("message") or update.get("edited_message") or {}
         text = (msg.get("text") or msg.get("caption") or "").strip()
         if not text:
             continue  # stickers, photos without captions: nothing to read
-        if text.startswith("/"):
-            # /start, /help and friends are Telegram protocol, not something a
-            # customer said. Storing them would skew the sentiment breakdown.
+        if text.startswith("/") and not _is_ours(text):
+            # /help, /settings and friends are Telegram protocol, not
+            # something a customer said. Storing them would skew the
+            # sentiment breakdown.
             continue
         sender = msg.get("from") or {}
         if sender.get("is_bot"):
@@ -625,16 +650,57 @@ def read_telegram(limit: int = 25, db=None) -> Inbox:
     return Inbox(out, simulated=False)
 
 
-def send_telegram(chat_id: str, message: str) -> ChannelResult:
-    """Reply to a customer. No 24-hour window — Telegram has no such rule."""
+def _from_callback(callback: dict) -> dict[str, Any] | None:
+    """One tapped button, as the message the customer would have typed."""
+    payload = str(callback.get("data") or "").strip()
+    if not payload:
+        return None
+
+    # Stop the spinner on the customer's phone. A button that keeps spinning
+    # reads as a shop that did not receive the tap.
+    _telegram_get("answerCallbackQuery", {"callback_query_id":
+                                          callback.get("id") or ""})
+
+    sender = callback.get("from") or {}
+    message = callback.get("message") or {}
+    chat = message.get("chat") or {}
+    name = " ".join(x for x in (sender.get("first_name"),
+                                sender.get("last_name")) if x).strip()
+    return {
+        "platform": "telegram", "kind": "dm",
+        "external_id": f"tg-cb-{callback.get('id')}",
+        "thread_id": str(chat.get("id") or sender.get("id") or ""),
+        "sender_id": str(chat.get("id") or sender.get("id") or ""),
+        "sender_name": name or sender.get("username") or "Customer",
+        "message": payload,
+        "received_at": _now(),
+    }
+
+
+def send_telegram(chat_id: str, message: str,
+                  buttons: list[list[tuple[str, str]]] | None = None
+                  ) -> ChannelResult:
+    """Reply to a customer. No 24-hour window — Telegram has no such rule.
+
+    `buttons` is rows of (label, payload). Tapping one sends the payload back
+    as a callback, which is easier and less error-prone for the customer than
+    typing — a rating is a thing to pick, not to spell.
+    """
     if not telegram_ready():
         return _simulated("telegram", "dm", message)
 
-    data, err = _telegram_get("sendMessage", {"chat_id": chat_id,
-                                              "text": message})
+    params: dict[str, Any] = {"chat_id": chat_id, "text": message}
+    if buttons:
+        params["reply_markup"] = json.dumps({
+            "inline_keyboard": [
+                [{"text": label, "callback_data": payload}
+                 for label, payload in row]
+                for row in buttons
+            ]
+        })
+
+    data, err = _telegram_get("sendMessage", params)
     if err:
         return ChannelResult(False, "telegram", "dm", False, error=err)
     return ChannelResult(True, "telegram", "dm", False,
                          str((data.get("result") or {}).get("message_id") or ""))
-
-
