@@ -84,7 +84,7 @@ def sync(db, limit: int = 25, include_comments: bool = True) -> SyncResult:
     # only read once their Page token exists — until App Review grants
     # pages_messaging they can return nothing, and polling them each sync only
     # costs time. The readers stay wired so a token is all that is needed.
-    readers = [("telegram", channels.read_telegram)]
+    readers = [("telegram", lambda n: channels.read_telegram(n, db))]
     if channels.meta_ready():
         readers.append(("messenger", channels.read_messenger))
     if channels.instagram_ready():
@@ -150,8 +150,24 @@ def auto_answer(db, limit: int = 20) -> int:
     rows = db.query(
         "SELECT * FROM social_messages WHERE platform='telegram' AND replied=0 "
         "ORDER BY id LIMIT ?", (limit,))
+
+    # One answer per person, not one per message. Somebody who sends "hi",
+    # "hello", "you there?" wants a reply, not three. The earlier messages are
+    # marked handled without sending, so they stop queueing up behind the
+    # newest one.
+    latest: dict[str, dict] = {}
+    superseded: list[int] = []
+    for m in rows:
+        key = str(m.get("sender_id") or m.get("thread_id") or m["id"])
+        if key in latest:
+            superseded.append(latest[key]["id"])
+        latest[key] = m
+    for old_id in superseded:
+        db.execute("UPDATE social_messages SET replied=1, reply_text=? WHERE id=?",
+                   ("(covered by a later reply)", old_id))
+
     sent = 0
-    for msg in rows:
+    for msg in latest.values():
         try:
             reply = shopbot.answer(db, str(msg["message"] or ""),
                                    str(msg["sender_name"] or "there"))
