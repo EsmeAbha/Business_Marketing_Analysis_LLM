@@ -1135,6 +1135,87 @@ def test_every_message_in_a_batch_is_settled():
             setattr(obj, name, original)
 
 
+
+class _VisionSettings:
+    """The parts of `settings` the vision and fast chains read."""
+
+    provider = "groq"
+    model = "openai/gpt-oss-120b"
+    fast_model = "openai/gpt-oss-20b"
+    vision_provider = "google"
+    vision_model = "gemini-flash-latest"
+    max_tokens = 1000
+    has_vision = True
+    vision_help = ""
+
+    def __init__(self, keys):
+        self._keys = keys
+
+    def key_for(self, name):
+        return self._keys.get(name, "")
+
+
+def test_photo_understanding_can_move_to_a_second_provider():
+    # Groq serves no multimodal model, so photos land on Google — whose free
+    # tier is twenty requests a day. This was the last call in the app that
+    # could not move to a second model, so running that quota out handed the
+    # owner the provider's own 429 traceback.
+    from lucida import llm
+
+    real = llm.settings
+    try:
+        llm.settings = _VisionSettings({"google": "g", "groq": "q"})
+        assert llm._vision_chain() == [("google", "gemini-flash-latest")]
+
+        llm.settings = _VisionSettings({"google": "g", "anthropic": "a"})
+        chain = llm._vision_chain()
+        assert chain[0] == ("google", "gemini-flash-latest"), chain
+        assert any(p == "anthropic" for p, _ in chain), chain
+
+        # And the client the vision agent is handed must actually use it.
+        client = llm.get_vision_llm(200)
+        assert isinstance(client, llm._Failover), type(client)
+        assert client._models == chain, client._models
+    finally:
+        llm.settings = real
+
+
+def test_the_routing_client_fails_over_too():
+    from lucida import llm
+
+    real = llm.settings
+    try:
+        llm.settings = _VisionSettings({"groq": "q", "google": "g"})
+        client = llm.get_fast_llm(200)
+    finally:
+        llm.settings = real
+    # Not a bare provider client: it has somewhere to go.
+    assert isinstance(client, llm._Failover)
+    assert len(client._models) > 1
+
+
+def test_an_exhausted_quota_reads_as_english_not_a_traceback():
+    from lucida import llm
+
+    make, calls = _fake_client([
+        Exception("429 RESOURCE_EXHAUSTED quota exceeded"),
+        Exception("429 RESOURCE_EXHAUSTED quota exceeded")])
+    real = llm.build_client
+    try:
+        llm.build_client = lambda provider, model, budget: make(model)
+        try:
+            llm._Failover([("google", "gemini-flash-latest"),
+                           ("anthropic", "claude-opus-5")], 100).invoke("hi")
+        except llm.AllModelsBusy as exc:
+            assert "over its cap" in str(exc), exc
+            assert "Nothing is broken" in str(exc), exc
+        else:
+            raise AssertionError("it should report every model as busy")
+    finally:
+        llm.build_client = real
+    assert calls == ["gemini-flash-latest", "claude-opus-5"], calls
+
+
 if __name__ == "__main__":
     import traceback
 
