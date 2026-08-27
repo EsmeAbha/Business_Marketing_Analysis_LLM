@@ -27,6 +27,7 @@ truststore>=0.10.0          # use the OS cert store; fixes TLS-inspected network
 # starlette + uvicorn are the server's own dependencies, listed so they are
 # explicit rather than incidental.
 starlette>=0.40.0
+itsdangerous>=2.1.0         # starlette's SessionMiddleware; only in its [full] extra
 uvicorn>=0.30.0
 python-multipart>=0.0.9     # photo uploads
 bcrypt>=4.0.1               # password hashing in web/auth.py
