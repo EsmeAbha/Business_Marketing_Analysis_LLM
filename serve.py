@@ -54,6 +54,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 from lucida.config import (  # noqa: E402
     AVATAR_DIR, DATA_DIR, SHOPS_DIR, UPLOAD_DIR, settings,
 )
+from lucida import llm  # noqa: E402
 from lucida.graph import WorkforceRuntime  # noqa: E402
 from lucida.memory import memory  # noqa: E402
 from lucida.memory.db import Database  # noqa: E402
@@ -1789,6 +1790,12 @@ async def api_health(request):
         "accounts": auth.count_accounts(),
         "session": session_id,
         "has_llm": bool(settings.has_llm),
+        # What this *running process* will actually call. Config is read once
+        # at import, so a server started before an .env edit keeps the old
+        # answer — and the only way to tell used to be to trigger a failure
+        # and read the traceback.
+        "text_chain": [f"{p}/{m}" for p, m in llm._chain(settings.model)],
+        "vision_chain": [f"{p}/{m}" for p, m in llm._vision_chain()],
         "email_configured": mailer.configured(),
         "google_configured": google_oauth.enabled(),
         "verified": auth.is_verified(account) if account else False,
@@ -2026,12 +2033,20 @@ app = Starlette(
 
 if __name__ == "__main__":
     print("Lucida — Business Suite  ->  http://127.0.0.1:8000")
+    chain = " -> ".join(m for _, m in llm._chain(settings.model))
+    print(f"  models    : {chain}")
+    print(f"  vision    : {', '.join(m for _, m in llm._vision_chain()) or 'none'}")
     print(f"  email     : {mailer.status()}")
     print(f"  google    : {google_oauth.status()}")
     print(f"  accounts  : {auth.count_accounts()} registered")
     print(f"  data      : {DATA_DIR}")
     if not settings.has_llm:
         print("  (no API key: the page renders, but the workforce can't run)")
+    # Python block-buffers stdout when it is not a terminal, so the banner —
+    # the one place that says which models this process will use — was being
+    # held until the buffer filled or the process exited. It is only useful
+    # if it arrives before the work does.
+    sys.stdout.flush()
     # A container's loopback is its own; binding there means the platform's
     # health check never connects and the deploy is rolled back. Hosts also
     # choose the port and pass it in $PORT, so neither is hard-coded.

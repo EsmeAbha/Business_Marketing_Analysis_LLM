@@ -1460,6 +1460,63 @@ def test_the_stars_reach_the_customer():
     assert len(buttons[0]) == 5, buttons
 
 
+def test_a_quota_error_never_reaches_the_owner_raw():
+    # The exact error that kept coming back, with google as the primary
+    # provider. It must be absorbed by the chain, whatever the provider is.
+    from lucida import llm
+
+    quota = Exception(
+        "Error calling model 'gemini-flash-latest' (RESOURCE_EXHAUSTED): "
+        "429 RESOURCE_EXHAUSTED quota exceeded")
+
+    class _Primary:
+        provider = "google"
+        model = "gemini-flash-latest"
+        fast_model = "gemini-flash-lite-latest"
+        vision_provider = "google"
+        vision_model = "gemini-flash-latest"
+        max_tokens = 1000
+        has_vision = True
+        vision_help = ""
+
+        def key_for(self, name):
+            return {"google": "g", "groq": "q"}.get(name, "")
+
+    def fake(provider, model, budget):
+        class _C:
+            def invoke(self, *a, **k):
+                if provider == "google":
+                    raise quota
+                return type("R", (), {"content": "answered by " + model})()
+
+            def with_structured_output(self, *a, **k):
+                return self
+
+        return _C()
+
+    settings_was, build_was = llm.settings, llm.build_client
+    try:
+        llm.settings = _Primary()
+        llm.build_client = fake
+        out = llm.get_llm().invoke("hi")
+    finally:
+        llm.settings, llm.build_client = settings_was, build_was
+
+    assert "answered by" in out.content, out.content
+
+
+def test_health_reports_the_models_this_process_will_use():
+    # Config is read once at import, so a server started before an .env edit
+    # keeps the old answer. Without this, the only way to find out what a
+    # running process was calling was to make it fail and read the traceback.
+    client = _client()
+    body = client.get("/api/health").json()
+
+    assert body["text_chain"], body
+    assert body["vision_chain"], body
+    assert all("/" in entry for entry in body["text_chain"]), body
+
+
 if __name__ == "__main__":
     import traceback
 
