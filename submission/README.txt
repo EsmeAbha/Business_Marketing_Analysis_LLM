@@ -10,8 +10,11 @@ WHAT IS IN THIS FOLDER
 1 - How Lucida Works.pdf      The technical reference. Start here.
                               How the multi-agent system is arranged and
                               why, what each of the eight specialists does,
-                              and which external API is called for what.
-                              4 pages.
+                              which external API is called for what, and a
+                              worked use case for every screen, for the
+                              customer-facing bot, and for each specialist
+                              - with real transcripts, not invented ones.
+                              13 pages.
 
 2 - Project README.pdf        The repository README: setup, the screens,
                               where data lives, configuration, and an
@@ -40,7 +43,7 @@ Built as a LangGraph state machine. Every shop's data lives in its own
 SQLite database, isolated by file rather than by an owner column, so a
 forgotten filter cannot leak one business into another.
 
-  Python 3.12 · LangGraph · Starlette · SQLite · 45 modules · 22 tables
+  Python 3.12 · LangGraph · Starlette · SQLite · 48 modules · 22 tables
 
 
 RUNNING IT
@@ -53,7 +56,7 @@ RUNNING IT
 
 Open http://127.0.0.1:8000
 
-Tests:  python tests/test_workforce.py   (33 tests, no API key)
+Tests:  python -m pytest tests -q        (69 tests, no API key)
 
 
 WHAT IS LIVE, AND WHAT IS NOT
@@ -61,7 +64,9 @@ WHAT IS LIVE, AND WHAT IS NOT
 
 Working, verified against real APIs:
   · Chat with saved conversations, and photo understanding
-  · Telegram as a live customer channel: read, classify, reply
+  · Telegram as a live customer channel: read, classify, reply,
+    quote a price, cap an order at what is actually in stock,
+    price delivery to an address, and collect a review
   · Web research that asks where to search before spending anything
   · Ad generation and editing
   · Product catalogue with weights

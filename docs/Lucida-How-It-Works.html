@@ -1,417 +1,739 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Lucida — How it works</title>
-<style>
-  @page { size: A4; margin: 18mm 16mm 16mm; }
-  * { box-sizing: border-box; }
-  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body {
-    font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
-    font-size: 10pt; line-height: 1.55; color: #18181B; margin: 0;
-  }
-  h1 { font-size: 27pt; font-weight: 800; letter-spacing: -0.035em;
-       margin: 0 0 6px; color: #000; }
-  h2 { font-size: 15pt; font-weight: 700; letter-spacing: -0.02em;
-       margin: 26px 0 10px; padding-bottom: 6px;
-       border-bottom: 2px solid #7B1E22; color: #000;
-       break-after: avoid; }
-  h3 { font-size: 11.5pt; font-weight: 700; margin: 18px 0 5px; color: #000;
-       break-after: avoid; }
-  h4 { font-size: 10pt; font-weight: 700; margin: 12px 0 4px; color: #3F3F46; }
-  p { margin: 0 0 9px; }
-  ul { margin: 0 0 10px; padding-left: 17px; }
-  li { margin-bottom: 3px; }
-  code { font-family: "Consolas", "SF Mono", monospace; font-size: 8.6pt;
-         background: #F4F4F5; padding: 1px 4px; border-radius: 3px; }
-  a { color: #7B1E22; text-decoration: none; }
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><title>How Lucida Works</title><style>
+@page { size: A4; margin: 18mm 16mm 16mm; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
+       font-size: 10pt; line-height: 1.6; color: #18181B; margin: 0; }
+h1 { font-size: 26pt; font-weight: 800; letter-spacing: -0.035em;
+     margin: 0 0 14px; color: #000; }
+h2 { font-size: 14.5pt; font-weight: 700; letter-spacing: -0.02em;
+     margin: 24px 0 9px; padding-bottom: 6px;
+     border-bottom: 2px solid #7B1E22; color: #000; break-after: avoid; }
+h3 { font-size: 11pt; font-weight: 700; margin: 16px 0 5px; color: #000;
+     break-after: avoid; }
+p { margin: 0 0 9px; }
+ul, ol { margin: 0 0 10px; padding-left: 18px; }
+li { margin-bottom: 3px; }
+blockquote { border-left: 3px solid #7B1E22; background: #FAFAFA;
+             margin: 12px 0; padding: 10px 14px; border-radius: 0 7px 7px 0;
+             font-size: 9.4pt; break-inside: avoid; }
+blockquote p:last-child { margin-bottom: 0; }
+code { font-family: "Consolas", "SF Mono", monospace; font-size: 8.6pt;
+       background: #F4F4F5; padding: 1px 4px; border-radius: 3px; }
+pre { background: #FAFAFA; border: 1px solid #E4E4E7; border-radius: 8px;
+      padding: 12px 14px; overflow-x: auto; font-size: 8.4pt;
+      line-height: 1.45; break-inside: avoid; }
+pre code { background: none; padding: 0; font-size: 8.4pt; }
+table { width: 100%; border-collapse: collapse; margin: 9px 0 14px;
+        font-size: 9pt; break-inside: avoid; }
+th { text-align: left; font-size: 7.6pt; font-weight: 700; color: #71717A;
+     text-transform: uppercase; letter-spacing: 0.05em;
+     padding: 0 9px 6px 0; border-bottom: 1px solid #E4E4E7; }
+td { padding: 7px 9px 7px 0; border-bottom: 1px solid #F4F4F5;
+     vertical-align: top; }
+td:last-child, th:last-child { padding-right: 0; }
+a { color: #7B1E22; text-decoration: none; }
+hr { border: none; border-top: 1px solid #E4E4E7; margin: 22px 0; }
+</style></head><body><h1 id="how-lucida-works">How Lucida Works</h1>
+<p><strong>A viva reference.</strong> Everything below is the system as it actually stands today —
+including what is live, what is simulated, and the problems we hit and fixed. If a
+question is asked about any part of the app, the answer is somewhere in here.</p>
+<blockquote>
+<p>Repository: <code>github.com/EsmeAbha/Business_Marketing_Analysis_LLM</code>
+48 Python modules · 18,600 lines · 22 database tables · 69 automated tests · 65 commits</p>
+</blockquote>
+<hr />
+<h2 id="1-what-it-is-in-one-paragraph">1. What it is, in one paragraph</h2>
+<p>Lucida is an <strong>AI workforce for a small shop</strong>. The owner types in plain language — or
+drops in a photo of what they make — and a <strong>Supervisor agent</strong> decides which of <strong>eight
+specialists</strong> should handle it, in what order. They share one memory of the business, and
+the run <strong>stops and waits for the owner's approval</strong> before anything irreversible:
+publishing an advert, spending money, booking a courier. It covers the whole lifecycle:
+deciding what to sell, validating a product, pricing it, recording stock, marketing it,
+listening to customers, arranging delivery, and reporting back with a revised plan.</p>
+<p>It is not a chatbot with tools bolted on. It is a <strong>state machine</strong> (LangGraph) whose
+nodes are agents, with durable memory and a real suspend/resume mechanism.</p>
+<hr />
+<h2 id="2-running-it-for-the-demo">2. Running it, for the demo</h2>
+<pre><code>python -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+copy .env.example .env          then set GOOGLE_API_KEY
+python serve.py
+</code></pre>
+<p>Open <code>http://127.0.0.1:8000</code>. Sign up with <strong>a name and a password</strong> — there is no email
+verification. Tests: <code>python -m pytest tests -q</code> (69 tests, needs no API key).</p>
+<hr />
+<h2 id="3-architecture">3. Architecture</h2>
+<pre><code>                 owner: text + photos
+                          |
+                          v
+              +-----------------------+
+              |   SUPERVISOR AGENT    |   plan -&gt; route -&gt; aggregate
+              +-----------+-----------+
+        +---------+-------+-------+---------+----------+
+        v         v       v       v         v          v
+   market     product  pricing  inventory  ad (*)  engagement
+   research    vision                    creative
+        |         |       |       |         |          |
+        +---------+-------+-------+---------+----------+
+                          |  every agent returns here
+                          v
+                    SUPERVISOR  -- FINISH --&gt; finalize --&gt; answer
 
-  .lede { font-size: 11.5pt; color: #3F3F46; margin: 0 0 4px; line-height: 1.5; }
-  .meta { font-size: 8.5pt; color: #A1A1AA; margin-bottom: 22px;
-          padding-bottom: 14px; border-bottom: 1px solid #E4E4E7; }
-
-  table { width: 100%; border-collapse: collapse; margin: 8px 0 14px;
-          font-size: 9pt; break-inside: avoid; }
-  th { text-align: left; font-size: 7.6pt; font-weight: 700; color: #71717A;
-       text-transform: uppercase; letter-spacing: 0.05em;
-       padding: 0 9px 6px 0; border-bottom: 1px solid #E4E4E7; }
-  td { padding: 7px 9px 7px 0; border-bottom: 1px solid #F4F4F5;
-       vertical-align: top; }
-  td:last-child, th:last-child { padding-right: 0; }
-
-  .agent { break-inside: avoid; border: 1px solid #E4E4E7; border-radius: 9px;
-           padding: 12px 14px; margin-bottom: 11px; background: #fff; }
-  .agent h3 { margin: 0 0 2px; display: flex; align-items: baseline; gap: 8px; }
-  .agent h3 span { font-size: 8pt; font-weight: 600; color: #7B1E22;
-                   background: #FBEBEB; padding: 2px 7px; border-radius: 20px;
-                   letter-spacing: 0.02em; }
-  .agent .what { font-size: 9.3pt; color: #3F3F46; margin: 0 0 8px; }
-  .agent dl { margin: 0; font-size: 8.8pt; }
-  .agent dt { font-weight: 700; color: #52525B; float: left; clear: left;
-              width: 78px; }
-  .agent dd { margin: 0 0 3px 84px; color: #3F3F46; }
-
-  .note { background: #FAFAFA; border-left: 3px solid #7B1E22;
-          padding: 10px 13px; margin: 12px 0; font-size: 9.2pt;
-          border-radius: 0 7px 7px 0; break-inside: avoid; }
-  .note b { color: #000; }
-
-  .diagram { border: 1px solid #E4E4E7; border-radius: 9px; padding: 16px;
-             margin: 12px 0; text-align: center; background: #FAFAFA;
-             font-family: "Consolas", monospace; font-size: 8.4pt;
-             line-height: 1.45; white-space: pre; color: #3F3F46;
-             break-inside: avoid; }
-
-  .pill { display: inline-block; font-size: 7.6pt; font-weight: 700;
-          padding: 2px 7px; border-radius: 20px; white-space: nowrap; }
-  .live { background: #DCFCE7; color: #166534; }
-  .ready { background: #FEF9C3; color: #A16207; }
-  .wait { background: #F4F4F5; color: #71717A; }
-
-  .page-break { break-before: page; }
-  .cols { column-count: 2; column-gap: 22px; }
-  .cols p, .cols ul { break-inside: avoid; }
-  footer { margin-top: 26px; padding-top: 10px; border-top: 1px solid #E4E4E7;
-           font-size: 8pt; color: #A1A1AA; }
-</style>
-</head>
-<body>
-
-<h1>Lucida</h1>
-<p class="lede">An AI workforce for a small shop — how the parts fit together,
-what each specialist does, and which external service is called for what.</p>
-<p class="meta">Technical reference · One supervisor, eight specialists,
-22 database tables, 47 routes</p>
-
-<h2>1 · The shape of the thing</h2>
-
-<p>Lucida is a <b>star</b>, not a pipeline. Every request enters at the
-supervisor, which reads it, plans, and hands the work to exactly one
-specialist. That specialist does its job, writes what it learned into shared
-memory, and returns to the supervisor, which either picks the next specialist
-or finishes and writes the answer.</p>
-
-<div class="diagram">                       Product Vision
-                            │
-      Market Research       │       Pricing
-                   ╲        │        ╱
-                    ╲       │       ╱
-   Reporting ─────── SUPERVISOR ─────── Stock
-                    ╱       │       ╲
-                   ╱        │        ╲
-        Delivery            │          Ad Creative
-                        Customers</div>
-
-<p>The star matters. A pipeline would run all eight agents for every
-question, which is slow and expensive; a question about stock levels has no
-business waking the ad writer. The supervisor decides, and the route it
-actually took is recorded and replayable.</p>
-
-<h3>What travels between them</h3>
-<p>A single state object moves through the graph, carrying the owner's
-request, any image paths, the plan, which agent is next and why, and an
-accumulating record of every agent's output and errors. Agents never talk to
-each other directly — they read the state and write to it, which is what
-makes any run replayable step by step afterwards.</p>
-
-<h3>Where it stops</h3>
-<p>Anything irreversible or costly — publishing an ad, spending money,
-booking a courier — suspends the graph at an interrupt and waits. The owner
-sees it on the dashboard. Approving <i>resumes from that exact point</i>
-rather than starting the run again, because the graph's state is
-checkpointed to SQLite.</p>
-
-<div class="note">
-<b>Why the owner is a node in the system, not a spectator.</b> The gates are
-not a confirmation dialog bolted on at the end. They are edges in the graph:
-the run genuinely cannot proceed past one without a decision, and the
-decision is recorded alongside the work it authorised.
-</div>
-
-<h2>2 · The eight specialists</h2>
-
-<div class="agent">
-  <h3>Market Research <span>reads the web</span></h3>
-  <p class="what">Finds what sells, what rivals charge, and what people are
-  asking for that nobody supplies.</p>
-  <dl>
-    <dt>Calls</dt><dd>DuckDuckGo (or Tavily if a key is set) — several
-      searches per run: competitors, demand signals, price bands, local posts</dd>
-    <dt>Writes</dt><dd><code>competitors</code> — name, price, source URL,
-      but only for results that actually name a price</dd>
-    <dt>Note</dt><dd>Searches the shop's own country index; an untargeted
-      search for "price in Dhaka" returns Amazon and Etsy</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Product Vision <span>reads photos</span></h3>
-  <p class="what">Turns a photograph of a product into a go/no-go call: what
-  it is, what it is made of, what it could sell for, and whether it is worth
-  making.</p>
-  <dl>
-    <dt>Calls</dt><dd>Google Gemini (multimodal) for the image; web search to
-      sanity-check the category and price band</dd>
-    <dt>Writes</dt><dd><code>products</code>, <code>media_assets</code></dd>
-    <dt>Note</dt><dd>Runs on Google specifically because Groq serves no vision
-      model. Without a Google key it says it could not look at the photo
-      rather than guessing from the filename</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Pricing &amp; Cost <span>does the arithmetic</span></h3>
-  <p class="what">Unit cost, sell price, margin percentage, break-even
-  volume, and the reasoning behind the number.</p>
-  <dl>
-    <dt>Calls</dt><dd>A restricted Python sandbox — the sums are executed,
-      not generated by a language model</dd>
-    <dt>Writes</dt><dd><code>pricing_history</code>; updates
-      <code>products</code></dd>
-    <dt>Note</dt><dd>May price a product the shop does not yet sell, but
-      cannot create it. A recommendation is advice; the catalogue is a
-      record of what exists</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Stock <span>counts things</span></h3>
-  <p class="what">What is on hand, what it cost, what runs out first, and
-  what to reorder.</p>
-  <dl>
-    <dt>Calls</dt><dd>No external service — reads and writes the shop's own
-      database</dd>
-    <dt>Writes</dt><dd><code>products</code>, <code>inventory</code>,
-      <code>stock_movements</code></dd>
-    <dt>Note</dt><dd>Records a weight when the owner mentions one, because
-      weight is what every delivery quote is computed from</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Ad Creative <span>writes and publishes</span></h3>
-  <p class="what">Platform-specific ad copy — different for Facebook,
-  Instagram and YouTube — and the artwork to go with it.</p>
-  <dl>
-    <dt>Calls</dt><dd>Pollinations or Gemini for images; Meta Graph API and
-      YouTube Data API to publish</dd>
-    <dt>Writes</dt><dd><code>campaigns</code>, <code>social_posts</code>,
-      <code>media_assets</code></dd>
-    <dt>Gate</dt><dd>Publishing always waits for approval. It spends the
-      owner's money and their reputation</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Customers <span>the listening loop</span></h3>
-  <p class="what">Reads DMs and comments, works out sentiment and intent,
-  extracts pre-orders, spots demand for things the shop does not sell, and
-  drafts replies for the owner to send.</p>
-  <dl>
-    <dt>Calls</dt><dd>Meta Graph API (Messenger and Instagram) to read and
-      reply</dd>
-    <dt>Writes</dt><dd><code>social_messages</code>,
-      <code>conversations</code>, <code>preorders</code></dd>
-    <dt>Note</dt><dd>Each draft is matched back to its message by id. A draft
-      that cannot be placed is discarded, never sent to a customer it might
-      not answer</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Delivery <span>books parcels</span></h3>
-  <p class="what">Quotes a parcel by weight and destination, then books the
-  courier and arranges cash-on-delivery collection.</p>
-  <dl>
-    <dt>Calls</dt><dd>Pathao and Steadfast — token, price plan, order
-      creation, tracking</dd>
-    <dt>Writes</dt><dd><code>deliveries</code>, <code>addresses</code></dd>
-    <dt>Gate</dt><dd>Booking waits for approval: it dispatches a real rider
-      and commits the shop to a customer</dd>
-  </dl>
-</div>
-
-<div class="agent">
-  <h3>Reporting <span>closes the loop</span></h3>
-  <p class="what">Reads across every other agent's work and writes the day up
-  in the owner's own numbers — what sold, what it cost, what to do next.</p>
-  <dl>
-    <dt>Calls</dt><dd>The sandbox for figures; the shop's whole database</dd>
-    <dt>Writes</dt><dd><code>reports</code>; semantic memory, so later runs
-      recall earlier conclusions</dd>
-    <dt>Note</dt><dd>The heaviest reader of shared memory — this is where the
-      cycle becomes a loop rather than a line</dd>
-  </dl>
-</div>
-
-<div class="page-break"></div>
-
-<h2>3 · Which service, and what for</h2>
-
-<p>Every external call has one job. Nothing is called speculatively, and
-anything unavailable degrades to a labelled stand-in rather than a failure.</p>
-
-<h3>Language and vision</h3>
+   (*) interrupt() suspends the whole graph to a SQLite checkpointer
+       until the owner approves, rejects, or asks for changes
+</code></pre>
+<p><strong>Star topology, not a pipeline.</strong> Every specialist returns to the Supervisor, which
+re-decides. This is the design decision most worth defending: if the Customer Engagement
+agent discovers people asking for a product the shop does not stock, the Supervisor can
+route <em>backwards</em> into market research or pricing. A fixed pipeline could only march
+forwards. The system is reactive to what it learns.</p>
+<p><strong>Guards on the loop.</strong> <code>max_supervisor_steps = 18</code> and LangGraph's <code>recursion_limit = 60</code>.
+A router that returns an unknown agent name, or fails to parse, falls through to
+<code>finalize</code> rather than spinning.</p>
+<hr />
+<h2 id="4-use-cases-end-to-end">4. Use cases, end to end</h2>
+<p>This section is the answer to "what is it actually <em>for</em>". Every transcript below was
+produced by running the code, not written by hand. Figures come from a shop seeded with
+two products — Coconut Candle at 150 BDT with 20 in stock, Orange Candle at 190 BDT with
+6 in stock — because a use case with invented numbers proves nothing.</p>
+<h3 id="41-the-owners-six-screens">4.1 The owner's six screens</h3>
+<p>The rail holds six entries and no two lead to the same screen. Anything that is a step
+<em>inside</em> a job rather than a place you set out for is reached from the screen that owns
+it: the ad studio from Chat, delivery pricing from Products, the operator's panels from
+Workforce.</p>
 <table>
-  <tr><th>Service</th><th>Used for</th><th>Cost</th><th>State</th></tr>
-  <tr><td><b>Groq</b><br><code>api.groq.com</code></td>
-      <td>Every text decision: the supervisor's routing and planning, and
-      seven of the eight specialists' reasoning</td>
-      <td>Free tier, daily cap per model</td>
-      <td><span class="pill live">live</span></td></tr>
-  <tr><td><b>Google Gemini</b><br><code>generativelanguage.googleapis.com</code></td>
-      <td>Reading product photographs, and the fallback for text when Groq's
-      daily allowance is spent</td>
-      <td>Free tier</td>
-      <td><span class="pill live">live</span></td></tr>
+<thead>
+<tr>
+<th>Screen</th>
+<th>When the owner opens it</th>
+<th>What they can do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Home</strong> <code>/</code></td>
+<td>First thing in the morning</td>
+<td>Read sales today, what is promised, days of stock cover; answer anything the workforce is waiting on</td>
+</tr>
+<tr>
+<td><strong>Chat</strong> <code>/chat</code></td>
+<td>When they have a question</td>
+<td>Ask in plain language or Banglish; send a photo of a product; choose where research should look before it spends</td>
+</tr>
+<tr>
+<td><strong>Products</strong> <code>/products</code></td>
+<td>When stock changes</td>
+<td>Add or correct a product, its cost, its price, <strong>its weight</strong>; open delivery pricing</td>
+</tr>
+<tr>
+<td><strong>Customers</strong> <code>/customers</code></td>
+<td>When someone has written in</td>
+<td>Read both sides of every conversation, reply by hand, read the reviews the bot collected</td>
+</tr>
+<tr>
+<td><strong>Workforce</strong> <code>/workforce</code></td>
+<td>When they want to see the machine</td>
+<td>Watch the graph move live, hand a job straight to one specialist, read recent runs, what was remembered, what it cost</td>
+</tr>
+<tr>
+<td><strong>Settings</strong> <code>/settings</code></td>
+<td>Once, then rarely</td>
+<td>Connect channels and couriers, edit the shop's details, change a password</td>
+</tr>
+</tbody>
 </table>
+<p><strong>Use case — "where does my shop stand?"</strong> The owner opens Home. Three tiles read from
+the shop's own records: sales today with how it compares to the week's average, units
+promised to customers, and days of cover for whichever product runs out first. Where the
+shop has no basis for a figure it shows an em dash and says what is missing — <em>"log some
+sales to see this"</em> — because an invented number on the first screen is the one thing
+that would make the whole dashboard untrustworthy. Below, two panels: what is running
+low, and the customers who have written in and not yet been answered.</p>
+<p><strong>Use case — "approve this before it goes out."</strong> When the graph reaches a gated step it
+suspends and a card appears on Home: what is proposed, which specialist proposed it, and
+two buttons. <em>Go ahead</em> resumes the run from the checkpoint; <em>Not now</em> holds it and
+nothing is sent. Until it is answered the workforce does not move, which is why this card
+sits above everything else on the page.</p>
+<p><strong>Use case — "turn this photo into something I can sell."</strong> The owner drops a photo into
+Chat. Product Vision identifies what it is, estimates whether it fits the local market,
+and returns GO or NO-GO with a reason. If GO, Pricing works out a cost-plus price and
+margin in a sandboxed Python process, and Inventory records the product so it is on the
+catalogue the customer-facing bot reads from.</p>
+<p><strong>Use case — "make me a poster."</strong> From Chat, the ad studio generates artwork and
+platform-specific copy, or takes the owner's own picture and edits it — rotate, flip,
+crop, filters, shapes, text. Publishing is gated: the copy is written, then it waits.</p>
+<p><strong>Use case — "what will it cost to send two of these to Dhanmondi?"</strong> Products holds each
+item's weight, because weight is what every courier quote is worked out from — a product
+without one cannot be priced. Delivery classifies the address, applies the courier's own
+rate card, and shows goods, delivery and cash-on-delivery separately so the owner can see
+where the total came from. Booking is gated.</p>
+<h3 id="42-the-customers-conversation">4.2 The customer's conversation</h3>
+<p>The shop's customers never see the workspace. They message a Telegram bot, and it answers
+without the owner being awake. The rule that governs the whole file: <strong>facts come from the
+database, the model only chooses words.</strong> Stock and prices are read from <code>products</code> and
+<code>inventory</code> and pasted in verbatim. The model is handed those facts and asked to phrase a
+reply; it is never asked what the shop sells or what anything costs.</p>
+<p>Each chat carries a little state — the product last discussed, how many, and what the shop
+is waiting for — so the thread reads as one conversation rather than a stranger answering
+each line cold.</p>
+<p><strong>Use case — asking, ordering, and being told the truth about stock.</strong> A real transcript,
+in the Banglish the shop's customers actually write:</p>
+<pre><code>&gt; assalamu alaikum
+  Hello! Welcome to Cutush-Candles. Ask me about anything you are
+  after and I will tell you the price.
 
-<div class="note">
-<b>Failover is not optional here.</b> Free tiers are rationed and providers
-retire models without warning — both happened during this project. The chain
-moves on when a model is <i>capped</i> (429), <i>retired</i> (404), or
-<i>returns the right JSON but not as a tool call</i>, which Groq rejects
-server-side and which used to kill an entire run. Only when everything is
-exhausted does the owner see a message, and it says when to come back.
-</div>
+&gt; ki ki ache?
+  Coconut Candle - 150 BDT
+  Orange Candle - 190 BDT
 
-<h3>Search and reference</h3>
+&gt; orange candle er dam koto?
+  Yes, we have it. Orange Candle is 190 BDT.
+
+&gt; 10 ta nibo
+  We only have 6 Orange Candle in stock right now, 190 BDT each.
+  Would you like 6?
+
+&gt; thik ache
+  Lovely - 6 x Orange Candle. Send your full address and I will tell
+  you the delivery charge and the total.
+
+&gt; Bashundhara R/A, House 3, Road 7
+  6 x Orange Candle is 1,140 BDT, delivery 155 BDT. Total 1,306 BDT
+  cash on delivery. The owner will confirm and send it out.
+</code></pre>
+<p>Four things are load-bearing there. The bot <strong>heard the quantity</strong> — "10 ta nibo" is ten,
+not one. It <strong>checked the shelf before promising</strong>, because a promise the shelf cannot
+keep is the one mistake a customer travels for. It <strong>remembered the reduced amount</strong>, so
+the total is six at 190 and never ten. And it <strong>read "thik ache" as agreement</strong>, not as
+thanks — a customer who says it has accepted, and answering "you are welcome" would drop
+the order on the floor.</p>
+<p><strong>Use case — half an address.</strong> If the customer sends only an area, the bot asks for the
+house or road number and remembers the area, so the next line completes it rather than
+starting the question again. A line that is full of digits is read as an address, not as
+a count: <em>"House 12, Road 5"</em> is a house, not twelve candles.</p>
+<p><strong>Use case — "when will it come?"</strong> Answered from the shop's own delivery record rather
+than the price list, because a customer who asks about time and is handed a catalogue
+concludes the shop has stopped listening.</p>
+<p><strong>Use case — leaving a review.</strong></p>
+<pre><code>&gt; /review
+  How did we do? Send a rating out of 5 and a line about why.
+
+&gt; 5 khub bhalo
+  Thank you, that means a lot. The owner will see it.
+</code></pre>
+<p><code>/review</code> is a <em>request</em> to leave one, not the review itself. The rating and the words
+land on one row, and if the customer sends only a number the bot asks what made it that
+score and attaches the answer to the same review. The owner reads them under Customers →
+Reviews.</p>
+<p><strong>Use case — a question the shop cannot answer.</strong> The bot does not guess and does not
+recite the product list at someone who asked something else. It says the owner will reply
+shortly, and the message is waiting in Customers with an amber marker.</p>
+<p><strong>Use case — the shop goes quiet.</strong> If the model is unavailable the bot still answers,
+from a plain template. A free tier running out does not take the shop offline.</p>
+<h3 id="43-one-scenario-per-specialist">4.3 One scenario per specialist</h3>
 <table>
-  <tr><th>Service</th><th>Used for</th><th>Cost</th><th>State</th></tr>
-  <tr><td><b>DuckDuckGo</b></td>
-      <td>Competitor and demand research, targeted at the shop's own country
-      index</td>
-      <td>Free, no account</td>
-      <td><span class="pill live">live</span></td></tr>
-  <tr><td><b>Tavily</b></td>
-      <td>The same, but returns extracted page content instead of a one-line
-      snippet — which is what lets prices be picked out of results</td>
-      <td>Free tier</td>
-      <td><span class="pill ready">key needed</span></td></tr>
-  <tr><td><b>open.er-api.com</b></td>
-      <td>Currency conversion, so costs quoted in dollars can be shown in
-      taka</td>
-      <td>Free, no account</td>
-      <td><span class="pill live">live</span></td></tr>
+<thead>
+<tr>
+<th>Specialist</th>
+<th>A question that lands on it</th>
+<th>What comes back</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Market Research</strong></td>
+<td>"What should I sell in Vatara?"</td>
+<td>Low-competition niches with a real competitor price band, from live web search</td>
+</tr>
+<tr>
+<td><strong>Product Vision</strong></td>
+<td><em>(a photo, no words)</em></td>
+<td>What the product is, whether it fits the market, GO / NO-GO with a reason</td>
+</tr>
+<tr>
+<td><strong>Pricing &amp; Cost</strong></td>
+<td>"What price should I sell my candles at?"</td>
+<td>Cost-plus price, margin, break-even — arithmetic done in a sandboxed Python process, not guessed by a model</td>
+</tr>
+<tr>
+<td><strong>Inventory</strong></td>
+<td>"I made 20 more coconut candles"</td>
+<td>Stock updated, low-stock threshold checked, the catalogue the bot reads kept current</td>
+</tr>
+<tr>
+<td><strong>Ad Creation</strong> <em>(gated)</em></td>
+<td>"Advertise the orange candle"</td>
+<td>Platform-specific copy and artwork, then it stops and waits</td>
+</tr>
+<tr>
+<td><strong>Customer Engagement</strong></td>
+<td><em>(runs itself every 10s)</em></td>
+<td>Reads Telegram, classifies intent and sentiment, answers what it can, escalates what it cannot</td>
+</tr>
+<tr>
+<td><strong>Delivery</strong> <em>(gated)</em></td>
+<td>"Send six to Bashundhara"</td>
+<td>A quote from the courier's real rates; booking waits for approval</td>
+</tr>
+<tr>
+<td><strong>Reporting</strong></td>
+<td>"How did this month go?"</td>
+<td>Restock alerts, demand shifts, profit analysis and a revised plan, over everything in memory</td>
+</tr>
+</tbody>
 </table>
-
-<h3>Images</h3>
+<h3 id="44-behaviours-the-whole-system-guarantees">4.4 Behaviours the whole system guarantees</h3>
+<p><strong>Nothing irreversible happens without a person.</strong> Publishing an advert, spending money
+and booking a courier are gated. The graph suspends at a checkpoint and resumes from it —
+this is a real suspend/resume, not a confirmation dialog in front of an action that has
+already been decided.</p>
+<p><strong>A busy model does not stop the shop.</strong> The chain starts on the provider the owner chose
+and then leaves it, trying every provider they hold a key for. A model that is capped,
+retired or simply busy costs one hop; a rejected tool call costs one retry, because that
+failure is intermittent. Observed on a real question while Google was out of quota:</p>
+<pre><code>gemini-flash-latest is over its cap; trying openai/gpt-oss-120b
+openai/gpt-oss-120b is over its cap; trying qwen/qwen3.6-27b
+qwen/qwen3.6-27b is over its cap; trying openai/gpt-oss-20b
+-&gt; answered in 56s
+</code></pre>
+<p><strong>One shop cannot see another.</strong> Every shop's data is a SQLite file of its own, isolated
+by file rather than by an owner column, so a forgotten <code>WHERE</code> clause cannot leak one
+business into another.</p>
+<p><strong>Simulated is always labelled.</strong> Anything not connected runs against a stand-in adapter
+that says so everywhere it appears, and nothing simulated is ever written to a shop's
+records as though a real customer sent it.</p>
+<p><strong>Every run is accountable.</strong> Workforce shows recent runs and how far each got, what the
+team wrote to shared memory, and what the model calls cost, per agent.</p>
+<hr />
+<h2 id="5-the-supervisor">5. The Supervisor</h2>
+<p>Three jobs, and it never does specialist work itself.</p>
+<ol>
+<li><strong>Plan.</strong> On the first turn it reads the owner's message and any photo, works out which
+   lifecycle stage the business is in, and drafts a short plan naming the agent
+   responsible for each step.</li>
+<li><strong>Route.</strong> On every turn it picks exactly one agent to run next — with a stated reason —
+   or <code>FINISH</code>.</li>
+<li><strong>Aggregate.</strong> When done, it composes every specialist's structured output into one
+   answer written for a shop owner, not a reviewer.</li>
+</ol>
+<h3 id="the-routing-guard-important">The routing guard (important)</h3>
+<p>The router is told not to re-run an agent that already succeeded. <strong>Models ignore this.</strong>
+In testing, the Supervisor re-ran <code>inventory</code> eight times and <code>engagement</code> seven times
+until the step limit killed the run — <strong>334 seconds and 78,000 tokens for one question</strong>.</p>
+<p>So it is enforced in code, not in the prompt:</p>
+<ul>
+<li>an agent that succeeded is removed from the allowed set</li>
+<li>an agent that failed gets exactly <strong>one</strong> retry</li>
+<li><code>product_vision</code> is unroutable when no image was uploaded</li>
+<li>an invalid pick falls forward to the next unfinished step of the plan, else <code>FINISH</code></li>
+</ul>
+<p>The same request now takes <strong>25 seconds and 22,000 tokens</strong>. This is the single most
+useful thing to be able to explain: <em>prompts express intent, code enforces invariants.</em></p>
+<hr />
+<h2 id="6-the-eight-specialists">6. The eight specialists</h2>
 <table>
-  <tr><th>Service</th><th>Used for</th><th>Cost</th><th>State</th></tr>
-  <tr><td><b>Pollinations</b></td>
-      <td>Ad artwork. Gets the colour and setting right; often invents the
-      object itself</td>
-      <td>Free, no account</td>
-      <td><span class="pill live">live</span></td></tr>
-  <tr><td><b>Gemini image models</b></td>
-      <td>Better ad artwork — tried first when a key is present</td>
-      <td>Needs billing; free keys get zero image quota</td>
-      <td><span class="pill ready">billing needed</span></td></tr>
+<thead>
+<tr>
+<th>#</th>
+<th>Agent</th>
+<th>What it does</th>
+<th>Tools it calls</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Market Research</strong></td>
+<td>Finds low-competition, high-demand niches and a competitor price band</td>
+<td>Live web search, RAG</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Product Vision</strong></td>
+<td>Identifies a product from the owner's <strong>photo</strong>, estimates demand and price fit, gives GO / NO-GO</td>
+<td>Gemini vision, web search</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Pricing &amp; Cost</strong></td>
+<td>Cost-plus price, margin, break-even, competitor comparison</td>
+<td><strong>Sandboxed Python</strong>, RAG</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Inventory</strong></td>
+<td>Records stock (product, quantity, cost, photo), flags low stock</td>
+<td>SQLite</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Ad Creation</strong> (gated)</td>
+<td>Writes platform-specific ad copy, then publishes</td>
+<td>Meta Graph API, YouTube</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Customer Engagement</strong></td>
+<td>Reads DMs and comments, sentiment, pre-orders, unmet demand</td>
+<td>Telegram (live), Meta</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Delivery</strong> (gated)</td>
+<td>Books courier pickup and delivery</td>
+<td>Pathao, Steadfast</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Reporting</strong></td>
+<td>Restock alerts, demand shifts, profit analysis, revised plan</td>
+<td>RAG over everything, Python</td>
+</tr>
+</tbody>
 </table>
-
-<h3>Selling channels</h3>
+<p>"Gated" means the agent stops for owner approval before it acts.</p>
+<p>Every agent returns a <strong>validated Pydantic object</strong>, not prose. That is what lets one
+agent consume another's result programmatically.</p>
+<hr />
+<h2 id="7-how-the-agents-collaborate">7. How the agents collaborate</h2>
+<p>Two channels, and the distinction matters.</p>
+<h3 id="channel-1-the-structured-message-bus">Channel 1 — the structured message bus</h3>
+<p>Each hand-off writes a row to <code>agent_messages</code>:</p>
+<pre><code>supervisor -&gt; pricing     &quot;Set a price for the frozen paratha pack&quot;
+pricing    -&gt; supervisor  summary + full PricingResult payload
+</code></pre>
+<p>Because payloads are typed, fields flow directly: <code>market_research.competitor_price_low</code>
+and <code>competitor_price_high</code> become the Pricing agent's inputs; <code>pricing.recommended_price</code>
+becomes the price in the ad copy. <strong>No agent re-parses another's prose.</strong></p>
+<h3 id="channel-2-shared-memory">Channel 2 — shared memory</h3>
+<p>Messages are transient. Memory is not. Two stores behind one facade (<code>SharedMemory</code>):</p>
+<ul>
+<li><strong>Structured (SQLite)</strong> — the system of record: profile, products, inventory, stock
+  movements, pricing history, conversations, pre-orders, campaigns, deliveries, reports,
+  approvals. 24 tables.</li>
+<li><strong>Semantic (vector store)</strong> — every agent's conclusions written as prose, tagged
+  <code>{agent, kind, session_id}</code>, retrieved by meaning.</li>
+</ul>
+<p>This is what lets the <strong>Reporting agent, running last, ask "what price did we decide and
+why"</strong> and get the Pricing agent's reasoning from three stages earlier — across process
+restarts and separate sessions. The Memory screen has a retrieval box that runs exactly
+this query, so the mechanism is inspectable rather than claimed.</p>
+<h3 id="how-the-embeddings-work">How the embeddings work</h3>
+<p>Deterministic hashed bag-of-words into a 1024-dimension L2-normalised vector. Three
+feature families are hashed into the same space: whole words, word bigrams (phrase
+signal), and <strong>character 4-grams</strong>.</p>
+<p>The character n-grams are there for a specific reason. Our first version matched exact
+tokens only, so the query "what <strong>price</strong> did we <strong>decide</strong>" scored <strong>zero</strong> against a
+document saying "<strong>Pricing</strong> <strong>decision</strong>" — retrieval returned nothing at all. Padded
+character grams (<code>^pri</code>, <code>pric</code>) bridge the morphology. Hashing uses <strong>CRC32, not Python's
+<code>hash()</code></strong>, because Python randomises string hashing per process, which would make stored
+vectors irreproducible after a restart.</p>
+<p>No model download, no embedding API spend, works offline.</p>
+<hr />
+<h2 id="8-human-in-the-loop">8. Human-in-the-loop</h2>
+<p>Implemented with LangGraph's <code>interrupt()</code> plus a <strong>SQLite checkpointer</strong> — not a
+confirmation dialog in the UI. When the Ad agent reaches the publish step, LangGraph
+persists the entire graph state and unwinds. <strong>The server can restart and the paused run
+is still recoverable.</strong></p>
 <table>
-  <tr><th>Service</th><th>Used for</th><th>Gate</th><th>State</th></tr>
-  <tr><td><b>Meta Graph API</b><br>Messenger, Facebook, Instagram</td>
-      <td>Reading customer DMs and comments, sending replies, publishing
-      posts and ads</td>
-      <td>App Review for messaging permissions</td>
-      <td><span class="pill wait">pending</span></td></tr>
-  <tr><td><b>YouTube Data API v3</b></td>
-      <td>Publishing videos the owner supplies</td>
-      <td>OAuth refresh token — an API key cannot upload</td>
-      <td><span class="pill wait">pending</span></td></tr>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Approve</strong></td>
+<td>The agent proceeds — publishes, or books the courier</td>
+</tr>
+<tr>
+<td><strong>Reject</strong></td>
+<td>Action skipped; the draft is still saved for the owner</td>
+</tr>
+<tr>
+<td><strong>Request changes</strong></td>
+<td>Feedback is fed back into the prompt and the agent <strong>rewrites</strong>, then asks again (up to 2 revisions)</td>
+</tr>
+</tbody>
 </table>
-
-<h3>Couriers</h3>
+<p><em>Request changes</em> is the one worth demonstrating: it is a genuine correction loop, not a
+yes/no gate. Verified end to end — suspend, request changes, rewrite, re-ask, approve,
+publish, continue to completion, in 72 seconds.</p>
+<p><strong>A subtlety we had to handle.</strong> Resuming replays the node from its start, so any side
+effect before the interrupt happens again. Recording an approval decision was therefore
+duplicated on every later resume. Fixed with a unique index making that write idempotent.</p>
+<hr />
+<h2 id="9-tools-and-the-livesimulated-boundary">9. Tools, and the live/simulated boundary</h2>
 <table>
-  <tr><th>Service</th><th>Used for</th><th>Notes</th><th>State</th></tr>
-  <tr><td><b>Pathao</b><br><code>api-hermes.pathao.com</code></td>
-      <td>Issuing a token, listing stores, resolving city and zone, pricing a
-      parcel from Pathao's own rate card, creating the consignment</td>
-      <td>Token needs the client pair <i>and</i> the merchant login together</td>
-      <td><span class="pill live">live</span></td></tr>
-  <tr><td><b>Steadfast</b><br><code>portal.packzy.com</code></td>
-      <td>Creating a consignment, checking balance, tracking</td>
-      <td>API key and secret from the merchant portal</td>
-      <td><span class="pill ready">key needed</span></td></tr>
+<thead>
+<tr>
+<th>Tool</th>
+<th>How it works</th>
+<th>If not configured</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Web search</td>
+<td>Tavily</td>
+<td>DuckDuckGo (free), then labelled simulated</td>
+</tr>
+<tr>
+<td>Vision</td>
+<td>Gemini, base64, auto-downscale over 5 MB</td>
+<td>Agent says it could not see the photo</td>
+</tr>
+<tr>
+<td>Code execution</td>
+<td>Restricted <code>exec</code>: whitelisted builtins, regex deny-list, 10s timeout, no imports, no IO, no network</td>
+<td>required</td>
+</tr>
+<tr>
+<td>RAG</td>
+<td>In-process vector store</td>
+<td>required</td>
+</tr>
+<tr>
+<td>Telegram</td>
+<td><code>getUpdates</code> long-poll and <code>sendMessage</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Meta (FB/IG)</td>
+<td>Graph API</td>
+<td>labelled simulated publish</td>
+</tr>
+<tr>
+<td>Courier</td>
+<td>Pathao live, Steadfast</td>
+<td>labelled simulated consignment</td>
+</tr>
+</tbody>
 </table>
-
-<h3>Infrastructure</h3>
+<p><strong>Why the Pricing agent runs real Python.</strong> Margins and break-even are computed in a
+sandbox and then <em>recomputed</em> at whatever price the model chose. The model explains the
+decision; Python owns the arithmetic. The numbers in a business plan cannot be a
+hallucination.</p>
+<p><strong>When a model dies mid-project.</strong> Free tiers are rationed and providers retire models
+without warning — both happened to us. A call moves down a fallback chain when the model is
+<strong>capped</strong> (429), <strong>retired</strong> (404), or <strong>returns the right JSON but not as a tool call</strong>, an
+intermittent failure that used to kill a whole run. Only when the chain is exhausted does the
+owner see a message, and it says when to come back rather than printing a provider traceback.</p>
+<p><strong>On simulated adapters.</strong> They return the <em>same shape</em> as the live ones, so agent logic
+never branches on which mode is active — only a <code>simulated</code> flag differs, and it is
+surfaced in the trace, the database and the final report. Adding an API key switches to
+live with <strong>no code change</strong>.</p>
+<p><strong>Nothing simulated is ever written into a shop's customer records.</strong> An unconnected
+channel returns <em>no</em> messages rather than plausible ones. This was a deliberate change: we
+originally seeded a sample inbox, and it poisoned the real record — inventing sentiment,
+phantom pre-orders, and an "urgent" complaint about a late delivery that never existed,
+which the Reporting agent then repeated to the owner as fact.</p>
+<hr />
+<h2 id="10-observability-and-cost">10. Observability and cost</h2>
+<p>Every agent action, tool call, hand-off, LLM call, approval and failure emits a
+<code>TraceEvent</code> — in-memory for live polling, SQLite for durability. <strong>The UI reads the same
+store the system writes</strong>, so there is no second telemetry path that could drift.</p>
+<p><strong>Error containment.</strong> Every agent runs inside a boundary: a failure becomes <code>ok=False</code>
+plus an error string in state, which the Supervisor sees on its next routing decision and
+can route around. One agent failing never crashes a run.</p>
+<p><strong>Token and cost accounting.</strong> Structured calls use <code>include_raw=True</code> so the underlying
+message survives parsing and its usage metadata can be read. Cached tokens are subtracted
+from the input count and re-billed at their own multipliers rather than double-charged.
+Cost is broken down per agent.</p>
+<hr />
+<h2 id="11-multi-tenancy-accounts-and-sessions">11. Multi-tenancy, accounts and sessions</h2>
+<p>Each shop's data is <strong>its own SQLite file</strong> under <code>data/shops/&lt;id&gt;/shop.db</code> — isolated by
+file, not by an owner column, so a forgotten <code>WHERE</code> clause cannot leak one business into
+another. Verified: a new account re-synced its own Telegram messages rather than seeing
+the previous shop's.</p>
+<p>Sign-in takes <strong>a name and a password</strong>. No email verification: nothing is ever posted to
+an address, so requiring one — and then proving ownership of it — was a chore that bought
+no safety. Passwords are bcrypt, minimum eight characters. The session is a <strong>signed
+14-day cookie</strong>, marked <code>Secure</code> when <code>AIW_HTTPS=1</code>.</p>
+<hr />
+<h2 id="12-problems-we-hit-and-how-we-fixed-them">12. Problems we hit, and how we fixed them</h2>
+<p>This section is the honest engineering record. Each was found by testing against real
+APIs, not by reading code.</p>
+<p><strong>1. The approval gates were silently dead.</strong>
+<code>interrupt()</code> suspends the graph by <em>raising</em> <code>GraphInterrupt</code>. Our agent error-boundary
+caught it as a failure, so every human-in-the-loop checkpoint was quietly disabled — the
+ad agent reported "failed unexpectedly" instead of pausing. Fixed by re-raising LangGraph
+control-flow exceptions before the generic handler. A catch-all that swallows control flow
+is a trap worth knowing about.</p>
+<p><strong>2. The Supervisor looped until the step limit.</strong> See section 4. 334s became 25s.</p>
+<p><strong>3. RAG retrieved nothing.</strong> See section 6. Exact-token matching could not connect
+"price" to "Pricing".</p>
+<p><strong>4. Rate limits, and where the tokens actually go.</strong>
+On a free tier the cap is per-minute <em>per model</em>, and the requested <code>max_tokens</code> counts
+against it <strong>before a single prompt token</strong>. An 8,000-token output budget alone exceeded an
+8,000 tokens/minute cap, so the first run died on the Supervisor's opening call. Fixed by
+sizing each call to its schema — a routing decision needs about 200 tokens, not 2,500 —
+and putting routing on a different model so it draws from a separate bucket.</p>
+<p><strong>5. Fabricated customers corrupting the record.</strong> See section 8.</p>
+<p><strong>6. A secret nearly went into a public repository.</strong>
+A <code>.env.backup</code> made while rotating keys was not covered by <code>.gitignore</code>, and <code>git add -A</code>
+would have committed a live API key. <code>.gitignore</code> now covers <code>.env.*</code> and <code>*.backup</code>, and
+the staged diff is scanned for credential patterns before every commit.</p>
+<p><strong>7. Four interfaces, and the first click landed on a dead one.</strong>
+The app carried a Streamlit workspace, these server-rendered pages, and two React design
+mockups — and the mockups were <em>drawings</em>. 33 <code>onClick="{{ }}"</code> placeholders, no React
+wiring anywhere in the file: real figures rendered behind buttons that did nothing. One of
+them was <code>/board</code>, the first entry in the rail and the screen labelled Dashboard, so the
+most likely first click in the whole app went nowhere. The four disagreed about what the
+sections were even called (Today/Customers/Stock/Marketing/Money/Grow versus
+Dashboard/Chat/Ad studio/Workforce/Products/Delivery/Connect).</p>
+<p>Consolidated to one interface and six rail entries. Two capabilities existed <em>only</em> inside
+the mockup and had to be rebuilt rather than dropped: the <strong>approval gate</strong>, whose
+<code>api_decide</code> endpoint was reachable from nothing else — deleting the mockup would have made
+every gate unanswerable — and the operator's <strong>runs, memory and cost</strong> panels, now part of
+Workforce. <code>/account</code> had been a page with no rail at all, which made opening it feel like
+leaving the app; it is a section of Settings. Old addresses redirect.</p>
+<p><strong>8. The customer-facing bot could not take an order it could fill.</strong>
+Three faults, each found by driving the real Telegram path rather than the bot function.
+<code>/review</code> was filed <em>as</em> the review — storing a rating of 0 and a comment of <code>/review</code> —
+so the rating sent next arrived with nothing waiting for it and was answered with a price.
+"i want 5" was read as one, because only a leading number, "3 pcs", "x2" and "for 2" were
+recognised and nothing marked a mid-sentence digit as a count. And nothing checked stock
+before confirming: fifty were accepted against twenty on the shelf, which the customer
+discovered on delivery day.</p>
+<p>Underneath all three sat a fourth. The poll runs every ten seconds and <code>auto_answer</code> kept
+only the <strong>newest</strong> message per person, discarding the rest <em>unread</em> — sensible for
+someone typing "hi", "hello", "you there?", fatal for a conversation that carries state.
+<code>/review</code> and the rating inside one poll meant the command was thrown away. Every message
+is now read in order so the state advances, while still sending one reply per person.</p>
+<p><strong>9. Chat stopped answering, and it was not the chat code.</strong>
+The page, its JavaScript, <code>/api/ask</code> and thread persistence all tested clean. The provider
+is pinned by <code>AIW_PROVIDER</code>, and failover only ever existed for Groq: on Google or
+Anthropic <code>get_llm</code> returned a bare client, so an outage had nowhere to go even with a
+working key for another provider in the same <code>.env</code>. Worse, a 503 was not a reason to try
+anything else — <code>should_try_next</code> matched rate limits and retired models, but Google's
+other failure mode, <em>"experiencing high demand"</em>, is neither, so the SDK retried it
+internally for minutes and then raised. A four-minute wait ending in a traceback.</p>
+<p>Underneath: every agent asks for <strong>structured output</strong>, and Groq rejects its own reply when
+the model writes the JSON as text instead of a tool call. The code already knew this was
+intermittent, but the chain held one Groq model and never retried, so a single flake ended
+the run. The chain now leaves the provider it started on, a busy model costs one hop, a
+rejected tool call costs one retry, and plain and structured calls share one path —
+previously only plain calls were protected, which left the whole workforce unprotected.
+The same question went from 254s and a failure to 47s and an answer.</p>
+<p><strong>On finding these.</strong> Six of the nine were invisible from the code and only appeared when
+the real path was driven end to end — which is why the test suite now drives the real
+server and the real inbox rather than calling functions directly, and why each fix was
+mutation-checked by reverting it and confirming the matching test fails. Two tests were
+rewritten when that check found them passing for the wrong reason.</p>
+<hr />
+<h2 id="13-what-is-live-and-what-is-waiting">13. What is live, and what is waiting</h2>
+<p><strong>Live, verified against real APIs:</strong></p>
+<ul>
+<li>Chat with saved conversations; <strong>photo understanding</strong> (Gemini)</li>
+<li>Web research; ad generation and editing; product catalogue</li>
+<li><strong>Telegram as a real customer channel</strong> — a real person messages the bot, the Engagement
+  agent reads and classifies it, and the owner replies from the browser</li>
+<li>Delivery quoting and booking through Pathao's live merchant API</li>
+<li>The workforce graph, approval gates, trace, cost accounting, admin view</li>
+</ul>
+<p><strong>Built and tested, waiting on credentials rather than code:</strong></p>
+<ul>
+<li><strong>Messenger / Facebook / Instagram</strong> — need a Meta app <em>plus App Review and Business
+  Verification</em>. In Development mode a Page can only exchange messages with accounts that
+  hold a role on the app, which is why Telegram was added: it has no review process, so a
+  member of the public can message the shop today.</li>
+<li><strong>YouTube</strong> — an API key only reads; uploading needs an OAuth client</li>
+<li><strong>Steadfast</strong> — needs a merchant key pair</li>
+</ul>
+<p><strong>Known weak:</strong> ad artwork, while it runs on the free keyless image model.</p>
+<hr />
+<h2 id="14-limitations-we-would-name-before-being-asked">14. Limitations we would name before being asked</h2>
+<ul>
+<li><strong>One instance only.</strong> The run lock and approval gates live in process memory, and each
+  shop is a file on disk. It scales up, not out. Two copies would hand one owner two
+  sessions and let two runs overwrite each other. This is why serverless hosts are the
+  wrong shape and the deployment target is Fly.io with a mounted volume.</li>
+<li><strong>No password reset.</strong> Without email, a forgotten password means a lost shop.</li>
+<li><strong>Output quality tracks the model.</strong> On a free tier the reasoning is visibly weaker than
+  on a frontier model; the architecture is unchanged, the judgement is not.</li>
+<li><strong>A long run takes one to two minutes</strong>, mostly rate-limit backoff and two vision passes.</li>
+<li><strong>Meta remains simulated</strong>, and is labelled as such everywhere it appears.</li>
+</ul>
+<hr />
+<h2 id="15-questions-we-expect-with-answers">15. Questions we expect, with answers</h2>
+<p><strong>Why a supervisor rather than agents calling each other?</strong>
+One place decides, so routing is inspectable and bounded. Peer-to-peer calls make the
+control flow implicit and unbounded. The Supervisor also gives one place to enforce the
+invariants in section 4.</p>
+<p><strong>How is this different from one prompt with tools?</strong>
+Separation of concerns and durability. Each agent has its own prompt, schema and tool set,
+so failures are contained and outputs are typed. A single prompt has none of the memory,
+none of the suspend and resume, and no per-agent cost accounting.</p>
+<p><strong>Where is the planning and reasoning?</strong>
+The Supervisor drafts an explicit plan before any work, then re-decides after every agent
+using what has been learned — including routing backwards when customer signal contradicts
+the original plan.</p>
+<p><strong>What actually happens when I click Approve?</strong>
+LangGraph resumes from the checkpoint with <code>Command(resume=...)</code>. The node re-enters,
+<code>interrupt()</code> returns your decision instead of raising, and the agent proceeds. The
+decision is written to <code>approvals</code> and appears in the trace.</p>
+<p><strong>Show me agents sharing memory.</strong>
+Memory screen, retrieval box, type "what price did we decide and why". It returns the
+Pricing agent's own reasoning, retrieved by meaning, written in an earlier stage.</p>
+<p><strong>How do you know the numbers are right?</strong>
+They are computed in a Python sandbox and recomputed at the chosen price, then written to
+<code>pricing_history</code>. Low-stock alerts and sentiment counts are likewise recomputed from the
+database after the model answers, so what is displayed cannot drift from the record.</p>
+<p><strong>What did you personally get wrong and fix?</strong>
+Section 11. The interrupt-swallowing bug is the best answer: it was invisible, it disabled
+the headline feature, and it was only found by running the flow end to end.</p>
+<hr />
+<h2 id="16-where-things-are-in-the-repository">16. Where things are in the repository</h2>
 <table>
-  <tr><th>Service</th><th>Used for</th></tr>
-  <tr><td><b>SMTP</b> (Gmail or any)</td>
-      <td>Sending six-digit verification codes. Without it the code prints on
-      screen — fine for one owner, not for strangers signing up</td></tr>
-  <tr><td><b>Google OAuth</b></td>
-      <td>Sign in with Google, and the consent flow that produces a YouTube
-      refresh token</td></tr>
-</table>
-
-<h2>4 · Memory, and why isolation is by file</h2>
-
-<p>Each shop gets its own directory: one SQLite database of 22 tables, and
-one file of semantic memory. Every agent shares a single <code>memory</code>
-object; the web layer rebinds it to the signed-in owner's directory before
-any agent runs.</p>
-
-<table>
-  <tr><th>Path</th><th>Holds</th></tr>
-  <tr><td><code>data/accounts.db</code></td>
-      <td>Owners: email, bcrypt hash, business, verification state</td></tr>
-  <tr><td><code>data/shops/&lt;id&gt;/shop.db</code></td>
-      <td>One shop's entire business, alone</td></tr>
-  <tr><td><code>data/shops/&lt;id&gt;/knowledge.jsonl</code></td>
-      <td>What agents concluded, for later recall</td></tr>
-  <tr><td><code>data/lucida.db</code></td>
-      <td>The trace — every step every agent has taken</td></tr>
-  <tr><td><code>data/checkpoints.db</code></td>
-      <td>Graph state, so a run paused at a gate can resume</td></tr>
-</table>
-
-<div class="note">
-<b>Why files rather than an owner column.</b> Filtering by <code>owner_id</code>
-works until one query forgets to. Isolation by file means no query has to
-remember: a missed filter cannot leak one shop into another, because the
-other shop is not in the database being read. The trace is the exception —
-one file for the whole machine — so session ids carry a hash of the owner and
-every dashboard query matches on that prefix.
-</div>
-
-<h2>5 · Watching it work</h2>
-
-<p>The Workforce screen shows a run as it happens. One connection stays open
-(<code>/api/events</code>) and each step is pushed the moment it is recorded
-— a card lights when its agent starts, handoffs appear as numbered arrows in
-the order they occurred, and every step scrolls into a feed with its
-timestamp and cost.</p>
-
-<p>The same screen lets the owner hand a job to one named specialist. A
-directed request outranks the supervisor for exactly one hop, then the run
-continues normally — so it cannot loop back to the same agent forever.</p>
-
-<h2>6 · What is honest about it</h2>
-
-<table>
-  <tr><th>Area</th><th>State</th></tr>
-  <tr><td>Chat, history, photo reading, research, products, delivery
-      quoting and booking, the live graph, admin</td>
-      <td>Working, verified end to end against live APIs</td></tr>
-  <tr><td>Meta, YouTube, Steadfast, email</td>
-      <td>Built and tested; waiting on credentials, not code</td></tr>
-  <tr><td>Ad artwork</td>
-      <td>Weak while it runs on the free keyless model. Uploading your own
-      photograph is the reliable path</td></tr>
-  <tr><td>Autopilot permission switches</td>
-      <td>Present on the settings screen but not yet enforced anywhere</td></tr>
-</table>
-
-<p>Anything not connected runs against a <b>simulated</b> adapter that is
-labelled as such everywhere it appears, and nothing simulated is written to
-the shop's records as though a real customer sent it.</p>
-
-<footer>Lucida · technical reference · generated from the codebase</footer>
-
-</body>
-</html>
+<thead>
+<tr>
+<th>Path</th>
+<th>What is in it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>serve.py</code></td>
+<td>The web server: routes, sessions, the run lock</td>
+</tr>
+<tr>
+<td><code>src/lucida/graph.py</code></td>
+<td>Graph assembly and the runtime (start, resume, retry)</td>
+</tr>
+<tr>
+<td><code>src/lucida/supervisor.py</code></td>
+<td>Planner, router, routing guard, aggregator</td>
+</tr>
+<tr>
+<td><code>src/lucida/agents/</code></td>
+<td>The eight specialists, <code>base.py</code>, and the Pydantic schemas</td>
+</tr>
+<tr>
+<td><code>src/lucida/memory/</code></td>
+<td><code>db.py</code> (SQLite), <code>vector.py</code> (embeddings), <code>shared.py</code> (facade)</td>
+</tr>
+<tr>
+<td><code>src/lucida/tools/</code></td>
+<td>Web search, vision, code sandbox, channels, courier, inbox</td>
+</tr>
+<tr>
+<td><code>src/lucida/observability.py</code></td>
+<td>Logging, trace bus, error containment</td>
+</tr>
+<tr>
+<td><code>src/lucida/pricing.py</code></td>
+<td>Token accounting and cost estimation</td>
+</tr>
+<tr>
+<td><code>web/</code></td>
+<td><code>app_ui.py</code> (every signed-in screen), auth, admin, and the bridge that maps shop data onto them</td>
+</tr>
+<tr>
+<td><code>tests/test_workforce.py</code></td>
+<td>69 tests, no API key required</td>
+</tr>
+</tbody>
+</table></body></html>

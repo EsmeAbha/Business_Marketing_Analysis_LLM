@@ -65,8 +65,8 @@ along with it. The supervisor decides, and the route it took is recorded.
 
 Anything irreversible or costly — publishing an ad, spending money, booking a
 courier — stops and waits. The run suspends at a LangGraph interrupt, the
-owner sees it on the dashboard, and approving resumes the graph from exactly
-that point rather than starting over.
+owner answers the card on **Home**, and approving resumes the graph from
+exactly that point rather than starting over.
 
 ### Memory
 
@@ -191,10 +191,10 @@ python serve.py
 
 Then open **http://127.0.0.1:8000**.
 
-Tests:
+Tests — 69 of them, none needing an API key:
 
 ```bash
-python tests/test_workforce.py
+python -m pytest tests -q
 ```
 
 Deployment — persistent disk, one instance, long request timeouts — is in
