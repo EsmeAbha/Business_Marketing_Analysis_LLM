@@ -1786,6 +1786,31 @@ def _secret_key() -> str:
 
 SECRET_KEY = _secret_key()
 
+_TELEGRAM_POLL_TASK: asyncio.Task | None = None
+
+
+async def _start_telegram_poll_loop() -> None:
+    """Keep the Telegram bot alive by polling for new messages.
+
+    This project does not use Telegram webhooks, so there must be a background
+    task on startup. Without it, the bot never calls getUpdates on its own and
+    silently sits idle even with a valid token.
+    """
+    global _TELEGRAM_POLL_TASK
+    if _TELEGRAM_POLL_TASK is not None and not _TELEGRAM_POLL_TASK.done():
+        return
+
+    async def _loop() -> None:
+        while True:
+            try:
+                await asyncio.to_thread(inbox.sync, memory.db, limit=20)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("telegram poll failed: %s", exc)
+            await asyncio.sleep(10)
+
+    _TELEGRAM_POLL_TASK = asyncio.create_task(_loop())
+
+
 app = Starlette(
     debug=False,
     middleware=[
@@ -1859,6 +1884,7 @@ app = Starlette(
         # the design's own relative script paths resolve unchanged.
         Mount("/", StaticFiles(directory=str(DESIGN_DIR)), name="design"),
     ],
+    on_startup=[_start_telegram_poll_loop],
 )
 
 
