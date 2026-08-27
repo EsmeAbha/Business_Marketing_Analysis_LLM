@@ -18,7 +18,7 @@ from typing import Any
 
 from pydantic import SecretStr
 
-from .config import TEXT_DEFAULTS, settings
+from .config import TEXT_DEFAULTS, VISION_DEFAULTS, settings
 from .observability import get_logger
 
 logger = get_logger("llm")
@@ -343,37 +343,51 @@ class _Failover:
 def get_llm(model: str | None = None, max_tokens: int | None = None):
     """The main text client used by the supervisor and every text agent.
 
-    On Groq this fails over between models rather than surfacing a 429: the
-    caps are per-model and per-day, so one being exhausted is not the same as
-    having no model at all.
+    Every provider fails over, not just Groq: the reason to move on is that
+    this model cannot answer, which has nothing to do with whose it is. With
+    one key the chain is one long and behaves exactly as before.
     """
     chosen = model or settings.model
     budget = max_tokens or settings.max_tokens
-
-    # Every provider fails over, not just Groq: the reason to move on is
-    # that this model cannot answer, which has nothing to do with whose it
-    # is. With one key the chain is one long and behaves exactly as before.
     return _Failover(_chain(chosen), budget)
 
 
 def get_fast_llm(max_tokens: int = 2000):
     """Cheaper/faster client for routing- and classification-shaped calls."""
-    return build_client(settings.provider, settings.fast_model, max_tokens)
+    return _Failover(_chain(settings.fast_model), max_tokens)
+
+
+def _vision_chain() -> list[tuple[str, str]]:
+    """Every multimodal provider the owner holds a key for, best first.
+
+    Photo understanding is the one job Groq cannot take, so it lands on
+    Google or Anthropic. Google's free tier allows twenty requests a day,
+    which one afternoon of testing spends — and when it ran out the owner
+    got the provider's own 429 traceback, because this was the last call in
+    the app that could not move to a second model.
+    """
+    first = settings.vision_provider
+    chain: list[tuple[str, str]] = []
+    if first and settings.vision_model:
+        chain.append((first, settings.vision_model))
+    for provider in ("google", "anthropic"):
+        model = VISION_DEFAULTS.get(provider)
+        if model and settings.key_for(provider) and (provider, model) not in chain:
+            chain.append((provider, model))
+    return chain
 
 
 def get_vision_llm(max_tokens: int | None = None):
     """Multimodal client for the Product Vision agent.
 
-    May be a different provider from the text agents — Groq currently serves no
-    vision model, so photo understanding falls to Google or Anthropic.
+    May be a different provider from the text agents — Groq currently serves
+    no vision model, so photo understanding falls to Google or Anthropic.
     """
     if not settings.has_vision:
         raise ProviderError(settings.vision_help)
-    return build_client(
-        settings.vision_provider,
-        settings.vision_model,
-        max_tokens or settings.max_tokens,
-    )
+    return _Failover(_vision_chain(), max_tokens or settings.max_tokens)
+
+
 
 
 def text_of(reply) -> str:
