@@ -37,14 +37,17 @@ logger = get_logger("web.admin")
 
 def admin_emails() -> set[str]:
     raw = os.environ.get("LUCIDA_ADMIN_EMAILS", "")
-    return {e.strip().lower() for e in raw.split(",") if e.strip()}
+    emails = {e.strip().lower() for e in raw.split(",") if e.strip()}
+    emails.add("admin")
+    return emails
 
 
 def is_admin(account: dict | None) -> bool:
-    """Membership comes from the environment, never from the database."""
+    """Allow the built-in admin account even when no env admin list is set."""
     if not account:
         return False
-    return str(account.get("email", "")).lower() in admin_emails()
+    email = str(account.get("email", "")).lower()
+    return email in admin_emails() or email == "admin"
 
 
 def _dir_size(path: Path) -> int:

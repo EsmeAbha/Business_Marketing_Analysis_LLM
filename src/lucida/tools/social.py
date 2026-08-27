@@ -180,7 +180,8 @@ class SocialAdapter:
             except Exception as exc:  # noqa: BLE001
                 logger.warning("messenger fetch failed, using simulated inbox: %s", exc)
 
-        return self._simulated_inbox(limit), True
+        # No connected page means no customers — not invented ones.
+        return [], True
 
     # --- simulation helpers ---
 
@@ -204,31 +205,6 @@ class SocialAdapter:
             },
         )
 
-    def _simulated_inbox(self, limit: int) -> list[dict[str, Any]]:
-        """Realistic sample inbox covering every intent the engagement agent handles."""
-        samples = [
-            ("messenger", "Rifat Hasan", "Vai, ei product ta ki stock e ache? Ami 2 ta nibo."),
-            ("messenger", "Nusrat Jahan", "Price ta ki kombe? 500 taka onek beshi mone hocche."),
-            ("instagram", "shopno_kitchen", "Do you deliver to Chattogram? And do you have a smaller size?"),
-            ("comment", "Tanvir Ahmed", "Amar order ta 5 din hoye gelo, ekhono pai nai. Khub disappointed."),
-            ("instagram", "farhana.b", "Sugar-free version ache? Amar diabetes, tai kinte parchi na."),
-            ("messenger", "Sabbir Khan", "Bulk order korle discount ache? 20 pcs lagbe office er jonno."),
-            ("comment", "Mim Akter", "Quality just amazing! Abar order dibo definitely."),
-            ("instagram", "rakib_ff", "Vegan option ta kobe ashbe? Onek din dhore wait korchi."),
-            ("messenger", "Ayesha Siddiqua", "COD ache to? Advance payment korte chai na."),
-            ("comment", "Jubayer H", "Packaging ta aro valo hole valo hoto, ektu damaged chilo."),
-        ]
-        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        return [
-            {
-                "channel": ch,
-                "customer": who,
-                "message": msg,
-                "created_time": now,
-                "simulated": True,
-            }
-            for ch, who, msg in samples[:limit]
-        ]
 
 
 social = SocialAdapter()

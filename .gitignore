@@ -38,3 +38,13 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# Never commit a copy of the environment, whatever it is called. `.env` alone
+# was not enough: a `.env.backup` made while rotating keys is just as live.
+.env.*
+!.env.example
+*.backup
+*.bak
+
+# Superseded database from the pre-Lucida package name
+data/aiworkforce.db

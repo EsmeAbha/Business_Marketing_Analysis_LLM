@@ -132,7 +132,7 @@ VISION_DEFAULTS: dict[str, str] = {
 @dataclass(frozen=True)
 class Settings:
     # --- Provider selection ---
-    provider: str = field(default_factory=lambda: _env("AIW_PROVIDER", "groq").lower())
+    provider: str = field(default_factory=lambda: _env("AIW_PROVIDER", "google").lower())
 
     # --- API keys ---
     groq_api_key: str = field(default_factory=lambda: _env("GROQ_API_KEY"))
@@ -173,6 +173,11 @@ class Settings:
     meta_page_id: str = field(default_factory=lambda: _env("META_PAGE_ID"))
     meta_ig_user_id: str = field(default_factory=lambda: _env("META_IG_USER_ID"))
     youtube_api_key: str = field(default_factory=lambda: _env("YOUTUBE_API_KEY"))
+
+    # --- Telegram: the only customer channel with no review process ---
+    telegram_bot_token: str = field(
+        default_factory=lambda: _env("TELEGRAM_BOT_TOKEN")
+    )
     # Uploading a video happens as a channel owner, not as an app, so an API
     # key cannot do it — these three are what an upload actually needs.
     youtube_client_id: str = field(
@@ -309,8 +314,12 @@ class Settings:
         return bool(self.youtube_api_key)
 
     @property
+    def has_telegram(self) -> bool:
+        return bool(self.telegram_bot_token)
+
+    @property
     def has_courier(self) -> bool:
-        return bool(self.steadfast_api_key or self.pathao_client_id)
+        return bool(self.pathao_client_id)
 
     def integration_status(self) -> dict[str, str]:
         vision = (
@@ -326,9 +335,8 @@ class Settings:
             "Web search": (
                 "LIVE (Tavily)" if self.has_tavily else "LIVE (DuckDuckGo fallback)"
             ),
-            "Meta Graph API (FB/IG)": "LIVE" if self.has_meta else "SIMULATED",
-            "YouTube Data API": "LIVE" if self.has_youtube else "SIMULATED",
-            "Courier (Pathao/Steadfast)": "LIVE" if self.has_courier else "SIMULATED",
+            "Meta Graph API (FB)": "LIVE" if self.has_meta else "SIMULATED",
+            "Courier (Pathao)": "LIVE" if self.has_courier else "SIMULATED",
             "Code execution": "LIVE (restricted local sandbox)",
             "Vector memory (RAG)": "LIVE",
         }

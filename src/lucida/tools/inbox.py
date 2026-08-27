@@ -81,6 +81,9 @@ def sync(db, limit: int = 25, include_comments: bool = True) -> SyncResult:
     readers = [
         ("messenger", channels.read_messenger),
         ("instagram", channels.read_instagram),
+        # Telegram last so a Meta outage cannot stop the one channel that is
+        # actually reachable by a real customer today.
+        ("telegram", channels.read_telegram),
     ]
 
     for name, read in readers:

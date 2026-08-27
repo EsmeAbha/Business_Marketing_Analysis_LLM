@@ -13,7 +13,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_ROOT / "src"))
+sys.path.insert(0, str(_ROOT))  # `web` lives at the project root
 
 from lucida.memory.vector import VectorStore, embed  # noqa: E402
 from lucida.pricing import CallUsage, UsageLedger, estimate_cost  # noqa: E402
@@ -146,12 +148,23 @@ def test_simulated_publish_is_labelled():
     assert "SIMULATED" in result.describe()
 
 
-def test_simulated_inbox_covers_every_intent():
-    messages, simulated = social.fetch_messages(limit=10)
-    assert simulated and len(messages) == 10
-    assert all({"channel", "customer", "message"} <= set(m) for m in messages)
-    assert {m["channel"] for m in messages} == {"messenger", "instagram", "comment"}
+def test_unconnected_channel_invents_no_customers():
+    """An unconnected channel must report nothing, not sample people.
 
+    `social_messages` is the shop's real record. Fabricated customers there
+    skew the sentiment breakdown, create phantom pre-orders, and end up quoted
+    as fact in the owner's report — so "no connection" has to mean "no
+    messages", never "here are some plausible ones".
+    """
+    messages, simulated = social.fetch_messages(limit=10)
+    assert messages == []
+    assert simulated is True
+
+    from lucida.tools import channels
+
+    for reader in (channels.read_messenger, channels.read_instagram):
+        box = reader(10)
+        assert box.messages == [], "an unconnected channel fabricated messages"
 
 def test_simulated_courier_returns_full_consignment():
     booking = courier.book(
@@ -165,6 +178,20 @@ def test_simulated_courier_returns_full_consignment():
 def test_unknown_courier_is_rejected():
     booking = courier.book("fedex", "A", "1", "somewhere", "thing", 0)
     assert not booking.ok and "unknown provider" in booking.error
+
+
+def test_default_admin_account_allows_direct_login():
+    from web import auth
+
+    admin = auth.authenticate("admin", "admin1234")
+    assert admin["email"] == "admin"
+    assert auth.is_verified(admin)
+
+
+def test_default_free_provider_prefers_google():
+    from lucida.config import settings
+
+    assert settings.provider == "google"
 
 
 # --- Cost accounting -------------------------------------------------------
