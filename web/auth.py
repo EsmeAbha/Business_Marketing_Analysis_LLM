@@ -175,10 +175,24 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
+#: A sign-in name: letters, digits, dot, underscore or hyphen. Stored in the
+#: same column as an email address, because it plays the same role — the thing
+#: you type to say who you are.
+_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{2,49}$")
+
+
 def _validate(email: str, password: str) -> tuple[str, str]:
+    """Accept either a name or an email address.
+
+    Nothing is sent to an address any more, so requiring one bought nothing
+    and turned signing up into a chore.
+    """
     email = (email or "").strip().lower()
-    if not _EMAIL_RE.match(email):
-        raise AuthError("That doesn't look like an email address.")
+    if not (_EMAIL_RE.match(email) or _NAME_RE.match(email)):
+        raise AuthError(
+            "Pick a name of at least 3 characters (letters, digits, . _ -), "
+            "or use an email address."
+        )
     if len(password or "") < 8:
         raise AuthError("Use at least 8 characters for your password.")
     return email, password
@@ -213,12 +227,13 @@ def create_account(
     account_id = uuid.uuid4().hex[:16]
     with _lock, _connect() as conn:
         if conn.execute("SELECT 1 FROM accounts WHERE email=?", (email,)).fetchone():
-            raise AuthError("An account with that email already exists. Sign in instead.")
+            raise AuthError("That name is already taken. Sign in instead.")
         conn.execute(
             """INSERT INTO accounts
                (id, email, password_hash, owner_name, business_name,
-                business_stage, location, what_you_sell, created_at, last_login_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                business_stage, location, what_you_sell, created_at, last_login_at,
+                email_verified)
+               VALUES (?,?,?,?,?,?,?,?,?,?,1)""",
             (account_id, email, hash_password(password), owner_name.strip(),
              business_name.strip(), business_stage, location.strip(),
              what_you_sell.strip(), _now(), _now()),

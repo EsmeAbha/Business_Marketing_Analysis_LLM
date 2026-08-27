@@ -188,6 +188,41 @@ def test_default_admin_account_allows_direct_login():
     assert auth.is_verified(admin)
 
 
+def test_name_is_a_valid_login():
+    """Signing in takes a name, not necessarily an email address.
+
+    Nothing is posted to an address any more, so demanding one was a chore
+    that bought no safety.
+    """
+    from web import auth
+
+    for good in ("abha", "abha.shop", "abha_2026", "someone@example.com"):
+        assert auth._validate(good, "longenough1") == (good, "longenough1")
+
+    for bad in ("ab", "has space", "no!punct", ""):
+        try:
+            auth._validate(bad, "longenough1")
+        except auth.AuthError:
+            pass
+        else:
+            raise AssertionError(f"{bad!r} should not be a valid login")
+
+    # Password rules are unchanged.
+    try:
+        auth._validate("abha", "short")
+    except auth.AuthError:
+        pass
+    else:
+        raise AssertionError("a short password should still be refused")
+
+
+def test_new_accounts_need_no_email_verification():
+    from web import auth
+
+    assert auth.is_verified({"email_verified": 1})
+    assert not auth.is_verified({"email_verified": 0})
+
+
 def test_default_free_provider_prefers_google():
     from lucida.config import settings
 
