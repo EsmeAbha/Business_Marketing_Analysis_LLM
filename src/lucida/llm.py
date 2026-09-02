@@ -67,6 +67,31 @@ def _build_groq(model: str, max_tokens: int, api_key: str):
     )
 
 
+# GPT-5 and its siblings take a fixed sampling temperature and reject any
+# other value, the way recent Claude models do. Older 4-series models still
+# accept one.
+_OPENAI_NO_SAMPLING = ("gpt-5", "o1", "o3", "o4")
+
+
+def _build_openai(model: str, max_tokens: int, api_key: str):
+    from langchain_openai import ChatOpenAI
+
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "api_key": _secret(api_key),
+        "timeout": settings.llm_timeout_seconds,
+        "max_retries": settings.max_retries,
+    }
+    # The reasoning models count their thinking against the output budget and
+    # name the parameter differently; passing the wrong one is a 400.
+    if model.startswith(_OPENAI_NO_SAMPLING):
+        kwargs["max_completion_tokens"] = max_tokens
+    else:
+        kwargs["max_tokens"] = max_tokens
+        kwargs["temperature"] = settings.temperature
+    return ChatOpenAI(**kwargs)
+
+
 def _build_anthropic(model: str, max_tokens: int, api_key: str):
     from langchain_anthropic import ChatAnthropic
 
@@ -107,12 +132,14 @@ def _build_google(model: str, max_tokens: int, api_key: str):
 
 
 _BUILDERS = {
+    "openai": _build_openai,
     "groq": _build_groq,
     "anthropic": _build_anthropic,
     "google": _build_google,
 }
 
 _INSTALL_HINT = {
+    "openai": "pip install langchain-openai",
     "groq": "pip install langchain-groq",
     "anthropic": "pip install langchain-anthropic",
     "google": "pip install langchain-google-genai",
@@ -270,7 +297,7 @@ def _chain(chosen: str) -> list[tuple[str, str]]:
     """
     chain = [(settings.provider, m)
              for m in _models_for(settings.provider, chosen)]
-    for provider in ("groq", "anthropic", "google"):
+    for provider in ("openai", "groq", "anthropic", "google"):
         if provider == settings.provider or not settings.key_for(provider):
             continue
         for model in _models_for(provider):

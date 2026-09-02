@@ -73,25 +73,53 @@ button, input, textarea, select {{ font-family:inherit; }}
 .app {{ display:grid; grid-template-columns:248px minmax(0,1fr);
   min-height:100vh; }}
 .rail {{ background:{RAIL}; border-right:1px solid {BORDER};
-  padding:18px 14px; display:flex; flex-direction:column; gap:4px;
+  padding:14px 10px 12px; display:flex; flex-direction:column; gap:1px;
   position:sticky; top:0; height:100vh; overflow:hidden; }}
-.brand {{ display:flex; align-items:center; gap:10px; padding:4px 8px 18px; }}
-.logo {{ width:34px; height:34px; border-radius:10px; background:{ACCENT};
+
+/* The shop's identity, set apart from the navigation by a rule rather than
+   by empty space — the gap alone read as an unfinished list. */
+.brand {{ display:flex; align-items:center; gap:10px; padding:6px 8px 14px;
+  margin-bottom:10px; border-bottom:1px solid {BORDER}; }}
+.logo {{ width:32px; height:32px; border-radius:9px; background:{ACCENT};
   color:#fff; display:grid; place-items:center; font-weight:700;
-  font-size:15px; letter-spacing:-.02em; }}
-.brand b {{ font-size:15px; font-weight:600; letter-spacing:-.01em; }}
-.brand span {{ display:block; font-size:12px; color:{MUTED}; font-weight:400; }}
-.nav {{ display:flex; align-items:center; gap:10px; padding:9px 11px;
-  border-radius:9px; font-size:14px; font-weight:500; color:{BODY};
-  letter-spacing:-.006em; }}
+  font-size:14px; letter-spacing:-.02em; flex:none;
+  box-shadow:0 1px 3px rgba(123,30,34,.28); }}
+.brand div {{ min-width:0; }}
+.brand b {{ display:block; font-size:13.5px; font-weight:650;
+  letter-spacing:-.012em; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }}
+.brand span {{ display:block; font-size:11.5px; color:{MUTED};
+  font-weight:400; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }}
+
+/* One row: icon, then a two-line label. The grid keeps every icon on the
+   same axis whether the description wraps to two lines or not. */
+.nav {{ display:grid; grid-template-columns:20px minmax(0,1fr);
+  align-items:center; gap:11px; padding:8px 10px; border-radius:9px;
+  color:{BODY}; position:relative;
+  transition:background .13s ease, color .13s ease; }}
+.navico {{ width:20px; height:20px; opacity:.62; flex:none;
+  transition:opacity .13s ease; }}
+.navtext {{ min-width:0; }}
+.navtext b {{ display:block; font-size:13.5px; font-weight:550;
+  letter-spacing:-.008em; line-height:1.35; }}
+.navtext small {{ display:block; font-size:11px; color:{MUTED};
+  font-weight:400; line-height:1.35; margin-top:1px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+
 .nav:hover {{ background:{SUNKEN}; color:{INK}; }}
-.nav.on {{ background:{ACCENT_TINT}; color:{ACCENT}; font-weight:600; }}
-.nav small {{ display:block; font-size:11.5px; color:{MUTED};
-  font-weight:400; }}
-.nav.on small {{ color:{ACCENT}; opacity:.8; }}
-.railfoot {{ margin-top:auto; border-top:1px solid {BORDER}; padding-top:12px; }}
-.who {{ display:flex; align-items:center; gap:9px; padding:8px;
-  border-radius:9px; cursor:pointer; }}
+.nav:hover .navico {{ opacity:.9; }}
+
+.nav.on {{ background:{ACCENT_TINT}; color:{ACCENT}; }}
+.nav.on .navtext b {{ font-weight:650; }}
+.nav.on .navico {{ opacity:1; }}
+.nav.on .navtext small {{ color:{ACCENT}; opacity:.72; }}
+/* No leading bar: flush against the window edge it read as an artifact, and
+   the tinted pill with a maroon icon and label is already unambiguous. */
+.railfoot {{ margin-top:auto; border-top:1px solid {BORDER};
+  padding-top:10px; margin-top:auto; }}
+.who {{ display:flex; align-items:center; gap:9px; padding:7px 8px;
+  border-radius:9px; cursor:pointer; transition:background .13s ease; }}
 .who:hover {{ background:{SUNKEN}; }}
 .avatar {{ width:30px; height:30px; border-radius:9px; background:{ACCENT};
   color:#fff; display:grid; place-items:center; font-size:12px;
@@ -136,10 +164,42 @@ input:focus,select:focus,textarea:focus {{ outline:none; border-color:{INK};
 .bad {{ background:{DANGER_TINT}; color:{DANGER}; }}
 @media (max-width: 860px) {{
   .app {{ grid-template-columns:1fr; }}
-  .rail {{ position:static; height:auto; flex-direction:row; overflow-x:auto; }}
-  .nav small, .brand span, .railfoot {{ display:none; }}
+  .rail {{ position:static; height:auto; flex-direction:row;
+    overflow-x:auto; gap:6px; padding:8px 10px; align-items:center; }}
+  .brand {{ border-bottom:none; margin-bottom:0; padding:0 12px 0 2px;
+    margin-right:4px; border-right:1px solid {BORDER}; flex:none; }}
+  .brand span, .railfoot, .navtext small {{ display:none; }}
+  /* flex:none, or the items are squeezed until each label touches the next
+     icon — which is exactly what a horizontal rail must not do. */
+  .nav {{ grid-template-columns:18px auto; gap:8px; padding:8px 12px;
+    white-space:nowrap; flex:none; }}
+  .navico {{ width:18px; height:18px; }}
 }}
 """
+
+
+# Drawn on a 24x24 grid, stroked not filled, so they inherit `color` and stay
+# crisp at any zoom. Kept in one place because a nav item without an icon
+# looks like a bug, and this is what makes adding one impossible to forget.
+NAV_ICONS = {
+    "/": "M3 10.5 12 3l9 7.5M5.5 9.5V20h13V9.5M9.5 20v-6h5v6",
+    "/chat": "M4 5.5h16v10H9l-5 4V5.5Z",
+    "/products": "M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9Z M3.5 7.5 12 12m0 9V12m8.5-4.5L12 12",
+    "/customers": "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6 M17 4.5a3.5 3.5 0 0 1 0 7 M21.5 20c0-2.8-1.6-4.8-4-5.6",
+    "/workforce": "M12 3v5M12 16v5M4.5 7.5 8 10M16 14l3.5 2.5M19.5 7.5 16 10M8 14l-3.5 2.5 M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M12 4.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+    "/settings": "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.5-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.5l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4Z",
+    "/admin": "M12 2.5 4 6v6c0 4.5 3.4 8.7 8 9.5 4.6-.8 8-5 8-9.5V6l-8-3.5Z M9.5 12.2l1.8 1.8 3.5-3.5",
+}
+
+
+def nav_icon(href: str) -> str:
+    """The line drawing for a destination, or a dot if one is ever missing."""
+    path = NAV_ICONS.get(href, "M12 12h.01")
+    return (
+        "<svg class='navico' viewBox='0 0 24 24' fill='none' "
+        "stroke='currentColor' stroke-width='1.6' stroke-linecap='round' "
+        f"stroke-linejoin='round' aria-hidden='true'><path d='{path}'/></svg>"
+    )
 
 
 def shell(title: str, account: dict, active: str, head: str, body: str,
@@ -154,7 +214,9 @@ def shell(title: str, account: dict, active: str, head: str, body: str,
                       "Every shop on this installation"))
     nav = "".join(
         f"<a class='nav{' on' if href == active else ''}' href='{href}'>"
-        f"<div>{e(label)}<small>{e(sub)}</small></div></a>"
+        f"{nav_icon(href)}"
+        f"<span class='navtext'><b>{e(label)}</b><small>{e(sub)}</small></span>"
+        f"</a>"
         for href, label, sub in items
     )
     return (
@@ -515,7 +577,9 @@ def chat_page(account: dict, history: list[dict], starters: list[str],
     # The owner's own mark, so the two speakers are told apart by initial
     # rather than by both being a "Y".
     js = f"window.__ME = {json.dumps(initials)};\n" + CHAT_JS
-    return shell("Chat", account, "/", "", body, CHAT_CSS + HISTORY_CSS, js,
+    # "/" is Home; chat moved to its own address and the rail was still
+    # lighting the wrong row.
+    return shell("Chat", account, "/chat", "", body, CHAT_CSS + HISTORY_CSS, js,
                  aside=history_rail(threads or [], current))
 
 

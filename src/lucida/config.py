@@ -108,6 +108,10 @@ def _env(name: str, default: str = "") -> str:
 # different models on purpose — each gets its own bucket, roughly doubling
 # throughput for a multi-agent run.
 TEXT_DEFAULTS: dict[str, tuple[str, str]] = {
+    # A paid key has no daily allowance to ration, so the main model is
+    # chosen for judgement and the routing model for speed — rather than,
+    # as on the free tiers, for whichever bucket still had tokens left.
+    "openai": ("gpt-5", "gpt-5-mini"),
     "groq": ("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
     "anthropic": ("claude-opus-5", "claude-haiku-4-5"),
     "google": ("gemini-flash-latest", "gemini-flash-lite-latest"),
@@ -117,12 +121,19 @@ TEXT_DEFAULTS: dict[str, tuple[str, str]] = {
 # small on Groq: it is charged against the per-minute cap before a single
 # prompt token is counted.
 PROVIDER_LIMITS: dict[str, dict[str, int]] = {
+    # Generous, because nothing here is rationed by the minute: the limit is
+    # what the answer needs, not what the free tier will spare.
+    "openai": {"max_tokens": 8000, "report_tokens": 12000, "retries": 3,
+               "compact": 0},
     "groq": {"max_tokens": 2500, "report_tokens": 4000, "retries": 6, "compact": 1},
     "anthropic": {"max_tokens": 8000, "report_tokens": 12000, "retries": 2, "compact": 0},
     "google": {"max_tokens": 8000, "report_tokens": 12000, "retries": 3, "compact": 0},
 }
 
 VISION_DEFAULTS: dict[str, str] = {
+    # The same model that does the text: OpenAI's are multimodal, so photo
+    # reading needs no second provider and no second key.
+    "openai": "gpt-5",
     "anthropic": "claude-opus-5",
     "google": "gemini-flash-latest",
     "groq": "",  # no multimodal model currently served
@@ -132,9 +143,11 @@ VISION_DEFAULTS: dict[str, str] = {
 @dataclass(frozen=True)
 class Settings:
     # --- Provider selection ---
-    provider: str = field(default_factory=lambda: _env("AIW_PROVIDER", "google").lower())
+    provider: str = field(default_factory=lambda: _env("AIW_PROVIDER", "openai").lower())
 
     # --- API keys ---
+    openai_api_key: str = field(
+        default_factory=lambda: _env("OPENAI_API_KEY"))
     groq_api_key: str = field(default_factory=lambda: _env("GROQ_API_KEY"))
     anthropic_api_key: str = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
     google_api_key: str = field(default_factory=lambda: _env("GOOGLE_API_KEY"))
@@ -213,6 +226,7 @@ class Settings:
 
     def key_for(self, provider: str) -> str:
         return {
+            "openai": self.openai_api_key,
             "groq": self.groq_api_key,
             "anthropic": self.anthropic_api_key,
             "google": self.google_api_key,

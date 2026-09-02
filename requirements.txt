@@ -7,7 +7,8 @@ langchain-core>=0.3.29
 # The active one is chosen with AIW_PROVIDER. Groq is the default (fast, free
 # tier); the others are only imported if selected, so you may drop the ones you
 # don't use.
-langchain-groq>=0.2.3            # default text provider
+langchain-openai>=1.6.0          # the provider this runs on
+langchain-groq>=0.2.3            # optional alternative
 langchain-google-genai>=2.0.7    # needed for photo understanding (Groq has no vision model)
 langchain-anthropic>=0.3.3       # optional alternative for text + vision
 

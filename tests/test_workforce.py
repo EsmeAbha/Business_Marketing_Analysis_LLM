@@ -324,7 +324,7 @@ def test_the_text_provider_defaults_to_google():
 
     previous = os.environ.pop("AIW_PROVIDER", None)
     try:
-        assert Settings().provider == "google"
+        assert Settings().provider == "openai"
         os.environ["AIW_PROVIDER"] = "GroQ"
         assert Settings().provider == "groq", "the name is normalised"
     finally:
