@@ -65,6 +65,7 @@ from lucida.tools import (  # noqa: E402
     channels, connections, delivery_pricing, imagegen, research, shopbot,
 )
 from lucida.tools.courier import courier  # noqa: E402
+from web import credits  # noqa: E402
 from web import (  # noqa: E402
     admin, app_ui, auth, bridge, google_oauth, mailer, screens,
 )
@@ -85,6 +86,8 @@ def page(markup: str, status: int = 200) -> HTMLResponse:
     })
 
 STATIC_DIR = Path(__file__).parent / "web" / "static"
+
+credits.init()
 
 runtime = WorkforceRuntime()
 
@@ -132,6 +135,8 @@ def current_account(request) -> dict | None:
     if account is None:            # deleted account with a live cookie
         request.session.clear()
         return None
+    # Idempotent, and it covers owners who registered before credit existed.
+    credits.grant_if_new(account["id"])
     memory.use_shop(account["id"])
     return account
 
@@ -557,6 +562,8 @@ async def api_assign(request):
     # mid-flight leaves a pending node in the checkpoint exactly as a live one
     # does, so "your team is already working" was shown forever after a crash
     # and there was no way to clear it from the screen.
+    if not credits.has_credit(account["id"]):
+        return _no_credit(account)
     if runtime.is_running(session_id):
         return JSONResponse(
             {"error": "Your team is already working. Wait for this run to "
@@ -579,6 +586,7 @@ async def api_assign(request):
             logger.error("assigned run failed: %s", exc)
             return JSONResponse({"error": str(exc)}, 500)
 
+    _meter(account, session_id, note=f"{node}: {task[:60]}")
     snap = _snapshot(session_id, account)
     snap["answer"] = answer
     return JSONResponse(snap)
@@ -898,6 +906,51 @@ STARTERS = [
 ]
 
 
+# What each session has already been billed for, so a run is charged for
+# its own calls rather than the whole session's again.
+_BILLED: dict[str, float] = {}
+
+
+def _meter(account: dict, session_id: str, note: str = "") -> float:
+    """Charge this owner for whatever the run just spent.
+
+    The ledger totals a session, not a run, so the difference since last time
+    is what this run cost. Returns the amount charged.
+    """
+    try:
+        from lucida.agents.base import ledger_for
+
+        # total_cost_usd is a property, not a method.
+        total = float(ledger_for(session_id).total_cost_usd)
+    except Exception as exc:  # noqa: BLE001 — never fail a turn over billing
+        logger.warning("could not read usage for %s: %s", session_id, exc)
+        return 0.0
+
+    spent = round(total - _BILLED.get(session_id, 0.0), 6)
+    _BILLED[session_id] = total
+    if spent > 0:
+        credits.charge(account["id"], spent, model=settings.model,
+                       session_id=session_id, note=note)
+    return spent
+
+
+def _no_credit(account: dict) -> JSONResponse:
+    return JSONResponse(
+        {"error": credits.out_of_credit_message(account["id"]),
+         "out_of_credit": True}, status_code=402)
+
+
+def _no_key_message() -> str:
+    """Name the key this installation actually wants.
+
+    It used to say GROQ_API_KEY whatever the provider was, so after the move
+    to OpenAI the app was telling owners to add a key it would never read.
+    """
+    name = f"{settings.provider.upper()}_API_KEY"
+    return (f"No API key. Add {name} to .env and restart "
+            f"(this installation runs on {settings.provider}).")
+
+
 def _who(account: dict) -> dict:
     return {
         "name": account.get("owner_name") or "Your account",
@@ -940,7 +993,9 @@ async def home(request):
     return page(app_ui.home_page(
         _who(account), snap.get("dayLine") or {}, snap.get("kpi") or {},
         snap.get("decisions") or [], snap.get("threads") or [],
-        snap.get("stock") or []))
+        snap.get("stock") or [],
+        credit=credits.balance(account["id"]),
+        charges=credits.history(account["id"], 6)))
 
 
 async def customers(request):
@@ -1454,7 +1509,7 @@ async def api_ask(request):
     """Run one turn of the workforce and return the refreshed snapshot."""
     if not settings.has_llm:
         return JSONResponse(
-            {"error": "No API key. Add GROQ_API_KEY to .env and restart."},
+            {"error": _no_key_message()},
             status_code=400,
         )
     account = current_account(request)
@@ -1492,6 +1547,9 @@ async def api_ask(request):
         snap["answer"] = quick
         return JSONResponse(snap)
 
+    if not credits.has_credit(account["id"]):
+        return _no_credit(account)
+
     async with _run_lock:
         try:
             # The graph is synchronous; keep the event loop free while it runs.
@@ -1509,6 +1567,7 @@ async def api_ask(request):
             return JSONResponse({"error": str(exc)}, status_code=500)
 
     memory.db.add_message(tid, "assistant", answer)
+    _meter(account, session_id, note=text[:80])
     snap = _snapshot(session_id, account)
     snap["answer"] = answer
     return JSONResponse(snap)
@@ -1605,10 +1664,12 @@ async def api_upload(request):
     if account is None:
         return JSONResponse({"error": "not signed in"}, 401)
     session_id = _session_for(account["id"])
+    if not credits.has_credit(account["id"]):
+        return _no_credit(account)
 
     if not settings.has_llm:
         return JSONResponse(
-            {"error": "No API key. Add GROQ_API_KEY to .env and restart."},
+            {"error": _no_key_message()},
             status_code=400,
         )
 
@@ -1653,6 +1714,7 @@ async def api_upload(request):
             "agents stay where they are.\n\n---\n\n" + answer
         )
 
+    _meter(account, session_id, note="photo")
     snap = _snapshot(session_id, account)
     snap["answer"] = answer
     return JSONResponse(snap)

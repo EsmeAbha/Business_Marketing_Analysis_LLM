@@ -108,10 +108,11 @@ def _env(name: str, default: str = "") -> str:
 # different models on purpose — each gets its own bucket, roughly doubling
 # throughput for a multi-agent run.
 TEXT_DEFAULTS: dict[str, tuple[str, str]] = {
-    # A paid key has no daily allowance to ration, so the main model is
-    # chosen for judgement and the routing model for speed — rather than,
-    # as on the free tiers, for whichever bucket still had tokens left.
-    "openai": ("gpt-5", "gpt-5-mini"),
+    # Checked against the gateway's allow-list rather than assumed: it
+    # serves neither gpt-5 nor gpt-4.1-nano. The nano is the cheap tier and
+    # answers a routing question in about a second, which is all the router
+    # is for; the full model does the work that needs judgement.
+    "openai": ("gpt-5.4-nano", "gpt-5.4-nano"),
     "groq": ("openai/gpt-oss-120b", "openai/gpt-oss-20b"),
     "anthropic": ("claude-opus-5", "claude-haiku-4-5"),
     "google": ("gemini-flash-latest", "gemini-flash-lite-latest"),
@@ -133,7 +134,7 @@ PROVIDER_LIMITS: dict[str, dict[str, int]] = {
 VISION_DEFAULTS: dict[str, str] = {
     # The same model that does the text: OpenAI's are multimodal, so photo
     # reading needs no second provider and no second key.
-    "openai": "gpt-5",
+    "openai": "gpt-5.4",
     "anthropic": "claude-opus-5",
     "google": "gemini-flash-latest",
     "groq": "",  # no multimodal model currently served
@@ -148,6 +149,12 @@ class Settings:
     # --- API keys ---
     openai_api_key: str = field(
         default_factory=lambda: _env("OPENAI_API_KEY"))
+    # A gateway in front of OpenAI, if one is used. It is configured as the
+    # full chat endpoint, but every OpenAI client wants the base that ends at
+    # /v1 — so the suffix is trimmed rather than making the owner know that.
+    openai_gateway_url: str = field(
+        default_factory=lambda: _env("OPENAI_GATEWAY_URL"))
+    openai_model: str = field(default_factory=lambda: _env("OPENAI_MODEL"))
     groq_api_key: str = field(default_factory=lambda: _env("GROQ_API_KEY"))
     anthropic_api_key: str = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
     google_api_key: str = field(default_factory=lambda: _env("GOOGLE_API_KEY"))
@@ -237,7 +244,22 @@ class Settings:
         return self.key_for(self.provider)
 
     @property
+    def openai_base_url(self) -> str:
+        """The gateway's base, or "" to talk to OpenAI directly."""
+        url = self.openai_gateway_url.strip().rstrip("/")
+        if not url:
+            return ""
+        for suffix in ("/chat/completions", "/completions", "/responses"):
+            if url.endswith(suffix):
+                return url[: -len(suffix)]
+        return url
+
+    @property
     def model(self) -> str:
+        # OPENAI_MODEL names the model when the provider is OpenAI, so the
+        # gateway's own variable is honoured without a second setting.
+        if self.provider == "openai" and self.openai_model:
+            return self.openai_model
         return self.model_override or TEXT_DEFAULTS.get(self.provider, ("", ""))[0]
 
     @property

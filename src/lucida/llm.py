@@ -82,6 +82,10 @@ def _build_openai(model: str, max_tokens: int, api_key: str):
         "timeout": settings.llm_timeout_seconds,
         "max_retries": settings.max_retries,
     }
+    # When a gateway is configured every call goes through it, including the
+    # multimodal ones — there is no second route to keep in step.
+    if settings.openai_base_url:
+        kwargs["base_url"] = settings.openai_base_url
     # The reasoning models count their thinking against the output budget and
     # name the parameter differently; passing the wrong one is a 400.
     if model.startswith(_OPENAI_NO_SAMPLING):

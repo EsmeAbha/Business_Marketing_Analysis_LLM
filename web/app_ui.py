@@ -8,6 +8,26 @@ type, maroon accent, Inter, shadcn's neutrals and radii.
 Server-rendered HTML with small islands of JavaScript. No build step, no
 bundle: the chat has to work on a cheap phone on a Dhaka connection, and 3 MB
 of React before a shop owner can type a message is not a trade worth making.
+
+/* Free credit, on Home. Red once it is gone, because a run will be refused
+   and the owner should learn that here rather than from a failed message. */
+.credit .chead {{ display:flex; align-items:baseline; justify-content:space-between;
+  gap:10px; }}
+.credit .chead h3 {{ margin:0; }}
+.credit .chead b {{ font-size:19px; font-weight:700; letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums; }}
+.credit.low {{ border-color:#FBC5C5; }}
+.credit.low .chead b {{ color:{DANGER}; }}
+.cbar {{ height:6px; border-radius:4px; background:{SUNKEN}; overflow:hidden;
+  margin-top:10px; }}
+.cbar span {{ display:block; height:100%; background:{ACCENT};
+  border-radius:4px; }}
+.credit.low .cbar span {{ background:{DANGER}; }}
+.crow {{ display:flex; justify-content:space-between; gap:12px;
+  font-size:12.5px; padding:6px 0; border-top:1px solid {SUNKEN}; }}
+.crow span {{ color:{MUTED}; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }}
+.crow b {{ font-weight:600; font-variant-numeric:tabular-nums; flex:none; }}
 """
 
 from __future__ import annotations
@@ -48,13 +68,16 @@ FONT_LINK = (
 # workforce from Home, delivery from Products. A rail with nine entries made
 # the owner choose before they had read anything, and most of those choices
 # led to the same screen.
+# (href, label, hint). The hint is two or three words and appears on hover —
+# a full sentence under every row turned the rail into a paragraph and told a
+# returning owner nothing they did not already know.
 NAV = [
-    ("/", "Home", "What needs you today"),
-    ("/chat", "Chat", "Ask your team anything"),
-    ("/products", "Products", "What you sell, stock and delivery"),
+    ("/", "Home", "Today's decisions"),
+    ("/chat", "Chat", "Ask your team"),
+    ("/products", "Products", "Stock and delivery"),
     ("/customers", "Customers", "Messages and reviews"),
-    ("/workforce", "Workforce", "Watch your agents work"),
-    ("/settings", "Settings", "Channels, couriers, your account"),
+    ("/workforce", "Workforce", "Agents at work"),
+    ("/settings", "Settings", "Channels and account"),
 ]
 
 
@@ -74,7 +97,14 @@ button, input, textarea, select {{ font-family:inherit; }}
   min-height:100vh; }}
 .rail {{ background:{RAIL}; border-right:1px solid {BORDER};
   padding:14px 10px 12px; display:flex; flex-direction:column; gap:1px;
-  position:sticky; top:0; height:100vh; overflow:hidden; }}
+  position:sticky; top:0; height:100vh;
+  /* Above the working column, or the hover hint paints behind it and the
+     sidebar looks like nothing happened. */
+  z-index:20;
+  /* visible, not hidden: the hover hint sits just outside the rail and was
+     being clipped to a sliver. The conversation list below has its own
+     overflow-y, so nothing here needs the rail to do the clipping. */
+  overflow:visible; }}
 
 /* The shop's identity, set apart from the navigation by a rule rather than
    by empty space — the gap alone read as an unfinished list. */
@@ -92,28 +122,42 @@ button, input, textarea, select {{ font-family:inherit; }}
   font-weight:400; white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis; }}
 
-/* One row: icon, then a two-line label. The grid keeps every icon on the
-   same axis whether the description wraps to two lines or not. */
+/* One line: icon, then the name. What each screen is for lives in the hint
+   below, not under every row — the sentences made the rail a paragraph. */
 .nav {{ display:grid; grid-template-columns:20px minmax(0,1fr);
-  align-items:center; gap:11px; padding:8px 10px; border-radius:9px;
+  align-items:center; gap:11px; padding:9px 10px; border-radius:9px;
   color:{BODY}; position:relative;
   transition:background .13s ease, color .13s ease; }}
 .navico {{ width:20px; height:20px; opacity:.62; flex:none;
   transition:opacity .13s ease; }}
-.navtext {{ min-width:0; }}
-.navtext b {{ display:block; font-size:13.5px; font-weight:550;
-  letter-spacing:-.008em; line-height:1.35; }}
-.navtext small {{ display:block; font-size:11px; color:{MUTED};
-  font-weight:400; line-height:1.35; margin-top:1px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }}
+.nav b {{ font-size:13.5px; font-weight:550; letter-spacing:-.008em;
+  line-height:1.4; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }}
 
-.nav:hover {{ background:{SUNKEN}; color:{INK}; }}
+/* z-index on the row itself: the hint is its child, and without a stacking
+   context of its own the row sits level with the working column, which then
+   paints over the hint. */
+.nav:hover {{ background:{SUNKEN}; color:{INK}; z-index:30; }}
 .nav:hover .navico {{ opacity:.9; }}
 
 .nav.on {{ background:{ACCENT_TINT}; color:{ACCENT}; }}
-.nav.on .navtext b {{ font-weight:650; }}
+.nav.on b {{ font-weight:650; }}
 .nav.on .navico {{ opacity:1; }}
-.nav.on .navtext small {{ color:{ACCENT}; opacity:.72; }}
+
+/* The hint, on hover — a real element rather than the browser's own title
+   tooltip, which waits a second and cannot be styled. */
+.navhint {{ position:absolute; left:calc(100% + 8px); top:50%;
+  transform:translateY(-50%) translateX(-4px); z-index:40;
+  background:{INK}; color:#fff; font-size:11.5px; font-weight:500;
+  letter-spacing:-.005em; padding:5px 9px; border-radius:7px;
+  white-space:nowrap; pointer-events:none; opacity:0; visibility:hidden;
+  box-shadow:0 3px 12px rgba(0,0,0,.18);
+  transition:opacity .12s ease .2s, transform .12s ease .2s,
+             visibility 0s linear .2s; }}
+.nav:hover .navhint {{ opacity:1; visibility:visible;
+  transform:translateY(-50%) translateX(0);
+  transition:opacity .12s ease .2s, transform .12s ease .2s,
+             visibility 0s linear 0s; }}
 /* No leading bar: flush against the window edge it read as an artifact, and
    the tinted pill with a maroon icon and label is already unambiguous. */
 .railfoot {{ margin-top:auto; border-top:1px solid {BORDER};
@@ -168,7 +212,10 @@ input:focus,select:focus,textarea:focus {{ outline:none; border-color:{INK};
     overflow-x:auto; gap:6px; padding:8px 10px; align-items:center; }}
   .brand {{ border-bottom:none; margin-bottom:0; padding:0 12px 0 2px;
     margin-right:4px; border-right:1px solid {BORDER}; flex:none; }}
-  .brand span, .railfoot, .navtext small {{ display:none; }}
+  .brand span, .railfoot {{ display:none; }}
+  /* Sideways there is no room beside a row, and the labels are visible
+     anyway, so the hint would only cover the next item. */
+  .navhint {{ display:none; }}
   /* flex:none, or the items are squeezed until each label touches the next
      icon — which is exactly what a horizontal rail must not do. */
   .nav {{ grid-template-columns:18px auto; gap:8px; padding:8px 12px;
@@ -210,13 +257,12 @@ def shell(title: str, account: dict, active: str, head: str, body: str,
             else f"<div class='avatar'>{e(initials)}</div>")
     items = list(NAV)
     if (account or {}).get("is_admin"):
-        items.append(("/admin", "Service admin",
-                      "Every shop on this installation"))
+        items.append(("/admin", "Service admin", "All shops"))
     nav = "".join(
-        f"<a class='nav{' on' if href == active else ''}' href='{href}'>"
-        f"{nav_icon(href)}"
-        f"<span class='navtext'><b>{e(label)}</b><small>{e(sub)}</small></span>"
-        f"</a>"
+        f"<a class='nav{' on' if href == active else ''}' href='{href}' "
+        f"aria-label='{e(label)} — {e(sub)}'>"
+        f"{nav_icon(href)}<b>{e(label)}</b>"
+        f"<span class='navhint' aria-hidden='true'>{e(sub)}</span></a>"
         for href, label, sub in items
     )
     return (
@@ -2344,8 +2390,45 @@ document.querySelectorAll('[data-decide]').forEach(function (b) {
 """
 
 
+def credit_card(credit: dict, recent: list) -> str:
+    """What is left of the free credit, and where the rest of it went.
+
+    A balance with no history is a number the owner has to take on trust.
+    The last few charges are shown beside it so it can be checked.
+    """
+    if not credit:
+        return ""
+    left = float(credit.get("remaining") or 0)
+    granted = float(credit.get("granted") or 0)
+    used = max(0.0, granted - left)
+    pct = min(100, round(used / granted * 100)) if granted else 0
+    low = left <= 0
+    near = not low and granted and left < granted * 0.2
+
+    rows = "".join(
+        f"<div class='crow'><span>{e(r.get('note') or r.get('model') or r['kind'])}</span>"
+        f"<b>{'+' if r['kind'] == 'grant' else '−'}"
+        f"${float(r['amount_usd']):.4f}</b></div>"
+        for r in (recent or [])[:5]
+    ) or "<div class='crow'><span class='muted'>Nothing spent yet.</span></div>"
+
+    note = ("Used up — ask the operator for a top-up." if low
+            else "Running low." if near
+            else "Every model call your team makes is priced here.")
+    return (
+        f"<div class='card credit{' low' if low else ''}'>"
+        f"<div class='chead'><h3>Free credit</h3>"
+        f"<b>${left:.4f}</b></div>"
+        f"<div class='cbar'><span style='width:{pct}%'></span></div>"
+        f"<p class='muted' style='margin:8px 0 12px'>"
+        f"${used:.4f} of ${granted:.2f} used · {e(note)}</p>"
+        f"{rows}</div>"
+    )
+
+
 def home_page(account: dict, day: dict, kpi: dict, gates: list,
-              threads: list, stock: list) -> str:
+              threads: list, stock: list, credit: dict | None = None,
+              charges: list | None = None) -> str:
     """Where the shop stands, and the one thing that might be waiting."""
     tiles = "".join(
         f"<div class='ktile'><span>{e(label)}</span><b>{e(value)}</b>"
@@ -2416,6 +2499,7 @@ def home_page(account: dict, day: dict, kpi: dict, gates: list,
         f"<a class='more' href='/products'>Open products &rarr;</a></div>"
         f"<div class='card'><h3>Latest from customers</h3>{msg_rows}"
         f"<a class='more' href='/customers'>Open customers &rarr;</a></div>"
+        f"{credit_card(credit or {}, charges or [])}"
         f"</div>"
         f"<div class='quick'>"
         f"<a class='btn' href='/chat'>Ask your team</a>"
