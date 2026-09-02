@@ -1392,8 +1392,9 @@ def _small_talk_reply(text: str, account: dict) -> str | None:
     if plain.startswith(("thank", "ok", "okay", "cool", "nice")):
         return "Any time. What next?"
     return (
-        f"{hello} Your team is here — nine specialists between "
-        f"research, pricing, stock, marketing, customers and delivery."
+        f"{hello} Your team is here — a supervisor and eight specialists: "
+        f"research, photos, pricing, stock, ads, customers, delivery and "
+        f"reporting."
         "\n\nAsk me something real and I will put it to them. For example:"
         "\n\n- What should I sell to make money this month?"
         "\n- Write an Instagram ad for what I sell"
@@ -1548,6 +1549,11 @@ async def api_ask(request):
         return JSONResponse(snap)
 
     if not credits.has_credit(account["id"]):
+        # The question is already in the thread. Saying nothing would leave it
+        # sitting there unanswered for ever, which reads as the team ignoring
+        # the owner rather than as a refusal with a reason.
+        refusal = credits.out_of_credit_message(account["id"])
+        memory.db.add_message(tid, "assistant", refusal)
         return _no_credit(account)
 
     async with _run_lock:

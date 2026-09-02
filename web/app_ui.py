@@ -318,6 +318,21 @@ CHAT_CSS = f"""
   border-radius:16px 4px 16px 16px; }}
 .msg.theirs .text {{ padding-top:1px; }}
 .bubble .text h3 {{ font-size:15px; margin:15px 0 5px; font-weight:700; }}
+/* The reports come back full of tables, rules and inline code. Without these
+   a finished answer read as a wall of pipes and backticks. */
+.text .twrap {{ overflow-x:auto; margin:10px 0; }}
+.text table {{ border-collapse:collapse; font-size:13.5px; min-width:100%; }}
+.text th {{ text-align:left; font-weight:600; font-size:11.5px;
+  text-transform:uppercase; letter-spacing:.04em; color:{MUTED};
+  padding:0 14px 6px 0; border-bottom:1px solid {BORDER}; white-space:nowrap; }}
+.text td {{ padding:7px 14px 7px 0; border-bottom:1px solid {SUNKEN};
+  vertical-align:top; }}
+.text td:last-child, .text th:last-child {{ padding-right:0; }}
+.text code {{ background:{SUNKEN}; padding:1px 5px; border-radius:4px;
+  font-size:13px; font-family:Consolas, "SF Mono", monospace; }}
+.text hr {{ border:none; border-top:1px solid {BORDER}; margin:14px 0; }}
+.text ol, .text ul {{ margin:8px 0; padding-left:20px; }}
+.text li {{ margin-bottom:3px; }}
 .bubble .text ul {{ margin:8px 0; padding-left:20px; }}
 .bubble .text li {{ margin:4px 0; }}
 .bubble .text p:first-child {{ margin-top:0; }}
@@ -383,15 +398,44 @@ let busy = false;
 const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;');
 
+/* The reports come back with tables, rules, inline code and italics as well
+   as headings and lists. Anything this does not understand was printed to the
+   owner verbatim — backticks, pipes and all — which is what made a finished
+   answer look like a broken one. */
+function inline(s) {
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(])_([^_]+)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>');
+}
+
+function mdTable(b) {
+  const rows = b.split('\n').filter(l => l.trim().startsWith('|'));
+  if (rows.length < 2) return null;
+  const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  // The second line of a markdown table is the |---|---| separator.
+  if (!/^[\s|:-]+$/.test(rows[1])) return null;
+  const head = cells(rows[0]).map(c => '<th>' + inline(c) + '</th>').join('');
+  const body = rows.slice(2).map(
+    (r) => '<tr>' + cells(r).map(c => '<td>' + inline(c) + '</td>').join('') + '</tr>'
+  ).join('');
+  return '<div class="twrap"><table><tr>' + head + '</tr>' + body + '</table></div>';
+}
+
 function md(t) {
   return esc(t).split(/\n{2,}/).map(b => {
     b = b.trim();
     if (!b) return '';
-    b = b.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    if (/^#{1,4}\s/.test(b)) return '<h3>' + b.replace(/^#{1,4}\s/,'') + '</h3>';
-    if (/^[-*]\s/m.test(b)) return '<ul>' + b.split('\n').filter(Boolean)
-      .map(l => '<li>' + l.replace(/^[-*]\s/,'') + '</li>').join('') + '</ul>';
-    return '<p style="margin:9px 0">' + b.replace(/\n/g,'<br>') + '</p>';
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(b)) return '<hr>';
+    const table = mdTable(b);
+    if (table) return table;
+    if (/^#{1,6}\s/.test(b))
+      return '<h3>' + inline(b.replace(/^#{1,6}\s/, '')) + '</h3>';
+    if (/^\s*[-*]\s/m.test(b)) return '<ul>' + b.split('\n').filter(Boolean)
+      .map(l => '<li>' + inline(l.replace(/^\s*[-*]\s/, '')) + '</li>').join('') + '</ul>';
+    if (/^\s*\d+\.\s/m.test(b)) return '<ol>' + b.split('\n').filter(Boolean)
+      .map(l => '<li>' + inline(l.replace(/^\s*\d+\.\s/, '')) + '</li>').join('') + '</ol>';
+    return '<p style="margin:9px 0">' + inline(b).replace(/\n/g, '<br>') + '</p>';
   }).join('');
 }
 
@@ -416,6 +460,16 @@ function grow() {
   box.style.height = Math.min(box.scrollHeight, 190) + 'px';
   send.disabled = !box.value.trim();
 }
+/* A reply written this session goes through md(); the same reply read back
+   from the database used to arrive as plain text, so a conversation changed
+   appearance on reload. Both go through one renderer now. Run inline, not on
+   DOMContentLoaded — this script is at the end of the body, so that event
+   has usually fired already and the handler would never run. */
+document.querySelectorAll('.text[data-md]').forEach((el) => {
+  el.innerHTML = md(el.dataset.md);
+});
+if (thread) thread.scrollTop = thread.scrollHeight;
+
 box.addEventListener('input', grow);
 box.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(); }
@@ -589,7 +643,8 @@ def chat_page(account: dict, history: list[dict], starters: list[str],
             f"{e(initials if m['role'] == 'user' else 'L')}</div>"
             f"<div class='bubble'><div class='name'>"
             f"{'You' if m['role'] == 'user' else 'Your team'}</div>"
-            f"<div class='text'>{e(m['text'])}</div></div></div>"
+            f"<div class='text' data-md='{e(m['text'])}'></div>"
+            f"</div></div>"
             for m in history
         )
     else:
