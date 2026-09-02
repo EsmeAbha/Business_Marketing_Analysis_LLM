@@ -142,12 +142,13 @@ def balance(account_id: str) -> dict[str, float]:
     remaining = max(0.0, granted - spent)
     return {
         "granted": granted, "spent": spent, "remaining": remaining,
-        # What the owner is shown. Credits used is rounded down and the
-        # allowance rounded to whole credits, so the bar never reads past
-        # full on the last fractional token.
+        # What the owner is shown. Everything is derived from `spent`, and
+        # what is left is the difference — deriving "used" from the remainder
+        # instead made the header disagree with the rows beneath it by one,
+        # because rounding both up pushes them in opposite directions.
         "credits_total": to_credits(granted),
         "credits_used": min(to_credits(granted), to_credits(spent)),
-        "credits_left": to_credits(remaining),
+        "credits_left": max(0, to_credits(granted) - to_credits(spent)),
     }
 
 

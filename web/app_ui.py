@@ -2457,8 +2457,8 @@ def credit_card(credit: dict, recent: list) -> str:
     if not credit:
         return ""
     total = int(credit.get("credits_total") or 0)
-    left = int(credit.get("credits_left") or 0)
-    used = max(0, total - left)
+    used = int(credit.get("credits_used") or 0)
+    left = max(0, total - used)
     pct = min(100, round(used / total * 100)) if total else 0
     low = left <= 0
     near = not low and total and left < total * 0.2
