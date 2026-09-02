@@ -48,3 +48,7 @@ node_modules/
 
 # Superseded database from the pre-Lucida package name
 data/aiworkforce.db
+
+# local .env backups
+.env.bak-*
+.env.bak

@@ -198,7 +198,9 @@ python -m pytest tests -q
 ```
 
 Deployment — persistent disk, one instance, long request timeouts — is in
-[DEPLOY.md](DEPLOY.md).
+[DEPLOY.md](DEPLOY.md). How the live instance at
+[lucida.aipedia.blog](https://lucida.aipedia.blog) is actually set up, and
+what is still worth doing to it, is in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
