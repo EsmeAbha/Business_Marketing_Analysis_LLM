@@ -921,12 +921,15 @@ def _meter(account: dict, session_id: str, note: str = "") -> float:
         from lucida.agents.base import ledger_for
 
         # total_cost_usd is a property, not a method.
-        total = float(ledger_for(session_id).total_cost_usd)
+        # Tokens, not dollars: the provider returns a token count with every
+        # reply, while a price would have to come from a rate table that has
+        # no entry for most models this can reach.
+        total = float(ledger_for(session_id).total_tokens)
     except Exception as exc:  # noqa: BLE001 — never fail a turn over billing
         logger.warning("could not read usage for %s: %s", session_id, exc)
         return 0.0
 
-    spent = round(total - _BILLED.get(session_id, 0.0), 6)
+    spent = round(total - _BILLED.get(session_id, 0.0), 3)
     _BILLED[session_id] = total
     if spent > 0:
         credits.charge(account["id"], spent, model=settings.model,

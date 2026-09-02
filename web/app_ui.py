@@ -14,8 +14,9 @@ of React before a shop owner can type a message is not a trade worth making.
 .credit .chead {{ display:flex; align-items:baseline; justify-content:space-between;
   gap:10px; }}
 .credit .chead h3 {{ margin:0; }}
-.credit .chead b {{ font-size:19px; font-weight:700; letter-spacing:-.02em;
+.credit .chead b {{ font-size:20px; font-weight:700; letter-spacing:-.025em;
   font-variant-numeric:tabular-nums; }}
+.credit .chead b span {{ font-size:14px; font-weight:500; color:{FAINT}; }}
 .credit.low {{ border-color:#FBC5C5; }}
 .credit.low .chead b {{ color:{DANGER}; }}
 .cbar {{ height:6px; border-radius:4px; background:{SUNKEN}; overflow:hidden;
@@ -2446,40 +2447,52 @@ document.querySelectorAll('[data-decide]').forEach(function (b) {
 
 
 def credit_card(credit: dict, recent: list) -> str:
-    """What is left of the free credit, and where the rest of it went.
+    """How much of the free allowance is left, in credits.
 
-    A balance with no history is a number the owner has to take on trust.
-    The last few charges are shown beside it so it can be checked.
+    Deliberately not money. Tokens are measured — the provider returns them
+    with every reply — but the price of a token is a rate table this project
+    cannot keep accurate for every model it can reach, so a dollar figure
+    here would be a real number multiplied by a guess.
     """
     if not credit:
         return ""
-    left = float(credit.get("remaining") or 0)
-    granted = float(credit.get("granted") or 0)
-    used = max(0.0, granted - left)
-    pct = min(100, round(used / granted * 100)) if granted else 0
+    total = int(credit.get("credits_total") or 0)
+    left = int(credit.get("credits_left") or 0)
+    used = max(0, total - left)
+    pct = min(100, round(used / total * 100)) if total else 0
     low = left <= 0
-    near = not low and granted and left < granted * 0.2
+    near = not low and total and left < total * 0.2
 
     rows = "".join(
         f"<div class='crow'><span>{e(r.get('note') or r.get('model') or r['kind'])}</span>"
-        f"<b>{'+' if r['kind'] == 'grant' else '−'}"
-        f"${float(r['amount_usd']):.4f}</b></div>"
+        f"<b>{'+' if r['kind'] == 'grant' else ''}"
+        f"{_credits(r['amount_usd'])}</b></div>"
         for r in (recent or [])[:5]
-    ) or "<div class='crow'><span class='muted'>Nothing spent yet.</span></div>"
+    ) or "<div class='crow'><span class='muted'>Nothing used yet.</span></div>"
 
-    note = ("Used up — ask the operator for a top-up." if low
+    note = ("All used — ask for more to carry on." if low
             else "Running low." if near
-            else "Every model call your team makes is priced here.")
+            else "Each question your team answers uses a few.")
     return (
         f"<div class='card credit{' low' if low else ''}'>"
-        f"<div class='chead'><h3>Free credit</h3>"
-        f"<b>${left:.4f}</b></div>"
+        f"<div class='chead'><h3>Free credits</h3>"
+        f"<b>{used} <span>/ {total}</span></b></div>"
         f"<div class='cbar'><span style='width:{pct}%'></span></div>"
-        f"<p class='muted' style='margin:8px 0 12px'>"
-        f"${used:.4f} of ${granted:.2f} used · {e(note)}</p>"
+        f"<p class='muted' style='margin:8px 0 12px'>{e(note)}</p>"
         f"{rows}</div>"
     )
 
+
+def _credits(tokens) -> str:
+    """A ledger row's tokens as credits, for display."""
+    import math
+    try:
+        # Rounded up, the same way the balance rounds, or the header and the
+        # rows below it disagree by one and the whole figure looks invented.
+        n = max(1, math.ceil(float(tokens) / 1000))
+    except (TypeError, ValueError):
+        return "—"
+    return f"{n:,}"
 
 def home_page(account: dict, day: dict, kpi: dict, gates: list,
               threads: list, stock: list, credit: dict | None = None,

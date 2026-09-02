@@ -32,16 +32,30 @@ from lucida.observability import get_logger
 
 logger = get_logger("web.credits")
 
-# What every new owner is given, in US dollars. Small on purpose: enough to
-# see the workforce do real work, not enough to be worth abusing.
-FREE_GRANT_USD = 1.00
+# The allowance is counted in tokens, because tokens are the one number in
+# this system that is actually measured: the provider returns them with every
+# reply. A dollar figure would have to be multiplied by a price this project
+# does not reliably know for every model it can reach, and a made-up cost
+# shown to an owner is worse than no cost at all.
+#
+# Presented to the owner as round credits rather than six-figure token counts.
+TOKENS_PER_CREDIT = 1_000
+FREE_GRANT_CREDITS = 320
+FREE_GRANT_TOKENS = FREE_GRANT_CREDITS * TOKENS_PER_CREDIT
+
+
+def to_credits(tokens: float) -> int:
+    """Tokens as whole credits, rounded up so nothing is used for free."""
+    import math
+    return math.ceil(max(0.0, float(tokens)) / TOKENS_PER_CREDIT)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS credit_ledger (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id  TEXT NOT NULL,
     kind        TEXT NOT NULL,          -- grant | charge
-    amount_usd  REAL NOT NULL,          -- always positive; `kind` gives the sign
+    amount_usd  REAL NOT NULL,          -- tokens; the column name predates the
+                                        -- switch and is kept so old rows read
     model       TEXT,
     session_id  TEXT,
     note        TEXT,
@@ -63,7 +77,7 @@ def init() -> None:
         conn.executescript(SCHEMA)
 
 
-def grant_if_new(account_id: str, amount: float = FREE_GRANT_USD) -> None:
+def grant_if_new(account_id: str, amount: float = FREE_GRANT_TOKENS) -> None:
     """Give an owner their opening credit, once and only once."""
     from . import auth
 
@@ -77,7 +91,8 @@ def grant_if_new(account_id: str, amount: float = FREE_GRANT_USD) -> None:
             "INSERT INTO credit_ledger (account_id, kind, amount_usd, note, "
             "created_at) VALUES (?,'grant',?,?,?)",
             (account_id, amount, "Welcome credit", _now()))
-    logger.info("granted $%.2f opening credit to %s", amount, account_id)
+    logger.info("granted %s tokens of opening credit to %s",
+                f"{int(amount):,}", account_id)
 
 
 def grant(account_id: str, amount: float, note: str = "Top-up") -> None:
@@ -89,7 +104,8 @@ def grant(account_id: str, amount: float, note: str = "Top-up") -> None:
             "INSERT INTO credit_ledger (account_id, kind, amount_usd, note, "
             "created_at) VALUES (?,'grant',?,?,?)",
             (account_id, float(amount), note, _now()))
-    logger.info("granted $%.2f to %s (%s)", amount, account_id, note)
+    logger.info("granted %s tokens to %s (%s)",
+                f"{int(amount):,}", account_id, note)
 
 
 def charge(account_id: str, amount: float, model: str = "",
@@ -104,7 +120,8 @@ def charge(account_id: str, amount: float, model: str = "",
             "INSERT INTO credit_ledger (account_id, kind, amount_usd, model, "
             "session_id, note, created_at) VALUES (?,'charge',?,?,?,?,?)",
             (account_id, float(amount), model, session_id, note, _now()))
-    logger.info("charged $%.4f to %s (%s)", amount, account_id, model or "?")
+    logger.info("charged %s tokens to %s (%s)",
+                f"{int(amount):,}", account_id, model or "?")
 
 
 def balance(account_id: str) -> dict[str, float]:
@@ -122,8 +139,16 @@ def balance(account_id: str) -> dict[str, float]:
     totals = {r["kind"]: float(r["total"]) for r in rows}
     granted = totals.get("grant", 0.0)
     spent = totals.get("charge", 0.0)
-    return {"granted": granted, "spent": spent,
-            "remaining": round(granted - spent, 6)}
+    remaining = max(0.0, granted - spent)
+    return {
+        "granted": granted, "spent": spent, "remaining": remaining,
+        # What the owner is shown. Credits used is rounded down and the
+        # allowance rounded to whole credits, so the bar never reads past
+        # full on the last fractional token.
+        "credits_total": to_credits(granted),
+        "credits_used": min(to_credits(granted), to_credits(spent)),
+        "credits_left": to_credits(remaining),
+    }
 
 
 def has_credit(account_id: str) -> bool:
@@ -151,8 +176,7 @@ def history(account_id: str, limit: int = 50) -> list[dict[str, Any]]:
 def out_of_credit_message(account_id: str) -> str:
     b = balance(account_id)
     return (
-        f"Your free credit is used up — ${b['granted']:.2f} granted, "
-        f"${b['spent']:.2f} spent. Every model call your team makes is priced "
-        f"and listed under Settings, so you can see exactly where it went. "
-        f"Ask the operator for a top-up to carry on."
+        f"You have used all {b['credits_total']} of your free credits. "
+        f"Every question your team answers uses some, and Home shows what "
+        f"each one took. Ask the operator for more to carry on."
     )
