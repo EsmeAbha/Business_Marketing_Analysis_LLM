@@ -10,7 +10,7 @@ so the claim is checkable rather than asserted.
 
 ```
 $ git log --format='%an <%ae>' | sort | uniq -c
-     47 EsmeAbha <esmechowdhuryabha@gmail.com>
+     54 EsmeAbha <esmechowdhuryabha@gmail.com>
      27 Esme Abha <esmechowdhuryabha.com>
       7 Esme Abha <esmechowdhuryabha@gmail.com>
 ```
@@ -21,7 +21,7 @@ other contributor exists in the history.
 
 ```
 $ git rev-list --count HEAD
-81 commits, 2026-08-14 to 2026-09-02
+88 commits, 2026-08-14 to 2026-09-03
 ```
 
 ## The agents I wrote
