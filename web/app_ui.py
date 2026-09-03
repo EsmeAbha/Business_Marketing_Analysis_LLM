@@ -387,10 +387,24 @@ CHAT_CSS = f"""
 .typing span:nth-child(2) {{ animation-delay:.15s; }}
 .typing span:nth-child(3) {{ animation-delay:.3s; }}
 @keyframes b {{ 0%,60%,100% {{ opacity:.25 }} 30% {{ opacity:1 }} }}
+/* While the workforce runs, say who is working. A four-minute wait behind a
+   silent row of dots is indistinguishable from a hang, and the owner is the
+   one person who cannot see the log. */
+.prog {{ margin-top:9px; font-size:12.5px; color:{MUTED}; line-height:1.6; }}
+.prog .now {{ color:{INK}; font-weight:600; }}
+.prog .done {{ display:block; color:{FAINT}; }}
+.prog .done b {{ font-weight:600; color:{MUTED}; }}
 """
 
 CHAT_JS = r"""
 const thread = document.getElementById('thread');
+// `#thread` is the scroller; the messages live one level in, inside `.wrap`,
+// which is what gives them their column width and side padding. Appending a
+// new message to the scroller instead of the column is invisible until the
+// reply lands, and then it sits wider and further left than every message
+// above it — the same message jumps position on reload. Scroll the scroller,
+// but write into the column.
+const lane = thread ? (thread.querySelector('.wrap') || thread) : null;
 const box = document.getElementById('msg');
 const send = document.getElementById('send');
 const file = document.getElementById('file');
@@ -404,10 +418,24 @@ const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
    owner verbatim — backticks, pipes and all — which is what made a finished
    answer look like a broken one. */
 function inline(s) {
+  // Code spans are lifted out before any emphasis rule runs and put back
+  // afterwards. Replacing them with <code> in place is not enough: the
+  // emphasis rules then match *inside* the tag, so `rate *= 2` came back as
+  // italics in the middle of what is supposed to be literal text.
+  const held = [];
+  s = s.replace(/`([^`]+)`/g, (_, code) =>
+    '@@C' + (held.push(code) - 1) + 'C@@');
   return s
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[\s(])_([^_]+)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>');
+    // Both italic forms, not just the underscore one. The models write
+    // *Note:* far more often than _Note:_, and an unhandled form does not
+    // degrade to plain text — it shows the asterisks to the owner, which
+    // reads as the app leaking its own markup. Runs after the bold rule, so
+    // every remaining `*` is a real emphasis marker; the no-space guards
+    // keep arithmetic and stray bullets from becoming italics.
+    .replace(/\*(?!\s)([^*]+?)(?<!\s)\*/g, '<em>$1</em>')
+    .replace(/(^|[\s(])_([^_]+)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>')
+    .replace(/@@C(\d+)C@@/g, (_, i) => '<code>' + held[+i] + '</code>');
 }
 
 function mdTable(b) {
@@ -451,9 +479,64 @@ function bubble(who, name, text, raw) {
     + '</div></div>';
   const empty = document.getElementById('empty');
   if (empty) empty.remove();
-  thread.appendChild(el);
+  lane.appendChild(el);
   thread.scrollTop = thread.scrollHeight;
   return el;
+}
+
+/* The workforce reports every step to /api/events. While a question is in
+   flight the chat listens in and says who is working, so a long run reads as
+   progress rather than as a stall. The stream is opened per request and shut
+   when the answer lands — a permanently open connection on the chat page
+   would keep a worker busy for every idle tab. */
+/* Keyed by both the agent slug (`actor`) and the graph node id (`to` on a
+   handoff), because the event stream uses one for each and a half-populated
+   map would silently fall back to raw slugs mid-run. */
+const AGENT_NAMES = {
+  supervisor: 'Your supervisor', market_research: 'Market research',
+  product_vision: 'Product vision', pricing: 'Pricing', inventory: 'Stock',
+  ad_creative: 'Ad creative', engagement: 'Customers',
+  delivery: 'Delivery', reporting: 'Reporting',
+  market: 'Market research', vision: 'Product vision', ads: 'Ad creative',
+  engage: 'Customers', report: 'Reporting',
+};
+const niceAgent = (a) =>
+  AGENT_NAMES[a] || String(a || '').replace(/_/g, ' ') || 'Your team';
+
+function watchProgress(waitEl) {
+  const text = waitEl.querySelector('.text');
+  const box = document.createElement('div');
+  box.className = 'prog';
+  text.appendChild(box);
+  const done = [];
+  let now = 'Reading your message';
+  const draw = () => {
+    box.innerHTML = '<span class="now">' + esc(now) + '…</span>'
+      + done.map((d) => '<span class="done">✓ <b>' + esc(d.who) + '</b> '
+        + esc(d.what) + '</span>').join('');
+    thread.scrollTop = thread.scrollHeight;
+  };
+  draw();
+
+  let src;
+  try { src = new EventSource('/api/events'); } catch (e) { return () => {}; }
+  src.onmessage = (m) => {
+    let e; try { e = JSON.parse(m.data); } catch (err) { return; }
+    const who = niceAgent(e.actor);
+    if (e.kind === 'agent_start') { now = who + ' is working'; draw(); }
+    else if (e.kind === 'tool_call' && /search/i.test(e.summary || '')) {
+      now = who + ' is searching the web'; draw();
+    }
+    else if (e.kind === 'agent_end') {
+      done.push({ who: who, what: 'finished' });
+      now = 'Your supervisor is deciding what is next'; draw();
+    }
+    else if (e.kind === 'handoff' && e.to) {
+      now = 'Handing over to ' + niceAgent(e.to); draw();
+    }
+  };
+  src.onerror = () => {};
+  return () => { try { src.close(); } catch (e) {} box.remove(); };
 }
 
 function grow() {
@@ -535,25 +618,70 @@ async function ask() {
 
   const wait = bubble('them', 'Your team', '',
     '<span class="typing"><span></span><span></span><span></span></span>');
+  const stop = watchProgress(wait);
   try {
     const r = await fetch('/api/ask', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ text })
     });
-    const d = await r.json();
     const out = wait.querySelector('.text');
-    if (d.ask_sources) {
-      wait.remove();
-      askSources(d.query, d.sources || []);
-      return;                       // busy is cleared when they choose
+    const streaming = (r.headers.get('content-type') || '')
+      .includes('x-ndjson');
+
+    // The whole-reply cases — out of credit, which sources to search, an
+    // error — still arrive as one JSON object. Only a real answer is typed
+    // out, because there is nothing to watch appear in a refusal.
+    if (!streaming) {
+      const d = await r.json();
+      stop();
+      if (d.ask_sources) {
+        wait.remove();
+        askSources(d.query, d.sources || []);
+        return;                     // busy is cleared when they choose
+      }
+      out.innerHTML = r.ok
+        ? md(d.answer || 'Nothing came back.')
+        : '<span style="color:#B91C1C">'
+          + esc(d.error || 'That did not work.') + '</span>';
+      busy = false; grow(); thread.scrollTop = thread.scrollHeight;
+      return;
     }
-    if (!r.ok) {
-      out.innerHTML = '<span style="color:#B91C1C">'
-        + esc(d.error || 'That did not work.') + '</span>';
+
+    // The first token is the signal that the writing has started, so the
+    // progress list comes down then rather than when the request was sent.
+    let answer = '', started = false, failed = '';
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split(String.fromCharCode(10));
+      buf = lines.pop();            // keep the partial line for next time
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let msg; try { msg = JSON.parse(line); } catch (e) { continue; }
+        if (msg.t) {
+          if (!started) { started = true; stop(); out.innerHTML = ''; }
+          answer += msg.t;
+          out.innerHTML = md(answer);
+          thread.scrollTop = thread.scrollHeight;
+        } else if (msg.error) {
+          failed = msg.error;
+        } else if (msg.done && msg.snapshot) {
+          if (msg.snapshot.answer) { answer = msg.snapshot.answer; }
+        }
+      }
+    }
+    stop();
+    if (failed) {
+      out.innerHTML = '<span style="color:#B91C1C">' + esc(failed) + '</span>';
     } else {
-      out.innerHTML = md(d.answer || 'Nothing came back.');
+      out.innerHTML = md(answer || 'Nothing came back.');
     }
   } catch (err) {
+    stop();
     wait.querySelector('.text').innerHTML =
       '<span style="color:#B91C1C">' + esc(String(err)) + '</span>';
   }
@@ -1876,6 +2004,20 @@ DELIVERY_CSS = f"""
 .qwait {{ color:{MUTED}; font-size:13.5px; line-height:1.6; }}
 .warnbox {{ background:{AMBER_TINT}; color:{AMBER}; border:1px solid #FDE68A;
   border-radius:12px; padding:11px 14px; font-size:13px; margin-bottom:14px; }}
+/* The last thing an owner reads before a courier is actually sent. It is
+   deliberately plain and quiet - a confirmation that shouts is one people
+   learn to click past. */
+.confirm {{ border:1px solid {BORDER}; border-radius:14px; padding:15px 17px;
+  background:{SUNKEN}; }}
+.confirm > b {{ display:block; margin-bottom:10px; font-size:14.5px; }}
+.cline {{ display:flex; justify-content:space-between; gap:16px;
+  padding:5px 0; font-size:13px; color:{MUTED}; }}
+.cline b {{ color:{INK}; font-weight:600; text-align:right; }}
+.warnline {{ margin:11px 0 0; font-size:12.5px; color:{AMBER};
+  line-height:1.55; }}
+.bk {{ display:flex; justify-content:space-between; align-items:center;
+  gap:14px; padding:9px 0; border-top:1px solid {BORDER}; }}
+.bk:first-of-type {{ border-top:0; }}
 .zones {{ width:100%; border-collapse:collapse; font-size:13px;
   margin-top:8px; }}
 .zones th {{ text-align:left; font-weight:500; color:{MUTED};
@@ -1887,6 +2029,11 @@ DELIVERY_CSS = f"""
 
 DELIVERY_JS = """
 const $ = (id) => document.getElementById(id);
+// The confirmation panel echoes back a customer's name and address, which
+// are typed by hand and go straight into innerHTML.
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;',
+            "'": '&#39;' }[c]));
 const money = (n, cur) => cur + ' ' + Number(n).toLocaleString(undefined,
   { maximumFractionDigits: 0 });
 
@@ -1926,20 +2073,70 @@ async function priceIt() {
   window.__cod = q.total;
 }
 
+function parcel(confirm) {
+  return {
+    customer: $('dcustomer').value, phone: $('dphone').value,
+    address: $('daddress').value, product: $('dproduct').value,
+    cod_amount: $('dcod').checked ? (window.__cod || 0) : 0,
+    note: $('dnote').value,
+    confirm: !!confirm,
+  };
+}
+
+/* Booking sends a real courier to a real address and cannot be undone, so
+   the first press only asks. The server refuses to book without `confirm`
+   as well - a guard that lives only in the browser is not a guard. */
 async function bookIt() {
   const btn = $('bookbtn');
-  btn.disabled = true; btn.textContent = 'Booking…';
-  const r = await fetch('/api/delivery/book', { method: 'POST',
+  btn.disabled = true; btn.textContent = 'Checking…';
+  const ask = await fetch('/api/delivery/book', { method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      customer: $('dcustomer').value, phone: $('dphone').value,
-      address: $('daddress').value, product: $('dproduct').value,
-      cod_amount: $('dcod').checked ? (window.__cod || 0) : 0,
-      note: $('dnote').value,
-    }) });
-  const out = await r.json();
+    body: JSON.stringify(parcel(false)) });
+  const step = await ask.json();
   btn.textContent = 'Book the courier';
   btn.disabled = false;
+  if (step.needs_confirmation) {
+    const s = step.summary || {};
+    const live = step.provider === 'pathao' && !step.sandbox;
+    $('bookout').innerHTML =
+      '<div class="confirm">'
+      + '<b>Confirm this booking?</b>'
+      + '<div class="cline"><span>Courier</span><b>' + esc(step.provider)
+        + (step.sandbox ? ' (sandbox — books nothing real)' : '') + '</b></div>'
+      + '<div class="cline"><span>To</span><b>' + esc(s.customer || '—')
+        + '</b></div>'
+      + '<div class="cline"><span>Phone</span><b>' + esc(s.phone || '—') + '</b></div>'
+      + '<div class="cline"><span>Address</span><b>' + esc(s.address || '—') + '</b></div>'
+      + '<div class="cline"><span>Parcel</span><b>' + esc(s.product || '—') + '</b></div>'
+      + '<div class="cline"><span>Collect on delivery</span><b>'
+        + Number(s.cod_amount || 0).toLocaleString() + '</b></div>'
+      + (live ? '<p class="warnline">This books a real parcel and a real '
+        + 'pickup. It cannot be undone from here.</p>' : '')
+      + '<div style="margin-top:12px">'
+      + '<button class="btn" id="confirmbtn">Yes, book it</button>'
+      + '<button class="btn btn-quiet" id="cancelbtn" '
+        + 'style="margin-left:8px">Cancel</button>'
+      + '</div></div>';
+    $('confirmbtn').addEventListener('click', reallyBook);
+    $('cancelbtn').addEventListener('click', () => {
+      $('bookout').innerHTML = '<div class="qwait">Not booked.</div>';
+    });
+    return;
+  }
+  render(step);
+}
+
+async function reallyBook() {
+  const c = $('confirmbtn');
+  c.disabled = true; c.textContent = 'Booking…';
+  const r = await fetch('/api/delivery/book', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(parcel(true)) });
+  const out = await r.json();
+  render(out);
+}
+
+function render(out) {
   $('bookout').innerHTML = out.ok
     ? '<div class="warnbox" style="background:#FBEBEB;color:#7B1E22;'
       + 'border-color:#F0D6D6">Booked with ' + out.provider
@@ -1957,9 +2154,39 @@ document.addEventListener('DOMContentLoaded', () => {
 """
 
 
+def _booked_card(rows: list[dict]) -> str:
+    """Parcels already handed over.
+
+    The booking result used to live only in the page that made it, so a
+    reload lost the consignment number - the one thing the owner needs to
+    chase a parcel. It is written to `deliveries` either way; this simply
+    shows what is already there.
+    """
+    if not rows:
+        return ""
+    items = "".join(
+        f"<div class='bk'>"
+        f"<div><b>{e(str(r.get('recipient') or 'Customer'))}</b>"
+        f"<span class='muted'> · {e(str(r.get('product_name') or ''))}</span>"
+        f"<div class='muted' style='font-size:12px'>"
+        f"{e(str(r.get('consignment_id') or 'no consignment number'))}"
+        f"{' · test booking' if r.get('simulated') else ''}</div></div>"
+        f"<span class='pill {'ok' if r.get('status') == 'booked' else 'warn'}'>"
+        f"{e(str(r.get('status') or ''))}</span>"
+        f"</div>"
+        for r in rows)
+    return (
+        f"<div class='card'>"
+        f"<h3 style='margin:0 0 4px;font-size:15px'>Parcels you have sent</h3>"
+        f"<p class='muted' style='margin:0 0 12px'>The consignment number is "
+        f"what you quote the courier when a customer asks where it is.</p>"
+        f"{items}</div>"
+    )
+
+
 def delivery_page(account: dict, products: list[dict], zones: list[dict],
                   courier: str = "", dispatch: tuple = ("", ""),
-                  note: str = "") -> str:
+                  note: str = "", booked: list[dict] | None = None) -> str:
     """Weigh a parcel, price it honestly, and hand it to a real courier."""
     head = (
         "<div class='head'><h1>Delivery</h1>"
@@ -2063,6 +2290,8 @@ def delivery_page(account: dict, products: list[dict], zones: list[dict],
         f"<div id='bookout' style='margin-top:12px'></div>"
         f"</div>"
 
+        f"{_booked_card(booked or [])}"
+
         f"<div class='card'>"
         f"<h3 style='margin:0 0 4px;font-size:15px'>Your courier rates</h3>"
         f"<p class='muted' style='margin:0 0 6px'>These are what the charge is "
@@ -2161,6 +2390,13 @@ NEEDS = {
                "the app, so it has to be a refresh token.",
         "fields": [("token", "OAuth refresh token", "textarea")],
     },
+    "telegram": {
+        "why": "Message @BotFather on Telegram, send /newbot, and it replies "
+               "with a token. That is the whole setup - no app review, no "
+               "business verification, no domain. Your customers then message "
+               "your bot and you answer them from Customers.",
+        "fields": [("token", "Bot token from @BotFather", "text")],
+    },
     "steadfast": {
         "why": "Both come from the API page of your Steadfast merchant "
                "portal. They are checked against your account balance before "
@@ -2247,8 +2483,7 @@ def connect_form(account: dict, platform: str, has_oauth: bool,
 def settings_page(account: dict, channels: dict, image_provider: str,
                   db_backend: str, has_llm: bool,
                   oauth: dict | None = None, note: str = "",
-                  shop_stats: dict | None = None,
-                  telegram_on: bool = False) -> str:
+                  shop_stats: dict | None = None) -> str:
     """Everything the owner configures, on one page.
 
     Channels and the account used to be two screens in two different
@@ -2270,6 +2505,8 @@ def settings_page(account: dict, channels: dict, image_provider: str,
         "youtube": ("#FF0000", "▶", "Publish videos you supply."),
         "steadfast": ("#0F766E", "SF", "Book parcels and collect cash on delivery."),
         "pathao": ("#E11D48", "P", "Book parcels across Bangladesh."),
+        "telegram": ("#229ED9", "TG",
+                     "Let customers message your shop, and reply from here."),
     }
     setup = {
         "messenger": ["Create a Meta app and add your Facebook Page to it",
@@ -2298,6 +2535,11 @@ def settings_page(account: dict, channels: dict, image_provider: str,
                     "<code>youtube.upload</code>",
                     "An API key alone cannot upload — it only reads, so "
                     "Connect asks for a refresh token"],
+        "telegram": ["Message <code>@BotFather</code> on Telegram and send "
+                     "<code>/newbot</code>",
+                     "It replies with a token — paste that into Connect",
+                     "No app review and no domain: your bot answers "
+                     "customers as soon as it is connected"],
     }
 
     banner = f"<div class='note'>{e(note)}</div>" if note else ""
@@ -2334,14 +2576,11 @@ def settings_page(account: dict, channels: dict, image_provider: str,
             f"{e(state)}</span>{action}</div></div>"
         )
 
-    tg_note = ("Your bot is live and answering customers" if telegram_on
-               else "Set a bot token from @BotFather to go live")
+    # Telegram used to sit here as a read-only fact, because the token came
+    # from the machine's .env and an owner could not change it from the
+    # browser. It is a connectable platform now, so it belongs with the
+    # others above and this tile would only say the same thing twice.
     extras = (
-        f"<div class='fact'><div class='icon' style='background:#229ED9'>TG"
-        f"</div>"
-        f"<div><h3>Telegram</h3><p>{e(tg_note)}</p>"
-        f"<span class='pill {'ok' if telegram_on else 'warn'}'>"
-        f"{'Working' if telegram_on else 'Not set up'}</span></div></div>"
         f"<div class='fact'><div class='icon' style='background:{ACCENT}'>AI</div>"
         f"<div><h3>Ad artwork</h3><p>{e(image_provider)}</p>"
         f"<span class='pill ok'>Working</span></div></div>"

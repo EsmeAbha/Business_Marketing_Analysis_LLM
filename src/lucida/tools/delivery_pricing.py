@@ -55,16 +55,33 @@ class Quote:
     problems: list[str] = field(default_factory=list)
     lines: list[dict[str, Any]] = field(default_factory=list)
 
+    # Set when the courier priced the parcel itself, so the breakdown does
+    # not keep describing a rate card that no longer produced the number.
+    priced_live: bool = False
+
     def explain(self, currency: str = "BDT") -> str:
         """The quote as the owner would say it out loud."""
         if not self.known:
             return "Delivery cannot be quoted yet: " + "; ".join(self.problems)
-        bits = [
-            f"{self.weight_g:,} g billed as {self.billable_kg} kg",
-            f"{self.zone_name} — {currency} {self.base_charge:,.0f} base",
-        ]
-        if self.extra_charge:
-            bits.append(f"{currency} {self.extra_charge:,.0f} for the extra weight")
+        # "billed as 0 kg" reads as free. The figure is the *extra* kilos
+        # over the zone's included weight, which is a different sentence.
+        weight = (f"{self.weight_g:,} g, within the included weight"
+                  if not self.billable_kg
+                  else f"{self.weight_g:,} g — {self.billable_kg} kg over the "
+                       f"included weight")
+        if self.priced_live:
+            # The courier's own number needs no derivation, and showing the
+            # saved base beside it contradicted the total on screen: the
+            # breakdown said "BDT 80 base" while the charge underneath said 70.
+            bits = [weight, f"{self.zone_name} — priced by the courier"]
+        else:
+            bits = [
+                weight,
+                f"{self.zone_name} — {currency} {self.base_charge:,.0f} base",
+            ]
+            if self.extra_charge:
+                bits.append(
+                    f"{currency} {self.extra_charge:,.0f} for the extra weight")
         if self.cod_fee:
             bits.append(f"{currency} {self.cod_fee:,.0f} cash-on-delivery fee")
         return (
