@@ -66,3 +66,7 @@ vscode_screenshots/
 # Generated at runtime, not source.
 data/paid_images.json
 data/media/
+
+# Raw editor captures. The 25-page evidence PDF carries all of them,
+# so committing 10 MB of PNGs would only duplicate it in the history.
+vscode_real/
