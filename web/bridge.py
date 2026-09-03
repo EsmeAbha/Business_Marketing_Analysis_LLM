@@ -38,11 +38,25 @@ ACCENT = "#7B1E22"
 ACCENT_TINT = "#FBEBEB"
 AMBER = "#A16207"
 AMBER_TINT = "#FEF9C3"
+# Matches app_ui.BORDER. A published creative is outlined in the ordinary
+# border; one still waiting on approval gets the amber tint instead.
+BORDER = "#E4E4E7"
 RED = "#B91C1C"
 RED_TINT = "#FEE2E2"
 NEUTRAL_TINT = "#F4F4F5"
 
 DASH = "—"
+
+
+def _credits(tokens) -> str:
+    """Tokens as credits, with the singular said properly."""
+    n = to_credits(tokens)
+    return f"{n:,} credit" if n == 1 else f"{n:,} credits"
+
+# Tokens are what the provider actually reports; credits are how they are
+# shown to the owner. Imported once here so every figure on the operator's
+# page uses the same rounding as the meter on Home.
+from .credits import to_credits  # noqa: E402
 
 # Lucida's agent keys -> the short node ids the design's NODE_POS / GRAPH_EDGES
 # are drawn against. The supervisor keeps its name in both.
@@ -457,16 +471,21 @@ def cost_bars(session_id: str) -> list[dict]:
     if not per:
         return []
 
-    top = max(r["usd"] for r in per.values()) or 1.0
+    # Ranked, scaled and labelled by tokens, which the provider returns with
+    # every reply. The dollar figures this used to show were tokens multiplied
+    # by a rate table that has no entry for most models the app can reach, so
+    # they fell back to a generic price and read as measured cost when they
+    # were arithmetic on a guess.
+    top = max(r["tokens"] for r in per.values()) or 1.0
     return [
         {
             "name": name.replace("_", " ").title(),
             "tok": f"{int(r['tokens']):,}",
-            "cost": f"${r['usd']:.4f}",
-            "pct": max(2, round((r["usd"] / top) * 100)),
-            "color": AMBER if r["usd"] >= top else ACCENT,
+            "cost": _credits(r["tokens"]),
+            "pct": max(2, round((r["tokens"] / top) * 100)),
+            "color": AMBER if r["tokens"] >= top else ACCENT,
         }
-        for name, r in sorted(per.items(), key=lambda kv: -kv[1]["usd"])
+        for name, r in sorted(per.items(), key=lambda kv: -kv[1]["tokens"])
     ]
 
 
@@ -672,12 +691,19 @@ def runs(current_session: str) -> list[dict]:
             (e["summary"] for e in events if e["kind"] == "session_start"),
             f"Run {s['session_id'][-6:]}",
         )
-        cost = ledger_for(s["session_id"]).total_cost_usd
+        # From the trace, not the in-process ledger: that lives in a
+        # module-level dict and holds nothing for a run this process did not
+        # make, so every earlier run showed as costing nothing at all.
+        tokens = next(
+            (int((e.get("payload") or {}).get("total_tokens") or 0)
+             for e in reversed(events) if e["kind"] == "session_end"), 0)
+        if not tokens:
+            tokens = ledger_for(s["session_id"]).total_tokens
         meta_bits = [f"{len(steps)} steps"]
         if s["errors"]:
             meta_bits.append(f"{s['errors']} error(s)")
-        if cost:
-            meta_bits.append(f"${cost:.4f}")
+        if tokens:
+            meta_bits.append(_credits(tokens))
         if s["session_id"] == current_session:
             meta_bits.append("this session")
         out.append({
@@ -1128,16 +1154,18 @@ def facts(session_id: str) -> dict[str, str]:
 
     # --- what the workforce costs -------------------------------------------
     ledger = ledger_for(session_id)
-    spend = sum(c.cost_usd for c in ledger.calls)
     tokens = sum(c.input_tokens + c.output_tokens for c in ledger.calls)
-    rate = fx.convert(1, settings.currency, "USD") if settings.currency else None
-    f["usageToday"] = f"${spend:.2f}"
+    # Counted in credits, never in money. The rate table behind `cost_usd`
+    # has no entry for most models this app can reach, so it fell back to a
+    # generic price - arithmetic on a guess, shown to four decimal places as
+    # though it had been measured.
+    f["usageToday"] = _credits(tokens)
     f["usageTokens"] = f"{tokens:,} tokens · {len(ledger.calls)} call(s)"
-    f["usageMonth"] = f"${spend:.2f}"
-    f["usageMonthNote"] = (f"\u2248 {_cur(spend * rate)}" if rate else
-                           "this session only")
-    f["costPerDecision"] = (f"${spend / max(1, len(ledger.calls)):.3f}"
-                            if ledger.calls else DASH)
+    f["usageMonth"] = _credits(tokens)
+    f["usageMonthNote"] = "this session only"
+    f["costPerDecision"] = (
+        _credits(tokens / max(1, len(ledger.calls)))
+        if ledger.calls else DASH)
     f["decisionsNote"] = f"{len(ledger.calls)} model call(s)"
     events = bus.load(session_id, 400)
     errs = sum(1 for e in events if e.get("level") == "error")
