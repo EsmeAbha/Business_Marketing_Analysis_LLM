@@ -1,7 +1,7 @@
 # Deployment — lucida.aipedia.blog
 
 How this instance is actually deployed, what was changed to get it running,
-and what is still worth doing. Written 2026-09-02.
+and what is still worth doing. Written 2026-09-02; updated 2026-09-03.
 
 The application's own documentation — architecture, the eight agents, the
 screens — is in [README.md](README.md). This file only covers the
@@ -100,11 +100,73 @@ No code changes were needed for Google sign-in. It was already implemented in
 full — `web/google_oauth.py`, the routes at `serve.py:2009-2010`, and
 `auth.upsert_google_account()`.
 
+### The provider switch — 2026-09-03
+
+Google is retired. On 2026-09-02 its free tier ran out mid-run and the graph
+died with `AllModelsBusy`, which was also the last thing in the log before the
+process was found down. A rationed key is not something to demonstrate on.
+
+The app now runs on one paid OpenAI-compatible gateway and nothing else:
+
+| | |
+|---|---|
+| Text | `openai/gpt-5.4-nano` |
+| Vision | `openai/gpt-5.4` |
+| Gateway | `OPENAI_GATEWAY_URL`, reaching it via `settings.openai_base_url` |
+
+Three things about this are worth knowing before changing it:
+
+- **The gateway's allow-list is narrower than OpenAI's.** `gpt-4.1-nano` and
+  `gpt-5-nano` both return 403. `gpt-5.4-nano` and `gpt-5.4` are served; both
+  were checked with a live call rather than assumed.
+- **`gpt-5*` models reject `max_tokens`** and require `max_completion_tokens`.
+  `_build_openai()` already switches on the `_OPENAI_NO_SAMPLING` prefix
+  (`llm.py:73`), so this is handled — but a model named outside that tuple
+  would 400 on every call.
+- **Vision needs no second provider.** `AIW_VISION_PROVIDER` and
+  `AIW_VISION_MODEL` are deliberately blank: `settings.vision_provider` falls
+  through to the text provider when it is multimodal, which resolves to
+  `openai`/`gpt-5.4` on the same key and the same gateway.
+
+`.env` was also deduplicated in the same pass — it had accumulated four
+repeated blocks with two conflicting values for `AIW_GOOGLE_REDIRECT_URI`
+(one still pointing at `127.0.0.1:8010`). 19 unique keys now.
+
 ---
 
 ## Running it
 
+The app is a systemd service, `lucida.service`, enabled at boot:
+
 ```bash
+systemctl restart lucida      # deploy, after a git pull
+systemctl status lucida
+journalctl -u lucida -f
+```
+
+The unit is at `/etc/systemd/system/lucida.service`. Four of its settings are
+load-bearing:
+
+- `Restart=always` with `RestartSec=5` — a SIGKILLed process was back and
+  serving in about six seconds when this was tested.
+- `EnvironmentFile=` pointing at `.env`, so configuration has one home and no
+  secret is copied into the unit. Note that systemd's parser, unlike
+  `Environment=`, takes the rest of the line as the value — which is why
+  `AIW_DEFAULT_LOCATION=Dhaka, Bangladesh` needs no quoting.
+- `KillSignal=SIGINT` with `TimeoutStopSec=120` — a workforce run takes
+  60-120 seconds, and uvicorn shuts down gracefully on SIGINT, so a restart
+  lets in-flight work finish instead of severing it.
+- `Environment=PORT=8010`, because another uvicorn already owns 8000.
+
+It runs as root, which is what it inherited: `data/` is root-owned, so moving
+to a dedicated user means chowning a live database and is worth doing as its
+own change.
+
+To run it in the foreground instead — for a traceback that has not reached
+journald yet:
+
+```bash
+systemctl stop lucida
 HOST=127.0.0.1 PORT=8010 .venv/bin/python serve.py
 ```
 
@@ -115,30 +177,32 @@ prints the model chain, the vision chain, and whether Google sign-in is on.
 
 ## Known issues
 
-- **The app is not supervised.** It runs as a detached process, so a reboot
-  or a crash leaves it down with nothing to restart it. This is the most
-  important gap.
-
 - **`test_telegram_offset_advances_and_persists` fails.** `tests/test_workforce.py:238`
   asserts a simulated inbox has messages and gets `Inbox(messages=[],
   simulated=True)`. Pre-existing and independent of configuration — it fails
   with `.env` removed entirely.
 
 - **The test suite makes live API calls.** 9 seconds without a key, 8m20s
-  with one. Tests burn Gemini quota and will fail whenever the key is
-  rate-limited. They should mock the provider.
+  with one. Tests now spend gateway credit rather than a free-tier quota, so
+  they no longer fail on rate limits — they cost money instead. They should
+  mock the provider.
 
 - **`data/` sits inside the working tree.** Gitignored, but a `git clean -xdf`
   would erase every shop, order and chat thread, and nothing backs it up.
 
-- **`OPENAI_API_KEY`, `OPENAI_MODEL` and `OPENAI_GATEWAY_URL` are read by
-  nothing.** `build_client()` supports google, groq and anthropic only; the
-  `openai/gpt-oss-*` names in `llm.py` are Groq-hosted models, which makes
-  this an easy mistake to make. Kept in `.env` pending a decision.
-
 - **Email is unconfigured**, so signup verification codes render on screen
   rather than being mailed. Anyone who reaches the login page can register
   without a working mailbox.
+
+- **One provider, no failover.** Retiring Google bought reliability against
+  rate limits and gave it up against outages: `_chain()` now returns a single
+  entry, so if the gateway is down the app has nowhere to go. A second key
+  from any other provider would restore the fallback the chain is built for.
+
+- **Credentials were shared in plaintext** while configuring this and are due
+  for rotation — the gateway key, the Google client secret, the Pathao
+  secret, `AIW_SECRET_KEY`, and the Telegram bot token. Rotating
+  `AIW_SECRET_KEY` signs every session out, so do it deliberately.
 
 ---
 
@@ -146,31 +210,24 @@ prints the model chain, the vision chain, and whether Google sign-in is on.
 
 Roughly in the order the work should happen.
 
-**1. Supervise the process.** A systemd unit with `Restart=always`, an
-`EnvironmentFile` pointing at `.env`, and journald for logs. Small change,
-and it closes the largest gap between this and a real deployment.
-
-**2. Move the data out of the repo.** Point `LUCIDA_DATA_DIR` somewhere like
+**1. Move the data out of the repo.** Point `LUCIDA_DATA_DIR` somewhere like
 `/var/lib/lucida`, then take nightly SQLite backups with `.backup` (safe
 against a live writer, unlike copying the file). Restore should be tested,
 not assumed.
 
-**3. Make the tests offline again.** Mock the provider so the suite runs in
+**2. Make the tests offline again.** Mock the provider so the suite runs in
 seconds without a key, and fix the simulated-inbox bug rather than leaving one
 red test as the normal state — a suite people expect to fail stops being read.
 
-**4. Decide on the OpenAI-compatible gateway.** Either add a fourth provider
-to `build_client()` alongside google/groq/anthropic — a contained change,
-roughly one `_build_openai()` plus a `config.py` entry — or drop the three
-dead keys. Leaving them looks like configuration that works.
+**3. Finish the integrations.** Telegram is done — `TELEGRAM_BOT_TOKEN` is
+live as @Omygd_bot, answering for the shop named in `AIW_BOT_SHOP`, and one
+token is one bot so it can only ever represent one shop. Still missing:
+`TAVILY_API_KEY` for real web search (it silently falls back to `ddgs`), and
+`STEADFAST_*` for a second courier — only Pathao is configured, so there is
+no fallback if it is down.
 
-**5. Finish the integrations.** `TELEGRAM_BOT_TOKEN` for the customer
-channel, `TAVILY_API_KEY` for real web search (it silently falls back to
-`ddgs`), `STEADFAST_*` for a second courier — only Pathao is configured, so
-there is no fallback if it is down.
-
-**6. Configure SMTP before this is public.** Verification codes shown on
+**4. Configure SMTP before this is public.** Verification codes shown on
 screen mean self-registration needs no working mailbox.
 
-**7. Publish the Google consent screen.** While it is unpublished, only
+**5. Publish the Google consent screen.** While it is unpublished, only
 accounts listed under Test users can sign in.
