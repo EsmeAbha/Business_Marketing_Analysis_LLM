@@ -356,6 +356,35 @@ class _Failover:
     def invoke(self, *args, **kwargs):
         return self._run(lambda client: client.invoke(*args, **kwargs))
 
+    def stream(self, *args, **kwargs):
+        """Stream tokens, failing over only until the first one is out.
+
+        `_run` cannot be reused here: it returns the generator before the
+        request is made, so every failure would arrive after the chain had
+        already been walked past. This drives the generator itself instead.
+
+        Once a chunk has reached the caller it is on the owner's screen, so a
+        mid-stream failure is raised rather than retried — moving to another
+        model would restart the sentence and repeat text they have read.
+        """
+        last: Exception | None = None
+        for i, (provider, model) in enumerate(self._models):
+            started = False
+            try:
+                client = build_client(provider, model, self._max_tokens)
+                for chunk in client.stream(*args, **kwargs):
+                    started = True
+                    yield chunk
+                return
+            except Exception as exc:  # noqa: BLE001
+                if started or not should_try_next(exc):
+                    raise
+                last = exc
+                if i + 1 < len(self._models):
+                    logger.warning("%s %s; trying %s", model, _why(last),
+                                   self._models[i + 1][1])
+        raise AllModelsBusy(retry_after(last) if last else "")
+
     def with_structured_output(self, *args, **kwargs):
         """Structured calls fail over too — that is most of the agent work."""
         outer = self

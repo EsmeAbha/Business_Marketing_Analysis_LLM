@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import re
 import urllib.parse
 from dataclasses import dataclass
@@ -35,7 +36,67 @@ logger = get_logger("tools.imagegen")
 MEDIA_DIR = DATA_DIR / "media"
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 
+def _env_or(name: str, fallback: str) -> str:
+    import os
+    return (os.environ.get(name) or "").strip() or fallback
+
+
 POLLINATIONS = "https://image.pollinations.ai/prompt/{prompt}"
+
+# OpenAI's drawing model. Unlike the others in this file it costs real money
+# per picture, so it is capped rather than merely preferred.
+OPENAI_IMAGE_MODEL = _env_or("OPENAI_IMAGE_MODEL", "gpt-image-1")
+OPENAI_IMAGE_SIZES = {"square": "1024x1024", "story": "1024x1536",
+                      "wide": "1536x1024"}
+
+# How many paid pictures this installation may ever draw. Deliberately a
+# constant and not a setting: the point of it is to be hard to raise by
+# accident. Reaching it is not an error - the studio drops back to the free
+# provider and says so, because a shop that cannot make a poster at all is
+# worse than one making rough ones.
+PAID_IMAGE_LIMIT = int(_env_or("LUCIDA_PAID_IMAGE_LIMIT", "2"))
+
+# Kept on disk, not in memory: a counter that resets when the server restarts
+# is not a spending limit, it is a suggestion.
+QUOTA_FILE = DATA_DIR / "paid_images.json"
+
+
+def paid_images_used() -> int:
+    """How many paid pictures have been drawn, across all restarts."""
+    try:
+        return int(json.loads(QUOTA_FILE.read_text(encoding="utf-8"))["used"])
+    except Exception:  # noqa: BLE001 — a missing or corrupt file means none
+        return 0
+
+
+def paid_images_left() -> int:
+    return max(0, PAID_IMAGE_LIMIT - paid_images_used())
+
+
+def _claim_paid_image() -> bool:
+    """Take one from the allowance, or refuse.
+
+    Claimed *before* the request rather than after a successful reply,
+    because the money is spent the moment OpenAI answers - including when it
+    answers with a picture this code then fails to parse. Counting successes
+    would let a parse bug bill an unbounded number of times.
+    """
+    used = paid_images_used()
+    if used >= PAID_IMAGE_LIMIT:
+        return False
+    try:
+        QUOTA_FILE.parent.mkdir(parents=True, exist_ok=True)
+        QUOTA_FILE.write_text(json.dumps({"used": used + 1}),
+                              encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001
+        # If the count cannot be written it cannot be enforced, and an
+        # unenforceable limit on someone else's money is not one worth
+        # proceeding under.
+        logger.warning("could not record image quota, refusing to draw: %s",
+                       exc)
+        return False
+    logger.info("paid image %d of %d", used + 1, PAID_IMAGE_LIMIT)
+    return True
 # Google's drawing models. Imagen 3 was retired and Imagen 4 is closed to new
 # keys, so the way in is the Gemini image models, which return the picture as
 # an inline part of an ordinary generateContent reply. Free-tier keys are
@@ -79,10 +140,20 @@ class Artwork:
 
 def available() -> str:
     """Which provider would be tried. Never returns nothing — that is the point."""
+    if settings.openai_api_key and paid_images_left() > 0:
+        return "openai"
     return "google" if settings.google_api_key else "pollinations"
 
 
 def status() -> str:
+    if settings.openai_api_key:
+        left = paid_images_left()
+        if left > 0:
+            return (f"OpenAI {OPENAI_IMAGE_MODEL} — {left} of "
+                    f"{PAID_IMAGE_LIMIT} paid pictures left, then it falls "
+                    f"back to the free provider")
+        return (f"Free provider — the {PAID_IMAGE_LIMIT}-picture OpenAI "
+                f"allowance is used up")
     if settings.google_api_key:
         return ("Google, falling back to Pollinations — Google's drawing "
                 "models need billing on, free keys are given no image quota")
@@ -205,6 +276,58 @@ def _pollinations(prompt: str, size: tuple[int, int],
         return Artwork(False, provider="pollinations", error=str(exc))
 
 
+def _openai_image(prompt: str, preset: str) -> Artwork:
+    """Draw with OpenAI. Costs money, so the allowance is claimed first.
+
+    The claim happens before the request and is never given back on failure.
+    That is deliberate: a refund path is exactly where a retry loop turns a
+    limit of two into a bill for twenty, and the whole reason this exists is
+    that the person paying is not the person running it.
+    """
+    if not settings.openai_api_key:
+        return Artwork(False, provider="openai", error="no OpenAI key")
+    if not _claim_paid_image():
+        return Artwork(False, provider="openai",
+                       error=(f"the {PAID_IMAGE_LIMIT}-picture paid allowance "
+                              f"is used up"))
+
+    want = OPENAI_IMAGE_SIZES.get(preset, OPENAI_IMAGE_SIZES["square"])
+    try:
+        with httpx.Client(timeout=300) as c:
+            r = c.post(
+                f"{settings.openai_base_url}/images/generations",
+                headers={"Authorization": f"Bearer {settings.openai_api_key}",
+                         "Content-Type": "application/json"},
+                json={"model": OPENAI_IMAGE_MODEL, "prompt": prompt,
+                      "size": want, "n": 1},
+            )
+        if r.status_code != 200:
+            return Artwork(False, provider="openai",
+                           error=f"OpenAI returned {r.status_code}: "
+                                 f"{r.text[:160]}")
+        item = (r.json().get("data") or [{}])[0]
+        # gpt-image-1 returns base64; the dall-e models return a URL. Both
+        # shapes are accepted so changing the model does not break drawing.
+        raw = item.get("b64_json")
+        if raw:
+            content = base64.b64decode(raw)
+        elif item.get("url"):
+            with httpx.Client(timeout=120) as c:
+                content = c.get(item["url"]).content
+        else:
+            return Artwork(False, provider="openai",
+                           error="OpenAI returned no picture")
+    except Exception as exc:  # noqa: BLE001
+        return Artwork(False, provider="openai", error=str(exc))
+
+    w, h = (int(x) for x in want.split("x"))
+    path = _save(content, prompt, "png")
+    logger.info("generated artwork via %s (%d bytes)", OPENAI_IMAGE_MODEL,
+                len(content))
+    return Artwork(True, str(path), w, h, len(content), OPENAI_IMAGE_MODEL,
+                   prompt)
+
+
 def _gemini_image(prompt: str, size: tuple[int, int]) -> Artwork:
     """Draw with Google, trying each image model in turn.
 
@@ -256,6 +379,15 @@ def generate(prompt: str, preset: str = "square",
              seed: int | None = None) -> Artwork:
     """Make one image. Falls back to the keyless provider if the paid one fails."""
     size = PRESETS.get(preset, PRESETS["square"])
+    # OpenAI draws far better than the free provider and is the only one here
+    # that bills, so it goes first but only while the allowance lasts. Once
+    # it is gone the studio quietly carries on with the free provider rather
+    # than refusing to work.
+    if settings.openai_api_key and paid_images_left() > 0:
+        art = _openai_image(prompt, preset)
+        if art.ok:
+            return art
+        logger.info("OpenAI drawing unavailable (%s), falling back", art.error)
     if settings.google_api_key:
         art = _gemini_image(prompt, size)
         if art.ok:
