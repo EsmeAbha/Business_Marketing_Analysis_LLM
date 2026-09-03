@@ -44,6 +44,7 @@ PATHAO_BASE = "https://api-hermes.pathao.com"
 # real, which is the only safe way to try the flow end to end.
 PATHAO_SANDBOX = "https://courier-api-sandbox.pathao.com"
 YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
+TELEGRAM_API = "https://api.telegram.org"
 TIMEOUT = 30
 
 # Messenger and Facebook are the same Page behind the same token — Meta does
@@ -52,7 +53,11 @@ META_PLATFORMS = ("messenger", "facebook")
 # The courier the shop can actually book with in Bangladesh. Pathao is the
 # only live option kept in this trimmed build.
 COURIERS = ("pathao",)
-PLATFORMS = META_PLATFORMS + COURIERS
+# Telegram is a channel each shop connects for itself: @BotFather issues a
+# token in a minute, with no app review and no domain, so unlike Meta it is
+# something an owner can actually finish on their own.
+CHANNELS = ("telegram",)
+PLATFORMS = META_PLATFORMS + COURIERS + CHANNELS
 
 
 @dataclass
@@ -148,6 +153,13 @@ def credentials(db, platform: str) -> tuple[str, str]:
         return settings.meta_access_token, settings.meta_page_id
     if platform == "pathao":
         return settings.pathao_client_id, settings.pathao_client_secret
+    if platform == "telegram":
+        import os
+
+        # `external_id` doubles as "is this usable", and a token from .env has
+        # no bot id to hand, so the token stands in for both.
+        tok = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        return tok, tok
     return "", ""
 
 
@@ -161,6 +173,15 @@ def pathao_credentials(db) -> tuple[str, str, str, str, bool]:
             str(extra.get("password") or ""), bool(extra.get("sandbox")))
 
 def connected(db, platform: str) -> bool:
+    if platform == "pathao":
+        # Pathao needs the Merchant panel login as well as the client pair:
+        # its token endpoint is a password grant, and the pair alone is
+        # refused. `.env` carries only the pair, so judging this the same way
+        # as every other platform reported a connection that could not issue
+        # a token - Settings said "connected" while delivery quietly fell
+        # back to the saved rate card.
+        client_id, _secret, username, password, _sandbox =             pathao_credentials(db)
+        return bool(client_id and username and password)
     token, ident = credentials(db, platform)
     return bool(token and ident)
 
@@ -256,6 +277,28 @@ def verify_youtube(refresh_token: str) -> Verified:
         return Verified(True, items[0]["snippet"]["title"], items[0]["id"])
     except Exception as exc:  # noqa: BLE001
         return Verified(False, error=str(exc))
+
+
+def verify_telegram(token: str) -> Verified:
+    """Ask the bot who it is. `getMe` is the cheapest proof a token works."""
+    try:
+        r = httpx.get(f"{TELEGRAM_API}/bot{token.strip()}/getMe",
+                      timeout=TIMEOUT)
+        body = r.json()
+    except Exception as exc:  # noqa: BLE001
+        return Verified(False, error=str(exc))
+    if not body.get("ok"):
+        # BotFather's own wording is clearer than anything paraphrased here.
+        return Verified(False, error=str(body.get("description")
+                                        or f"telegram returned {r.status_code}"))
+    me = body.get("result") or {}
+    username = str(me.get("username") or "")
+    return Verified(
+        True,
+        external_id=str(me.get("id") or ""),
+        display_name=("@" + username) if username else
+                     str(me.get("first_name") or "your bot"),
+    )
 
 
 def verify_steadfast(api_key: str, secret: str) -> Verified:
@@ -377,6 +420,9 @@ def verify(platform: str, token: str, ident: str = "",
                              str(extra.get("username") or ""),
                              str(extra.get("password") or ""),
                              bool(extra.get("sandbox")))
+    if platform == "telegram":
+        # One value, not a pair: the bot token is the whole credential.
+        return verify_telegram(token)
     if platform == "steadfast":
         # The pair travels as (token, ident) like every other platform, so the
         # form, the route and the storage need no special case.

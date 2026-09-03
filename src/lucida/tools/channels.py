@@ -34,6 +34,8 @@ its own servers.
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -144,16 +146,55 @@ def youtube_ready() -> bool:
     return bool(_yt_refresh() and connections.google_app()[0])
 
 
-def telegram_ready() -> bool:
+def telegram_ready(db=None) -> bool:
     """Telegram needs one thing: a bot token from @BotFather.
 
     No app review, no business verification, no domain — which is why it is
     the channel that actually works end to end for a real customer.
     """
-    return bool(_telegram_token())
+    return bool(_telegram_token(db))
 
 
-def _telegram_token() -> str:
+# Which shop the Telegram calls in this context belong to. The web request
+# path leaves it unset and falls back to the singleton, which is already
+# bound to the signed-in owner. The poll loop sets it per shop, because it
+# works through every shop in turn and the singleton would hand it whichever
+# owner last made a web request - answering one shop's customers with
+# another shop's bot, catalogue and prices.
+_ACTING_DB: contextvars.ContextVar = contextvars.ContextVar(
+    "telegram_shop_db", default=None)
+
+
+@contextlib.contextmanager
+def acting_for(db):
+    """Do this Telegram work as `db`'s shop."""
+    token = _ACTING_DB.set(db)
+    try:
+        yield
+    finally:
+        _ACTING_DB.reset(token)
+
+
+def _telegram_db():
+    return _ACTING_DB.get() or _shop_db()
+
+
+def _telegram_token(db=None) -> str:
+    """This shop's bot, falling back to the machine's.
+
+    Read per shop rather than from the environment, so each owner connects
+    their own @BotFather bot and their customers reach them and nobody else.
+    The `.env` value stays as a fallback so the original single-shop install
+    keeps working without being reconnected.
+    """
+    try:
+        from . import connections
+
+        token, _ = connections.credentials(db or _telegram_db(), "telegram")
+        if token:
+            return token.strip()
+    except Exception:  # noqa: BLE001 — never let a lookup break the poller
+        logger.debug("telegram: no per-shop token, using the environment")
     import os
     return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
@@ -580,7 +621,7 @@ def read_telegram(limit: int = 25, db=None) -> Inbox:
     a stored `last_update_id` after each sync. That prevents replaying the same
     message and allows the next message in the conversation to be processed.
     """
-    if not telegram_ready():
+    if not telegram_ready(db):
         return Inbox([], simulated=True)
 
     # The caller's database, not the global singleton: the poll loop runs
