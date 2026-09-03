@@ -52,3 +52,17 @@ data/aiworkforce.db
 # local .env backups
 .env.bak-*
 .env.bak
+
+# The marksheet holds 23 students' names, IDs, grades and integrity flags.
+# It is other people's personal data and must never reach a remote.
+*MARKSHEET*.xlsx
+
+# Build artefacts of the submission package, not sources of it.
+Lucida_Submission_v2/
+Lucida_Resubmission_*.zip
+code_screenshots/
+vscode_screenshots/
+
+# Generated at runtime, not source.
+data/paid_images.json
+data/media/

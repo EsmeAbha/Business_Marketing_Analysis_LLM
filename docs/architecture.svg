@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 900" width="1180" height="900" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1180" height="900" fill="#FDFDFC"/>
+<text x="40" y="46" font-size="25" font-weight="700" fill="#18181B">Lucida &#8212; Multi-Agent Architecture</text>
+<text x="40" y="70" font-size="13.5" fill="#71717A">LangGraph star topology &#183; one supervisor routes to eight specialists &#183; per-shop isolated memory</text>
+
+<rect x="40" y="98" width="250" height="96" rx="12" fill="#FBEBEB" stroke="#E4C4C4"/>
+<text x="60" y="124" font-size="14" font-weight="700" fill="#7B1E22">Shop owner (browser)</text>
+<text x="60" y="146" font-size="11.5" fill="#52525B">Starlette &#183; 9 screens &#183; bcrypt sign-in</text>
+<text x="60" y="163" font-size="11.5" fill="#52525B">Live execution trace over SSE</text>
+<text x="60" y="180" font-size="11.5" fill="#52525B">Approval cards &#183; token meter</text>
+
+<rect x="40" y="214" width="250" height="80" rx="12" fill="#EAF4FB" stroke="#BFDCEC"/>
+<text x="60" y="240" font-size="14" font-weight="700" fill="#1B5E8A">Customers (Telegram)</text>
+<text x="60" y="261" font-size="11.5" fill="#52525B">Per-shop bot token, polled</text>
+<text x="60" y="278" font-size="11.5" fill="#52525B">read &#8594; classify &#8594; reply</text>
+
+<line x1="290" y1="146" x2="452" y2="330" stroke="#A1A1AA" stroke-width="1.6"/>
+<line x1="290" y1="254" x2="452" y2="352" stroke="#A1A1AA" stroke-width="1.6"/>
+
+<rect x="352" y="150" width="210" height="70" rx="10" fill="#FFF" stroke="#E4E4E7"/>
+<text x="366" y="173" font-size="12" font-weight="700" fill="#18181B">Triage &#8212; one cheap call</text>
+<text x="366" y="191" font-size="10.5" fill="#52525B">CHAT &#8594; supervisor answers alone</text>
+<text x="366" y="208" font-size="10.5" fill="#52525B">WORK &#8594; plan and convene the team</text>
+<line x1="472" y1="220" x2="524" y2="278" stroke="#A1A1AA" stroke-width="1.4" stroke-dasharray="4 3"/>
+
+<circle cx="560" cy="358" r="86" fill="#7B1E22"/>
+<text x="560" y="350" font-size="16" font-weight="700" fill="#fff" text-anchor="middle">SUPERVISOR</text>
+<text x="560" y="372" font-size="10.5" fill="#F0D6D6" text-anchor="middle">plan &#183; route &#183; aggregate</text>
+<text x="560" y="389" font-size="10.5" fill="#F0D6D6" text-anchor="middle">LangGraph state machine</text>
+
+<rect x="760" y="96" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="119" font-size="12" font-weight="600" fill="#18181B">Market Research</text><text x="776" y="136" font-size="10" fill="#71717A">rivals, demand, prices</text><rect x="760" y="164" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="187" font-size="12" font-weight="600" fill="#18181B">Product Vision</text><text x="776" y="204" font-size="10" fill="#71717A">reads a photo (multimodal)</text><rect x="760" y="232" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="255" font-size="12" font-weight="600" fill="#18181B">Pricing</text><text x="776" y="272" font-size="10" fill="#71717A">unit cost, margin, break-even</text><rect x="760" y="300" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="323" font-size="12" font-weight="600" fill="#18181B">Stock</text><text x="776" y="340" font-size="10" fill="#71717A">quantities, reorder levels</text><rect x="760" y="368" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="391" font-size="12" font-weight="600" fill="#18181B">Ad Creative</text><text x="776" y="408" font-size="10" fill="#71717A">writes and publishes ads</text><rect x="760" y="436" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="459" font-size="12" font-weight="600" fill="#18181B">Customers</text><text x="776" y="476" font-size="10" fill="#71717A">reads DMs, drafts replies</text><rect x="760" y="504" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="527" font-size="12" font-weight="600" fill="#18181B">Delivery</text><text x="776" y="544" font-size="10" fill="#71717A">quotes and books couriers</text><rect x="760" y="572" width="180" height="52" rx="10" fill="#FFF" stroke="#E4E4E7"/><text x="776" y="595" font-size="12" font-weight="600" fill="#18181B">Reporting</text><text x="776" y="612" font-size="10" fill="#71717A">writes the day up</text>
+<g stroke="#C4C4C8" stroke-width="1.4" fill="none"><path d="M646 330 C 700 226.0, 720 122, 760 122"/><path d="M646 338 C 700 260.0, 720 190, 760 190"/><path d="M646 346 C 700 294.0, 720 258, 760 258"/><path d="M646 354 C 700 328.0, 720 326, 760 326"/><path d="M646 362 C 700 362.0, 720 394, 760 394"/><path d="M646 370 C 700 396.0, 720 462, 760 462"/><path d="M646 378 C 700 430.0, 720 530, 760 530"/><path d="M646 386 C 700 464.0, 720 598, 760 598"/></g>
+<text x="672" y="300" font-size="10" fill="#A1A1AA">hand off &#8594;</text>
+<text x="664" y="430" font-size="10" fill="#A1A1AA">&#8592; report back</text>
+
+<rect x="430" y="474" width="250" height="90" rx="12" fill="#FEF9C3" stroke="#FDE68A"/>
+<text x="450" y="500" font-size="13.5" font-weight="700" fill="#A16207">Approval gate</text>
+<text x="450" y="520" font-size="10.5" fill="#52525B">A LangGraph interrupt suspends the run</text>
+<text x="450" y="537" font-size="10.5" fill="#52525B">before publishing an ad, spending money</text>
+<text x="450" y="554" font-size="10.5" fill="#52525B">or booking a courier. Resumes in place.</text>
+<line x1="560" y1="444" x2="560" y2="474" stroke="#A1A1AA" stroke-width="1.6"/>
+
+<rect x="40" y="474" width="360" height="152" rx="12" fill="#F4F4F5" stroke="#E4E4E7"/>
+<text x="60" y="500" font-size="14" font-weight="700" fill="#18181B">Shared memory &#8212; one per shop</text>
+<text x="60" y="522" font-size="11.5" fill="#52525B">shop.db &#8212; 22 tables (products, orders,</text>
+<text x="60" y="539" font-size="11.5" fill="#52525B">inventory, campaigns, messages, deliveries)</text>
+<text x="60" y="561" font-size="11.5" fill="#52525B">knowledge.jsonl &#8212; vector store (RAG)</text>
+<text x="60" y="583" font-size="11.5" fill="#52525B">Isolation is by FILE, not an owner column, so</text>
+<text x="60" y="600" font-size="11.5" fill="#52525B">a forgotten filter cannot leak shop to shop.</text>
+<text x="60" y="618" font-size="11.5" fill="#52525B">checkpoints.db &#8212; a paused run resumes</text>
+<line x1="400" y1="530" x2="474" y2="404" stroke="#A1A1AA" stroke-width="1.6"/>
+
+<rect x="430" y="654" width="630" height="128" rx="12" fill="#FFF" stroke="#E4E4E7"/>
+<text x="450" y="680" font-size="14" font-weight="700" fill="#18181B">External tools and APIs</text>
+<text x="450" y="705" font-size="11" fill="#52525B">Pathao &#8212; live rates and real booking</text>
+<text x="450" y="724" font-size="11" fill="#52525B">Telegram Bot API &#8212; per-shop channel</text>
+<text x="450" y="743" font-size="11" fill="#52525B">DuckDuckGo / Tavily &#8212; web research</text>
+<text x="450" y="762" font-size="11" fill="#52525B">OpenAI gpt-image-1 &#8212; ad artwork</text>
+<text x="770" y="705" font-size="11" fill="#52525B">OpenAI &#8212; text and vision, via gateway</text>
+<text x="770" y="724" font-size="11" fill="#52525B">exchangerate.host &#8212; currency</text>
+<text x="770" y="743" font-size="11" fill="#52525B">Steadfast &#8212; ready, needs a key pair</text>
+<text x="770" y="762" font-size="11" fill="#52525B">Meta Graph &#8212; awaiting App Review</text>
+<line x1="600" y1="564" x2="620" y2="654" stroke="#A1A1AA" stroke-width="1.6"/>
+
+<rect x="40" y="646" width="360" height="78" rx="12" fill="#FFF" stroke="#E4E4E7"/>
+<text x="60" y="672" font-size="14" font-weight="700" fill="#18181B">Observability</text>
+<text x="60" y="692" font-size="11.5" fill="#52525B">Every step is written to a trace database and</text>
+<text x="60" y="709" font-size="11.5" fill="#52525B">streamed to the dashboard; tokens are metered.</text>
+
+<text x="40" y="838" font-size="11.5" fill="#A1A1AA">52 Python files &#183; ~21,000 lines &#183; 87 tests &#183; LangGraph &#183; SQLite per shop</text>
+<text x="40" y="860" font-size="11.5" fill="#A1A1AA">Esme Moula Chowdhury Abha &#8212; 26-94089-2 &#8212; sole author, 81 commits</text>
+</svg>
