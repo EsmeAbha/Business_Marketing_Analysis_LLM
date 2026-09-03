@@ -195,7 +195,10 @@ async def delivery_page(request):
         zones=delivery_pricing.zones(memory.db),
         courier=connections.courier_ready(memory.db),
         dispatch=memory.dispatch(),
-        note=request.session.pop("delivery_note", "")))
+        note=request.session.pop("delivery_note", ""),
+        booked=memory.db.query(
+            "SELECT recipient, product_name, consignment_id, status, "
+            "simulated FROM deliveries ORDER BY id DESC LIMIT 5")))
 
 
 async def api_delivery_quote(request):
@@ -252,6 +255,7 @@ async def api_delivery_quote(request):
                 q.delivery_charge = fee
                 q.cod_fee = (q.goods_total * cod_pct) if q.is_cod else 0.0
                 q.total_charge = q.goods_total + q.delivery_charge + q.cod_fee
+                q.priced_live = True
                 priced_by = "Pathao's own rate for this address"
             elif err:
                 q.problems.append(f"Pathao could not price it: {err}")
@@ -288,6 +292,27 @@ async def api_delivery_book(request):
         return JSONResponse({"error": (
             "No courier connected. Add Steadfast or Pathao on the Connect "
             "screen and the booking goes through your own account.")}, 400)
+
+    # Booking is the one irreversible thing on this screen: a real courier is
+    # sent to a real address and the shop is charged. The confirmation is
+    # enforced here rather than only in the browser, so a stray click, a
+    # replayed request or another client cannot book by accident. The first
+    # call returns what is about to happen; only a call carrying `confirm`
+    # actually books.
+    if not bool(body.get("confirm")):
+        return JSONResponse({
+            "needs_confirmation": True,
+            "provider": provider,
+            "sandbox": bool(connections.extras(memory.db, "pathao").get("sandbox"))
+                       if provider == "pathao" else False,
+            "summary": {
+                "customer": str(body.get("customer") or ""),
+                "phone": str(body.get("phone") or ""),
+                "address": str(body.get("address") or ""),
+                "product": str(body.get("product") or ""),
+                "cod_amount": float(body.get("cod_amount") or 0),
+            },
+        })
 
     result = await asyncio.to_thread(
         courier.book,
@@ -1080,7 +1105,7 @@ async def settings_view(request):
         _who(account), connections.status(memory.db), imagegen.status(),
         backend, bool(settings.has_llm),
         oauth={p: connections.can_oauth(p) for p in connections.PLATFORMS},
-        note=note, telegram_on=channels.telegram_ready(),
+        note=note,
         shop_stats={
             "products": stats.get("products", 0),
             "customer messages": stats.get("conversations", 0),
@@ -1368,46 +1393,6 @@ async def api_state(request):
     return JSONResponse(_snapshot(_session_for(account["id"]), account))
 
 
-# Openers that need a person, not a workforce. Running the planner, the
-# router and eight specialists to answer "hey" is what emptied a day's token
-# allowance — and it is a worse answer, too.
-SMALL_TALK = {
-    "hi", "hey", "hello", "yo", "salam", "assalamu alaikum", "hii", "helo",
-    "good morning", "good afternoon", "good evening", "how are you",
-    "thanks", "thank you", "ok", "okay", "cool", "nice", "test", "testing",
-}
-
-
-def _small_talk_reply(text: str, account: dict) -> str | None:
-    """A direct answer when there is nothing to delegate.
-
-    Deliberately not a model call: it costs nothing, cannot be rate limited,
-    and a greeting has one right answer anyway.
-    """
-    plain = text.strip().lower().strip("!?.,")
-    if plain not in SMALL_TALK and len(plain.split()) > 3:
-        return None
-    if plain not in SMALL_TALK:
-        return None
-
-    name = (account.get("owner_name") or "").split(" ")[0]
-    hello = f"Hello {name}." if name else "Hello."
-    if plain.startswith(("thank", "ok", "okay", "cool", "nice")):
-        return "Any time. What next?"
-    return (
-        f"{hello} Your team is here — a supervisor and eight specialists: "
-        f"research, photos, pricing, stock, ads, customers, delivery and "
-        f"reporting."
-        "\n\nAsk me something real and I will put it to them. For example:"
-        "\n\n- What should I sell to make money this month?"
-        "\n- Write an Instagram ad for what I sell"
-        "\n- Am I charging enough?"
-        "\n- What are customers asking for that I don't have?"
-        "\n\nOr send a photo of a product and I will tell you whether it is "
-        "worth selling."
-    )
-
-
 # Questions that mean "go and look something up" rather than "answer from
 # what you know". Matched on the verb because that is what distinguishes
 # them: "what should I price this at" uses the shop's own numbers, while
@@ -1544,13 +1529,6 @@ async def api_ask(request):
     tid = _thread_for(request, account, make=True)
     memory.db.add_message(tid, "user", text)
 
-    quick = _small_talk_reply(text, account)
-    if quick is not None:
-        memory.db.add_message(tid, "assistant", quick)
-        snap = _snapshot(session_id, account)
-        snap["answer"] = quick
-        return JSONResponse(snap)
-
     if not credits.has_credit(account["id"]):
         # The question is already in the thread. Saying nothing would leave it
         # sitting there unanswered for ever, which reads as the team ignoring
@@ -1559,27 +1537,53 @@ async def api_ask(request):
         memory.db.add_message(tid, "assistant", refusal)
         return _no_credit(account)
 
-    async with _run_lock:
-        try:
-            # The graph is synchronous; keep the event loop free while it runs.
-            answer = await asyncio.to_thread(
-                _drain, session_id, text, [], _owner_context(account))
-        except Exception as exc:  # noqa: BLE001 — report, never 500 the page
-            logger.error("turn failed: %s", exc)
-            bus.emit(session_id, "error", "web", f"turn failed: {exc}",
-                     level="error")
-            from lucida.llm import AllModelsBusy, is_rate_limited
-            if isinstance(exc, AllModelsBusy) or is_rate_limited(exc):
-                # Not a failure of the app — say so plainly and give the wait,
-                # rather than showing the owner a provider traceback.
-                return JSONResponse({"error": str(exc)}, status_code=429)
-            return JSONResponse({"error": str(exc)}, status_code=500)
+    # The answer is written out as it is composed. Everything before this
+    # point still answers as plain JSON — the client tells the two apart by
+    # content type — because a refusal or a question about sources is a
+    # whole reply, not something to type out a letter at a time.
+    from lucida.supervisor import clear_stream, stream_to
 
-    memory.db.add_message(tid, "assistant", answer)
-    _meter(account, session_id, note=text[:80])
-    snap = _snapshot(session_id, account)
-    snap["answer"] = answer
-    return JSONResponse(snap)
+    queue: asyncio.Queue = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def sink(chunk: str) -> None:
+        # Called from the worker thread the graph runs on, so it hands the
+        # chunk back to the loop rather than touching the queue directly.
+        loop.call_soon_threadsafe(queue.put_nowait, chunk)
+
+    async def body():
+        async with _run_lock:
+            stream_to(session_id, sink)
+            task = asyncio.create_task(asyncio.to_thread(
+                _drain, session_id, text, [], _owner_context(account)))
+            try:
+                while not task.done() or not queue.empty():
+                    try:
+                        chunk = await asyncio.wait_for(queue.get(), timeout=0.25)
+                    except asyncio.TimeoutError:
+                        continue
+                    yield json.dumps({"t": chunk}) + chr(10)
+                answer = await task
+            except Exception as exc:  # noqa: BLE001 — report, never 500
+                logger.error("turn failed: %s", exc)
+                bus.emit(session_id, "error", "web", f"turn failed: {exc}",
+                         level="error")
+                yield json.dumps({"error": str(exc)}) + chr(10)
+                return
+            finally:
+                clear_stream(session_id)
+
+        # Stored after the stream finishes, so the thread holds exactly the
+        # text the owner watched appear.
+        memory.db.add_message(tid, "assistant", answer)
+        _meter(account, session_id, note=text[:80])
+        snap = _snapshot(session_id, account)
+        snap["answer"] = answer
+        yield json.dumps({"done": True, "snapshot": snap}) + chr(10)
+
+    return StreamingResponse(body(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
 
 
 def _owner_context(account: dict | None = None) -> dict:
@@ -1915,6 +1919,10 @@ def _secret_key() -> str:
 SECRET_KEY = _secret_key()
 
 _TELEGRAM_POLL_TASK: asyncio.Task | None = None
+# One SQLite handle per shop, kept for the life of the process. The poll loop
+# sweeps every ten seconds, and opening and closing a database per shop per
+# sweep is a lot of churn for a file that is not going anywhere.
+_SHOP_HANDLES: dict[str, Database] = {}
 
 
 def _bot_shop_id() -> str | None:
@@ -1952,52 +1960,99 @@ def _bot_shop_id() -> str | None:
     return best
 
 
+def _telegram_shops() -> dict[str, Database]:
+    """Every shop with a bot of its own, plus the machine's if one is set.
+
+    Rebuilt on each pass rather than once at startup. An owner who connects
+    a bot from Settings expects their customers to be able to message them,
+    not to wait for somebody to restart the server — and before this the
+    loop was decided at boot, so a connection made afterwards did nothing
+    at all.
+    """
+    found: dict[str, Database] = {}
+    if SHOPS_DIR.exists():
+        for entry in sorted(SHOPS_DIR.iterdir()):
+            if not entry.is_dir() or not (entry / "shop.db").exists():
+                continue
+            try:
+                db = _SHOP_HANDLES.get(entry.name) or Database(entry / "shop.db")
+                _SHOP_HANDLES[entry.name] = db
+                if connections.saved(db, "telegram"):
+                    found[entry.name] = db
+            except Exception as exc:  # noqa: BLE001 — one bad shop, not all
+                logger.debug("telegram: skipping shop %s (%s)", entry.name, exc)
+
+    # The machine-wide token in .env still answers, for the single-shop
+    # install that predates per-shop connections.
+    import os
+
+    if os.environ.get("TELEGRAM_BOT_TOKEN", "").strip():
+        shop_id = _bot_shop_id()
+        if shop_id and shop_id not in found:
+            shop_dir = SHOPS_DIR / str(shop_id)
+            shop_dir.mkdir(parents=True, exist_ok=True)
+            db = _SHOP_HANDLES.get(shop_id) or Database(shop_dir / "shop.db")
+            _SHOP_HANDLES[shop_id] = db
+            found[shop_id] = db
+    return found
+
+
+def _sync_one_shop(db) -> Any:
+    """One shop's Telegram pass, done as that shop.
+
+    `acting_for` is what makes the token, the catalogue and the reply all
+    come from the same shop. Without it the token is looked up through the
+    global `memory` singleton, which is bound to whichever owner last made a
+    web request — so a customer could be answered by another shop's bot.
+    """
+    with channels.acting_for(db):
+        return inbox.sync(db, limit=20)
+
+
 async def _start_telegram_poll_loop() -> None:
-    """Keep the Telegram bot alive by polling for new messages.
+    """Keep every connected Telegram bot alive by polling for new messages.
 
     This project does not use Telegram webhooks, so there must be a background
-    task on startup. Without it, the bot never calls getUpdates on its own and
-    silently sits idle even with a valid token.
+    task. Without it, a bot never calls getUpdates on its own and silently
+    sits idle even with a valid token.
 
-    The loop keeps its **own** database handle rather than using the shared
-    `memory` singleton. That singleton is rebound to whichever owner is making
-    the current web request, so polling through it answered customers out of
-    whatever shop happened to be signed in — or, with nobody signed in, out of
-    no shop at all, which is why the bot replied with an empty catalogue.
+    Each shop is polled through its **own** database handle rather than the
+    shared `memory` singleton. That singleton is rebound to whichever owner is
+    making the current web request, so polling through it answered customers
+    out of whatever shop happened to be signed in — or, with nobody signed in,
+    out of no shop at all, which is why the bot replied with an empty
+    catalogue.
     """
     global _TELEGRAM_POLL_TASK
     if _TELEGRAM_POLL_TASK is not None and not _TELEGRAM_POLL_TASK.done():
         return
-    if not channels.telegram_ready():
-        logger.info("telegram: no bot token, poll loop not started")
-        return
-
-    shop_id = _bot_shop_id()
-    if not shop_id:
-        logger.warning("telegram: no shop to answer for yet, poll loop idle")
-        return
-
-    # AIW_BOT_SHOP may name a shop that has not been created yet - on a
-    # first deploy the data volume is empty, and the name in the environment
-    # is a plan rather than a fact. Opening a database under a directory that
-    # does not exist raises, and this runs inside the lifespan, so the whole
-    # server would fail to start over a bot that has nothing to answer for.
-    shop_dir = SHOPS_DIR / str(shop_id)
-    shop_dir.mkdir(parents=True, exist_ok=True)
-    shop_db = Database(shop_dir / "shop.db")
-    logger.info("telegram: bot answering for shop %s every 10s", shop_id)
 
     async def _loop() -> None:
+        announced: set[str] = set()
         while True:
             try:
-                result = await asyncio.to_thread(inbox.sync, shop_db, limit=20)
-                if result.stored or result.answered:
-                    logger.info("telegram poll: %s", result.describe())
+                shops = await asyncio.to_thread(_telegram_shops)
+                for shop_id, db in shops.items():
+                    if shop_id not in announced:
+                        logger.info("telegram: answering for shop %s", shop_id)
+                        announced.add(shop_id)
+                    try:
+                        result = await asyncio.to_thread(_sync_one_shop, db)
+                        if result.stored or result.answered:
+                            logger.info("telegram poll [%s]: %s", shop_id,
+                                        result.describe())
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("telegram poll failed for %s: %s",
+                                       shop_id, exc)
+                # A shop that disconnected should stop being announced, so
+                # reconnecting says so again rather than going quiet.
+                announced &= set(shops)
             except Exception as exc:  # noqa: BLE001 — the loop must not die
-                logger.warning("telegram poll failed: %s", exc)
+                logger.warning("telegram poll sweep failed: %s", exc)
             await asyncio.sleep(10)
 
     _TELEGRAM_POLL_TASK = asyncio.create_task(_loop())
+    logger.info("telegram: poll loop started, watching for connected bots")
 
 
 @contextlib.asynccontextmanager

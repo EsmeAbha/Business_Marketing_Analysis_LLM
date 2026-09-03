@@ -89,8 +89,23 @@ fully answered.
 
 Rules:
 - Choose exactly ONE agent name from the list, or FINISH.
+- FINISH IMMEDIATELY, before any agent runs, when the message does not need
+  specialist work: a greeting, thanks, an acknowledgement, small talk, or a
+  question about you and what you can do. You will still write the reply
+  yourself, so the owner is answered — they simply do not need eight
+  specialists and a web search to be told hello. Dispatching the workforce
+  at "hi" costs the owner minutes and thousands of tokens for a sentence.
 - Do NOT re-run an agent that has already completed successfully unless its output was an
   error, or new information genuinely changes its inputs.
+- Answer the question that was asked, and stop. Once the agents that were run
+  can answer it, choose FINISH — do not add adjacent work the owner did not
+  ask for. "Which product should I reorder first?" is answered by stock
+  alone; sending it on to market research, pricing and reporting turns a
+  ten-second answer into a four-minute report about something else.
+- Route to market_research ONLY when the answer genuinely lies outside the
+  business: what rivals charge, what the market wants, what is selling
+  elsewhere. Anything answerable from the shop's own records — stock,
+  products, prices, orders, customers — must not go to web search.
 - Respect data dependencies: pricing needs a product; ad_creative needs a price;
   reporting is most useful once the other relevant agents have run.
 - Never route to product_vision when no image was uploaded.
@@ -98,6 +113,47 @@ Rules:
   repeated failures), choose FINISH rather than looping.
 - `task` is the concrete instruction that agent will receive. Be specific — it is the only
   instruction they get from you.
+"""
+
+# Where a run's answer should be streamed to, keyed by session. The web
+# layer registers a sink before the graph starts and removes it afterwards;
+# with none registered `aggregate` behaves exactly as it did, which keeps
+# the Telegram poller and the tests on the non-streaming path.
+_SINKS: dict[str, Any] = {}
+
+
+def stream_to(session_id: str, sink) -> None:
+    """Send this run's final answer to `sink`, one chunk at a time."""
+    _SINKS[session_id] = sink
+
+
+def clear_stream(session_id: str) -> None:
+    _SINKS.pop(session_id, None)
+
+
+CHAT_SYSTEM = """You are the Supervisor of an AI workforce that runs a small
+shop. The owner has said something that needs no specialist work - a
+greeting, thanks, or a question about what you can do.
+
+You have eight specialists, and this is the whole of what you do:
+market research (what sells, what rivals charge), product photos (is this
+worth selling), pricing and margins, stock and reordering, writing and
+publishing ads, reading and answering customer messages, quoting and
+booking couriers, and writing up how the business is doing.
+
+Reply as their team would: warmly, in one or two short sentences.
+
+Rules:
+- You are not a general writing assistant. Never offer to draft emails,
+  write copy in a chosen tone, or do anything outside the list above -
+  stripped of context the model invents plausible skills the shop does not
+  have, and the owner believes them.
+- No headings, no bullet lists, no Markdown formatting.
+- Do not mention stages, plans, agents, research or process.
+- Do not state or invent any business figures.
+- Do not ask them to supply business details unless they asked you to do
+  something that genuinely needs them.
+- If they asked what you can do, say it plainly in one sentence.
 """
 
 AGGREGATOR_SYSTEM = """You are the Supervisor of an AI workforce that runs a small business.
@@ -144,6 +200,20 @@ class Supervisor:
                 level="warning",
             )
             return {**update, "next_agent": "FINISH", "routing_reason": "step limit reached"}
+
+        # First turn: is this work at all? Asked before planning, because a
+        # plan for "hi" is drafted from the whole business snapshot and then
+        # discarded by the router one call later.
+        if step == 0 and not self._needs_specialists(state):
+            bus.emit(
+                session_id,
+                kind="handoff",
+                actor=self.name,
+                summary="-> FINISH: answered directly, no specialist needed",
+                payload={"recipient": "FINISH"},
+            )
+            return {**update, "next_agent": "FINISH",
+                    "routing_reason": "answered directly"}
 
         # First turn: draft the plan the owner sees.
         if step == 0:
@@ -211,6 +281,62 @@ class Supervisor:
         return update
 
     # ------------------------------------------------------------------
+
+    TRIAGE_SYSTEM = """You sort incoming messages for a small shop's AI workforce.
+Answer with exactly one word.
+
+WORK  - answering needs the shop's own records or outside research: stock,
+products, prices, costs, orders, customers, ads, delivery, competitors, or
+any request to make or decide something.
+CHAT  - a greeting, thanks, an acknowledgement, small talk, or a question
+about what you are and what you can do.
+
+If it could plausibly be either, answer WORK."""
+
+    def _needs_specialists(self, state: WorkforceState) -> bool:
+        """One cheap call to decide whether this message needs the workforce.
+
+        It runs before planning, which is the whole point. Planning reads the
+        entire business snapshot and drafts a strategy; doing that for "hi"
+        cost about 1,400 tokens that the router then threw away one call
+        later, because the plan for a greeting is never used. Triage sees the
+        owner's sentence and nothing else, so it costs a fraction of that.
+
+        Every uncertain path returns True. Wrongly deciding a message is work
+        wastes tokens; wrongly deciding real work is chit-chat answers the
+        owner's actual question with a pleasantry, which is much worse.
+        """
+        if state.get("image_paths"):
+            return True                    # a photo is always work
+        text = (state.get("owner_input") or "").strip()
+        if not text:
+            return True
+
+        session_id = state.get("session_id", "unknown")
+        llm = get_llm(max_tokens=4)
+        try:
+            response = llm.invoke([
+                SystemMessage(content=self.TRIAGE_SYSTEM),
+                HumanMessage(content=text[:400]),
+            ])
+        except Exception as exc:  # noqa: BLE001 — triage must never block work
+            logger.warning("triage failed, treating as work: %s", exc)
+            return True
+
+        # Metered like any other call: it is small, but it is still spending
+        # the owner's allowance, and a charge that is not recorded is the
+        # kind of thing that makes a balance stop matching its history.
+        try:
+            usage = extract_usage(self.name, active_model_name(llm), response)
+            ledger_for(session_id).record(usage)
+        except Exception:  # noqa: BLE001
+            pass
+
+        content = response.content
+        if isinstance(content, list):
+            content = "".join(b.get("text", "") for b in content
+                              if isinstance(b, dict) and b.get("type") == "text")
+        return "CHAT" not in str(content).upper()
 
     def _plan(self, state: WorkforceState) -> WorkPlan:
         prompt = f"""OWNER'S REQUEST
@@ -356,11 +482,6 @@ Who works next?"""
     def aggregate(self, state: WorkforceState) -> str:
         """Compose the owner-facing answer from everything the agents produced."""
         outputs = state.get("agent_outputs", {})
-        if not outputs:
-            return (
-                "I wasn't able to complete any work on this request. "
-                "Please rephrase it or supply the missing details."
-            )
 
         # If Reporting ran, its Markdown already is the deliverable.
         reporting = outputs.get("reporting", {})
@@ -370,6 +491,11 @@ Who works next?"""
         from .config import settings
 
         payload_cap = 900 if settings.compact_prompts else 3000
+        # A run with no specialists is not a failure — it is the supervisor
+        # deciding the message did not need any, which is the common case for
+        # a greeting. It still gets a real, model-written reply; returning a
+        # canned "I wasn't able to complete any work" here told the owner the
+        # app was broken when it had simply answered them directly.
         detail = []
         for agent, data in outputs.items():
             status = "completed" if data.get("ok") else f"FAILED: {data.get('error')}"
@@ -378,7 +504,13 @@ Who works next?"""
                 f"Structured output:\n{_json(data.get('payload', {}), payload_cap)}"
             )
 
-        prompt = f"""OWNER'S ORIGINAL REQUEST
+        # Nothing ran, so there is nothing to summarise: the owner's sentence
+        # is the entire input. Sending the stage, the approval history and a
+        # set of empty report headings invites the model to talk about them.
+        if not outputs:
+            prompt = str(state.get("owner_input", ""))[:400]
+        else:
+            prompt = f"""OWNER'S ORIGINAL REQUEST
 {state.get('owner_input', '')}
 
 STAGE REACHED: {state.get('stage', '')}
@@ -392,11 +524,30 @@ SPECIALIST REPORTS
 Write the owner's answer."""
 
         session_id = state.get("session_id", "unknown")
-        llm = get_llm(max_tokens=settings.report_tokens)
+        # A run with no specialists is not a failed report, it is a reply.
+        # Handing it to the report-writing prompt produced business-speak at
+        # someone who only said hello — that prompt is told to lead with
+        # findings, quote concrete numbers and close with "What I need from
+        # you", none of which a greeting has or wants. A smaller budget too:
+        # two sentences do not need the report allowance.
+        chatting = not outputs
+        system = CHAT_SYSTEM if chatting else AGGREGATOR_SYSTEM
+        llm = get_llm(max_tokens=300 if chatting else settings.report_tokens)
+        messages = [SystemMessage(content=system), HumanMessage(content=prompt)]
+        sink = _SINKS.get(session_id)
+        if sink is not None:
+            try:
+                return self._stream_answer(llm, messages, sink, session_id,
+                                           outputs)
+            except Exception as exc:  # noqa: BLE001
+                # Streaming is a nicety; never let it lose the answer. Fall
+                # back to one ordinary call rather than showing the owner an
+                # error because the transport, not the model, misbehaved.
+                logger.warning("streaming failed, answering in one piece: %s",
+                               exc)
+
         try:
-            response = llm.invoke(
-                [SystemMessage(content=AGGREGATOR_SYSTEM), HumanMessage(content=prompt)]
-            )
+            response = llm.invoke(messages)
         except Exception as exc:  # noqa: BLE001 — always return something to the owner
             bus.emit(
                 session_id,
@@ -423,6 +574,56 @@ Write the owner's answer."""
                 b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
             )
         return str(content).strip() or self._fallback_summary(outputs)
+
+    def _stream_answer(self, llm, messages, sink, session_id, outputs) -> str:
+        """Write the answer out as it arrives, and still bill for it.
+
+        The chunks are handed to `sink` as they come and also joined into the
+        return value, because the caller stores that in the thread — the
+        owner should find the same text there on reload as they watched
+        being typed.
+        """
+        parts: list[str] = []
+        usage_meta = None
+        for chunk in llm.stream(messages, stream_usage=True):
+            content = chunk.content
+            if isinstance(content, list):
+                content = "".join(
+                    b.get("text", "") for b in content
+                    if isinstance(b, dict) and b.get("type") == "text")
+            if content:
+                parts.append(str(content))
+                sink(str(content))
+            meta = getattr(chunk, "usage_metadata", None)
+            if meta:
+                usage_meta = meta
+
+        # Metering must not depend on the display path. A streamed answer
+        # that is never charged is a free run for anyone whose browser
+        # happens to be open.
+        if usage_meta:
+            try:
+                from .pricing import CallUsage
+
+                usage = CallUsage(
+                    agent=self.name,
+                    model=active_model_name(llm),
+                    input_tokens=int(usage_meta.get("input_tokens", 0)),
+                    output_tokens=int(usage_meta.get("output_tokens", 0)),
+                )
+                ledger_for(session_id).record(usage)
+                bus.emit(
+                    session_id,
+                    kind="llm_usage",
+                    actor=self.name,
+                    summary=(f"aggregation: {usage.output_tokens} out "
+                             f"(streamed)"),
+                    payload={"streamed": True},
+                )
+            except Exception:  # noqa: BLE001 — never lose the answer to billing
+                logger.warning("could not record streamed usage", exc_info=True)
+
+        return "".join(parts).strip() or self._fallback_summary(outputs)
 
     @staticmethod
     def _fallback_summary(outputs: dict) -> str:
