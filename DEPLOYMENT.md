@@ -177,15 +177,25 @@ prints the model chain, the vision chain, and whether Google sign-in is on.
 
 ## Known issues
 
-- **`test_telegram_offset_advances_and_persists` fails.** `tests/test_workforce.py:238`
-  asserts a simulated inbox has messages and gets `Inbox(messages=[],
-  simulated=True)`. Pre-existing and independent of configuration — it fails
-  with `.env` removed entirely.
+The suite is green and hermetic as of 2026-09-03: 87 pass in about 12
+seconds, and identically so with every API key removed from the
+environment. `tests/test_workforce.py` substitutes `llm.build_client`, so
+no test reaches a provider. Two entries that used to live here — a failing
+`test_telegram_offset_advances_and_persists` and an 8m20s suite that spent
+live quota — are gone because bd20772 and e28de24 fixed them, not because
+they were reclassified.
 
-- **The test suite makes live API calls.** 9 seconds without a key, 8m20s
-  with one. Tests now spend gateway credit rather than a free-tier quota, so
-  they no longer fail on rate limits — they cost money instead. They should
-  mock the provider.
+- **A provider switch needs its client library installed, and nothing warns
+  you.** `.venv` was carried over from before the move to OpenAI and had no
+  `langchain-openai` in it, so every run died with `ProviderError: openai
+  support is not installed`. `requirements.txt` had pinned it since 2ad882a;
+  only the environment was behind. What makes this worth writing down is that
+  three plausible checks all pass while the app is broken: the startup banner
+  and `/api/health` report the *configured* chain without building a client,
+  and a curl straight at the gateway never touches the app. `_build_openai()`
+  imports inside the function, so the failure waits for the first real call.
+  After changing `AIW_PROVIDER`, run `pip install -r requirements.txt` and
+  then invoke the model through the app's own `get_llm()`.
 
 - **`data/` sits inside the working tree.** Gitignored, but a `git clean -xdf`
   would erase every shop, order and chat thread, and nothing backs it up.
@@ -215,19 +225,25 @@ Roughly in the order the work should happen.
 against a live writer, unlike copying the file). Restore should be tested,
 not assumed.
 
-**2. Make the tests offline again.** Mock the provider so the suite runs in
-seconds without a key, and fix the simulated-inbox bug rather than leaving one
-red test as the normal state — a suite people expect to fail stops being read.
-
-**3. Finish the integrations.** Telegram is done — `TELEGRAM_BOT_TOKEN` is
+**2. Finish the integrations.** Telegram is done — `TELEGRAM_BOT_TOKEN` is
 live as @Omygd_bot, answering for the shop named in `AIW_BOT_SHOP`, and one
-token is one bot so it can only ever represent one shop. Still missing:
-`TAVILY_API_KEY` for real web search (it silently falls back to `ddgs`), and
-`STEADFAST_*` for a second courier — only Pathao is configured, so there is
-no fallback if it is down.
+token is one bot so it can only ever represent one shop.
 
-**4. Configure SMTP before this is public.** Verification codes shown on
+Pathao is only half-configured, which is easy to miss: `PATHAO_CLIENT_ID`
+and `PATHAO_CLIENT_SECRET` are in `.env`, but Pathao's `issue-token` also
+wants a username and password, and those live per-shop in Connections
+(`connections.credentials()` returns five fields, not two). No shop has them
+stored, so a live booking call returns *"The user credentials were
+incorrect"*. Delivery **pricing** is unaffected — the three zones are seeded
+and `quote()` reads the catalogue — so the quote a customer sees is right
+even though the parcel cannot be booked.
+
+Still missing outright: `TAVILY_API_KEY` for real web search (it silently
+falls back to `ddgs`, which does work), and `STEADFAST_*` for a second
+courier.
+
+**3. Configure SMTP before this is public.** Verification codes shown on
 screen mean self-registration needs no working mailbox.
 
-**5. Publish the Google consent screen.** While it is unpublished, only
+**4. Publish the Google consent screen.** While it is unpublished, only
 accounts listed under Test users can sign in.
