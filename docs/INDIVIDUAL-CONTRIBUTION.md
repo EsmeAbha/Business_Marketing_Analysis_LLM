@@ -2,27 +2,31 @@
 
 **Esme Moula Chowdhury Abha — 26-94089-2**
 
-I am the sole author of Lucida. There is no team; the repository has one
-contributor across every commit, and this document names the specific files
-so the claim is checkable rather than asserted.
+I am the sole author of Lucida. There is no team; every commit in the
+repository is authored by me, and this document names the specific files so
+the claim is checkable rather than asserted.
 
 ## Authorship, from the repository itself
 
 ```
-$ git log --format='%an <%ae>' | sort | uniq -c
-     54 EsmeAbha <esmechowdhuryabha@gmail.com>
-     27 Esme Abha <esmechowdhuryabha.com>
-      7 Esme Abha <esmechowdhuryabha@gmail.com>
+$ git shortlog -sn
+   103  EsmeAbha
 ```
 
-Three spellings of my own name and email appear because I committed from two
-machines before standardising the git identity. Every commit is mine; no
-other contributor exists in the history.
+I committed from two machines early on, under slightly different git
+identities — one of which had a typo in the email address, so those commits
+did not resolve to my account. The history has since been normalised to a
+single address, and every commit now resolves to one author.
 
 ```
-$ git rev-list --count HEAD
-88 commits, 2026-08-14 to 2026-09-03
+$ git rev-list --count HEAD          # 103 at the time of writing
+$ git log --format='%ad' --date=short | sort | sed -n '1p;$p'
+2026-08-14
+2026-09-05
 ```
+
+The exact count is not written into the prose here, because it moves every
+time the repository is touched; the commands above print the current figure.
 
 ## The agents I wrote
 
