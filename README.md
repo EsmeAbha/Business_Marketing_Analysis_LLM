@@ -72,7 +72,7 @@ exactly that point rather than starting over.
 
 Two halves, both per shop:
 
-- **Structured** — SQLite, 24 tables: products, inventory, orders, pricing
+- **Structured** — SQLite, 22 tables: products, inventory, orders, pricing
   history, social messages, campaigns, deliveries, chat threads, competitors.
 - **Semantic** — a small vector store of what agents learned, so later runs
   recall earlier conclusions.
