@@ -517,7 +517,28 @@ async def workforce_page(request):
     session_id = _session_for(account["id"])
     return page(app_ui.workforce_page(
         _who(account), busy=runtime.is_running(session_id),
-        ops=_snapshot(session_id, account)))
+        ops=_snapshot(session_id, account),
+        graph=_topology()))
+
+
+# The compiled graph does not change between requests, and walking it costs
+# a graph build, so it is read once and handed out.
+_TOPOLOGY: dict | None = None
+
+
+def _topology() -> dict:
+    global _TOPOLOGY
+    if _TOPOLOGY is None:
+        from lucida.graph import topology
+        _TOPOLOGY = topology()
+    return _TOPOLOGY
+
+
+async def api_graph(request):
+    """The compiled graph's own shape — what the execution graph is drawn from."""
+    if current_account(request) is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+    return JSONResponse(_topology())
 
 
 async def api_events(request):
@@ -1908,6 +1929,56 @@ def _resume(session_id: str, decision: dict) -> None:
         pass
 
 
+async def api_control(request):
+    """Pause a run, resume it, or retry from the last checkpoint.
+
+    The approval gate at /api/decide answers a graph that stopped itself.
+    This is the other half of human-in-the-loop: stopping a graph that did
+    not, and restarting one that stopped for any reason. Both land on the
+    same checkpoint, so `resume` and `retry` are one code path — the
+    difference is only what the owner is thinking, and both are accepted so
+    the button that reads 'Resume' does not have to lie about the verb.
+    """
+    account = current_account(request)
+    if account is None:
+        return JSONResponse({"error": "not signed in"}, status_code=401)
+    session_id = _session_for(account["id"])
+    action = str((await request.json()).get("action") or "").strip()
+
+    if action == "pause":
+        stopped = runtime.pause(session_id)
+        return JSONResponse({
+            "ok": True, "paused": stopped,
+            "detail": ("Stopping after the agent now running — nothing it has "
+                       "already done is lost.") if stopped
+                      else "Nothing is running.",
+        })
+
+    if action in ("resume", "retry"):
+        if runtime.is_running(session_id):
+            return JSONResponse(
+                {"error": "That run is still going. Pause it first."}, 400)
+        # A suspended graph is waiting on an approval, not on this.
+        if runtime.is_suspended(session_id):
+            return JSONResponse(
+                {"error": "This run is waiting on your approval — answer the "
+                          "card on Home to continue it."}, 400)
+        async with _run_lock:
+            try:
+                await asyncio.to_thread(_retry, session_id)
+            except Exception as exc:  # noqa: BLE001
+                logger.error("%s failed: %s", action, exc)
+                return JSONResponse({"error": str(exc)}, status_code=500)
+        return JSONResponse(_snapshot(session_id, account))
+
+    return JSONResponse({"error": f"unknown action {action!r}"}, status_code=400)
+
+
+def _retry(session_id: str) -> None:
+    for _ in runtime.retry(session_id):
+        pass
+
+
 async def api_health(request):
     account = current_account(request)
     session_id = _session_for(account["id"]) if account else ""
@@ -2202,6 +2273,8 @@ app = Starlette(
         Route("/admin", admin_page),
         Route("/workforce", workforce_page),
         Route("/api/events", api_events),
+        Route("/api/graph", api_graph),
+        Route("/api/control", api_control, methods=["POST"]),
         Route("/api/assign", api_assign, methods=["POST"]),
         Route("/api/health", api_health),
     ],

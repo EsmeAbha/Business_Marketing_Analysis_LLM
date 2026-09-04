@@ -124,7 +124,32 @@ class WorkforceRuntime:
         # Sessions executing *right now*. The checkpoint cannot answer this:
         # it records where the graph got to, not whether anyone is working.
         self._in_flight: set[str] = set()
+        # Sessions the owner has asked to stop. Cooperative rather than a
+        # kill: the flag is read between nodes, so the agent mid-flight is
+        # allowed to finish and write its checkpoint. Tearing a thread down
+        # mid-node would lose that agent's work and leave the checkpoint
+        # describing a step that never completed.
+        self._paused: set[str] = set()
         logger.info("workforce runtime ready with %d agents", len(_AGENTS))
+
+    # --- owner control ---
+
+    def pause(self, session_id: str) -> bool:
+        """Ask a running graph to stop after the node in flight.
+
+        Returns whether there was anything to stop. Resuming afterwards is
+        `retry()`: LangGraph has already checkpointed each completed node, so
+        re-entering with no input carries on from exactly where it stopped.
+        """
+        if session_id not in self._in_flight:
+            return False
+        self._paused.add(session_id)
+        bus.emit(session_id, kind="handoff", actor="owner",
+                 summary="owner paused the run — stopping after the current agent")
+        return True
+
+    def is_paused(self, session_id: str) -> bool:
+        return session_id in self._paused
 
     # --- lifecycle ---
 
@@ -244,6 +269,18 @@ class WorkforceRuntime:
                         if not isinstance(update, dict):
                             update = {}
                         yield {"node": node, "update": update, "session_id": session_id}
+                    # Between nodes is the only safe place to stop: the node
+                    # that just ran is checkpointed, so `retry()` resumes from
+                    # here with nothing lost.
+                    if session_id in self._paused:
+                        bus.emit(
+                            session_id, kind="handoff", actor="owner",
+                            summary="run paused — resume picks up from this "
+                                    "checkpoint",
+                        )
+                        yield {"node": "__paused__", "update": {},
+                               "session_id": session_id}
+                        break
         except Exception as exc:  # noqa: BLE001 — surface, never crash the UI
             logger.exception("graph execution failed")
             bus.emit(
@@ -260,6 +297,9 @@ class WorkforceRuntime:
             }
         finally:
             self._in_flight.discard(session_id)
+            # The pause is spent once the stream it stopped has unwound. Left
+            # set, the next resume would stop again after one node.
+            self._paused.discard(session_id)
 
     # --- inspection ---
 
@@ -357,10 +397,78 @@ def agent_roster() -> dict[str, dict[str, str]]:
     return dict(AGENT_REGISTRY)
 
 
+# The dashboard's own short node ids. The graph's names are Lucida's internal
+# keys; the design draws against these, and the two have to agree or the
+# execution graph highlights nothing.
+UI_NODE_ID = {
+    "supervisor": "supervisor",
+    "market_research": "market",
+    "product_vision": "vision",
+    "pricing": "pricing",
+    "inventory": "inventory",
+    "ad_creative": "ads",
+    "engagement": "engage",
+    "delivery": "delivery",
+    "reporting": "report",
+}
+
+
+def topology() -> dict[str, Any]:
+    """The compiled graph's own shape, for the dashboard to draw.
+
+    Read from the compiled StateGraph rather than written out by hand. A
+    hand-drawn diagram is a claim about the code; this one cannot disagree
+    with it, because adding an agent to `build_agents()` moves the picture.
+    `mermaid` is LangGraph's own rendering of the same thing, kept so the
+    drawing can be checked against the framework's view of it.
+
+    START, END and `finalize` are structural rather than agents, so they are
+    marked and the dashboard can draw them differently.
+    """
+    drawn = build_graph().get_graph()
+    structural = {"__start__", "__end__", "finalize"}
+
+    nodes = []
+    for name in drawn.nodes:
+        nodes.append({
+            "graph_id": name,
+            "id": UI_NODE_ID.get(name, name.strip("_")),
+            "label": AGENT_REGISTRY.get(name, {}).get("title")
+                     or name.strip("_").replace("_", " ").title(),
+            "structural": name in structural,
+        })
+
+    edges = []
+    for edge in drawn.edges:
+        edges.append({
+            "source": UI_NODE_ID.get(edge.source, edge.source.strip("_")),
+            "target": UI_NODE_ID.get(edge.target, edge.target.strip("_")),
+            # A conditional edge is the supervisor deciding. Drawing it the
+            # same as a fixed return edge would hide the one thing that makes
+            # this a supervisor graph rather than a pipeline.
+            "conditional": bool(edge.conditional),
+        })
+
+    try:
+        mermaid = drawn.draw_mermaid()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("could not render mermaid: %s", exc)
+        mermaid = ""
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "mermaid": mermaid,
+        "agents": len([n for n in nodes
+                       if not n["structural"] and n["id"] != "supervisor"]),
+    }
+
+
 __all__ = [
     "WorkforceRuntime",
     "build_graph",
     "agent_roster",
+    "topology",
     "AGENT_NAMES",
     "memory",
 ]

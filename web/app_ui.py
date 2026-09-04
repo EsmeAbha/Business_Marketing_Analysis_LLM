@@ -1547,6 +1547,21 @@ WORKFORCE_CSS = f"""
 .wire {{ position:absolute; height:1px; background:#E7E7EA;
   transform-origin:0 50%; z-index:0; pointer-events:none; }}
 .wire.live {{ height:2px; background:{ACCENT}; border-radius:2px; }}
+/* A conditional edge is the supervisor deciding where work goes next, as
+   opposed to an agent's fixed return. Dashed, the way LangGraph's own
+   mermaid draws it, so the two renderings read the same. */
+.wire.cond {{ background:transparent; height:0; border-top:1px dashed #D8D8DC; }}
+.wire.cond.live {{ border-top-color:{ACCENT}; }}
+/* The owner's hand on the run. Quiet until they are usable - a Pause that
+   is always lit implies something is always running. */
+.hitl {{ display:inline-flex; gap:6px; margin-left:12px; }}
+.ctl {{ font:inherit; font-size:12px; font-weight:600; padding:4px 11px;
+  border-radius:999px; border:1px solid {BORDER}; background:{SURFACE};
+  color:{BODY}; cursor:pointer; transition:border-color .12s, color .12s; }}
+.ctl:hover:not(:disabled) {{ border-color:{INK}; color:{INK}; }}
+.ctl:disabled {{ opacity:.42; cursor:not-allowed; }}
+.ctlout {{ font-size:12.5px; color:{MUTED}; margin:8px 0 0; min-height:17px; }}
+.ctlout.bad {{ color:{DANGER}; }}
 .hop {{ position:absolute; z-index:1; pointer-events:none;
   transform:translate(-50%,-50%); width:20px;
   height:20px; border-radius:50%; display:grid; place-items:center;
@@ -1607,21 +1622,43 @@ WORKFORCE_CSS = f"""
 
 WORKFORCE_JS = """
 const NODES = window.__TEAM;
+/* From graph.topology() — the compiled StateGraph's real edges, not a shape
+   assumed here. Empty is survivable: the stage still draws its nodes. */
+const EDGES = window.__EDGES || [];
 const $ = (id) => document.getElementById(id);
 let picked = null;
 const used = new Set();
 const hops = [];
 
-/* The fixed topology behind everything: the supervisor reaches all eight.
-   Drawn once, in CSS rather than SVG, so an unbound template is never a
-   console error and the whole thing scales with the box. */
+/* The topology behind everything, read from the compiled LangGraph rather
+   than assumed here. It used to draw one line from the hub to each node,
+   which was a picture of what the graph was believed to be; EDGES comes from
+   graph.topology(), so adding an agent moves the drawing and the two can no
+   longer drift apart.
+
+   A conditional edge is the supervisor choosing, and is drawn dashed. That
+   distinction is the whole difference between a supervisor graph and a
+   pipeline, so it is not decoration. Still CSS rather than SVG, so an
+   unbound template is never a console error and it scales with the box. */
 function wires() {
   const stage = $('stage');
-  const hub = NODES[0];
-  NODES.slice(1).forEach((n) => {
+  // supervisor->agent and agent->supervisor sit at the same angle, so they
+  // share one line. Collapse the pair FIRST and take the conditional flag
+  // from either direction: the return edge is fixed and the routing edge is
+  // conditional, so keeping whichever happened to come first in the list
+  // threw away every dashed edge on the stage.
+  const pairs = new Map();
+  EDGES.forEach((e) => {
+    if (!nodeById(e.source) || !nodeById(e.target)) return;  // START/END
+    const key = [e.source, e.target].sort().join('>');
+    const prev = pairs.get(key);
+    if (prev) { prev.conditional = prev.conditional || e.conditional; return; }
+    pairs.set(key, { a: e.source, b: e.target, conditional: e.conditional });
+  });
+  pairs.forEach((p) => {
     const el = document.createElement('div');
-    el.className = 'wire';
-    place(el, hub, n);
+    el.className = 'wire' + (p.conditional ? ' cond' : '');
+    place(el, nodeById(p.a), nodeById(p.b));
     stage.appendChild(el);
   });
 }
@@ -1670,6 +1707,7 @@ function setState(busy, text) {
   const s = $('runstate');
   s.className = 'state' + (busy ? ' busy' : '');
   s.innerHTML = '<span class="dot"></span>' + text;
+  ctlState(busy);
 }
 
 function logEvent(e) {
@@ -1735,8 +1773,46 @@ async function assign() {
   setState(false, 'Idle');
 }
 
+/* Human-in-the-loop, the half that is not the approval gate. Pause stops the
+   graph after the agent in flight; Resume and Retry both re-enter from the
+   checkpoint that agent wrote, which is why they share an endpoint. The
+   buttons follow the run state so a disabled one is never a mystery. */
+function ctlState(busy) {
+  $('pausebtn').disabled = !busy;
+  $('resumebtn').disabled = busy;
+  $('retrybtn').disabled = busy;
+}
+
+async function control(action, working) {
+  const out = $('ctlout');
+  ['pausebtn', 'resumebtn', 'retrybtn'].forEach((b) => { $(b).disabled = true; });
+  out.className = 'ctlout';
+  out.textContent = working;
+  try {
+    const r = await fetch('/api/control', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: action }) });
+    const d = await r.json();
+    if (d.error) { out.className = 'ctlout bad'; out.textContent = d.error; }
+    else if (d.detail) { out.textContent = d.detail; }
+    else { out.textContent = 'Picked up from the last checkpoint.'; }
+    if (action === 'pause') { setState(false, 'Paused'); ctlState(false); }
+    else { setState(false, 'Idle'); ctlState(false); }
+  } catch (err) {
+    out.className = 'ctlout bad';
+    out.textContent = err.message;
+    ctlState(false);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   wires();
+  $('pausebtn').addEventListener('click',
+    () => control('pause', 'Stopping after this agent…'));
+  $('resumebtn').addEventListener('click',
+    () => control('resume', 'Resuming…'));
+  $('retrybtn').addEventListener('click',
+    () => control('retry', 'Retrying from the last checkpoint…'));
   window.addEventListener('resize', () => {
     document.querySelectorAll('.wire').forEach((w) => w.remove());
     wires();
@@ -1758,11 +1834,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 def workforce_page(account: dict, busy: bool = False,
-                   ops: dict | None = None) -> str:
+                   ops: dict | None = None,
+                   graph: dict | None = None) -> str:
     """The team at work: the graph moves as they move, and you can hand out a job.
 
     `ops` carries the read-only operator panels - runs, memory and spend.
-    They are optional so the page still renders without a snapshot.
+    `graph` is the compiled LangGraph's own topology, which the stage is
+    drawn from. Both are optional so the page still renders without them.
     """
     nodes = "".join(
         f"<div class='node' id='n-{n[0]}' style='left:{n[3]}%;top:{n[4]}%'>"
@@ -1786,8 +1864,17 @@ def workforce_page(account: dict, busy: bool = False,
         f"<div class='wfbar'>"
         f"<span class='state' id='runstate'><span class='dot'></span>"
         f"{'Working' if busy else 'Idle'}</span>"
+        f"<span class='hitl'>"
+        f"<button class='ctl' id='pausebtn'"
+        f"{'' if busy else ' disabled'}>Pause</button>"
+        f"<button class='ctl' id='resumebtn'"
+        f"{' disabled' if busy else ''}>Resume</button>"
+        f"<button class='ctl' id='retrybtn'"
+        f"{' disabled' if busy else ''}>Retry</button>"
+        f"</span>"
         f"<span class='muted' style='font-size:12.5px'>"
         f"Click a specialist to give it a job.</span></div>"
+        f"<div class='ctlout' id='ctlout'></div>"
         f"<div class='stage' id='stage'>{nodes}</div>"
         f"</div>"
 
@@ -1815,14 +1902,68 @@ def workforce_page(account: dict, busy: bool = False,
         f"</div>"
 
         f"</div>"
+        + graph_source_panel(graph or {})
         + operator_panels((ops or {}).get("runs") or [],
                           (ops or {}).get("memRecords") or [],
-                          (ops or {}).get("costBars") or [])
+                          (ops or {}).get("costBars") or [],
+                          (ops or {}).get("failures") or [])
         + "</div>"
     )
-    js = f"window.__TEAM = {team_json};\n" + WORKFORCE_JS
+    edges_json = json.dumps((graph or {}).get("edges") or [])
+    js = (f"window.__TEAM = {team_json};\n"
+          f"window.__EDGES = {edges_json};\n" + WORKFORCE_JS)
     return shell("Workforce", account, "/workforce", head, body,
-                 WORKFORCE_CSS + NOTE_CSS + OPERATOR_CSS, js)
+                 WORKFORCE_CSS + NOTE_CSS + OPERATOR_CSS + GRAPH_SRC_CSS, js)
+
+
+def graph_source_panel(graph: dict) -> str:
+    """LangGraph's own rendering of the same graph, verbatim.
+
+    The stage above is Lucida's drawing of the topology. This is the
+    framework's, generated by `draw_mermaid()` on the compiled graph, so the
+    two can be read against each other - and so the claim "this is a
+    LangGraph supervisor with eight specialists" is checkable from the
+    running app rather than taken on trust.
+    """
+    src = (graph or {}).get("mermaid") or ""
+    if not src:
+        return ""
+    nodes = len((graph or {}).get("nodes") or [])
+    edges = (graph or {}).get("edges") or []
+    cond = sum(1 for x in edges if x.get("conditional"))
+    return (
+        f"<details class='gsrc'>"
+        f"<summary>LangGraph's own view of this graph"
+        f"<span class='gmeta'>{nodes} nodes · {len(edges)} edges · "
+        f"{cond} conditional</span></summary>"
+        f"<p class='muted' style='margin:10px 0 8px;font-size:12.5px'>"
+        f"Generated by <code>draw_mermaid()</code> on the compiled "
+        f"<code>StateGraph</code> when this page loaded - not written by "
+        f"hand, so it cannot disagree with the code. Dotted arrows are the "
+        f"supervisor's conditional routing.</p>"
+        f"<pre class='mermaid-src'>{e(src)}</pre>"
+        f"</details>"
+    )
+
+
+GRAPH_SRC_CSS = f"""
+.gsrc {{ border:1px solid {BORDER}; border-radius:14px; background:{SURFACE};
+  padding:14px 16px; margin-top:18px; max-width:1280px; }}
+.gsrc summary {{ cursor:pointer; font-size:14px; font-weight:600;
+  color:{INK}; display:flex; align-items:center; justify-content:space-between;
+  gap:12px; list-style:none; }}
+.gsrc summary::-webkit-details-marker {{ display:none; }}
+.gsrc summary::after {{ content:'show'; font-size:12px; font-weight:500;
+  color:{MUTED}; }}
+.gsrc[open] summary::after {{ content:'hide'; }}
+.gsrc .gmeta {{ margin-left:auto; font-size:12px; font-weight:500;
+  color:{MUTED}; font-variant-numeric:tabular-nums; }}
+.mermaid-src {{ margin:0; padding:12px 14px; background:{SUNKEN};
+  border:1px solid {BORDER}; border-radius:10px; overflow-x:auto;
+  font-family:Consolas, "SF Mono", monospace; font-size:12px;
+  line-height:1.6; color:{BODY};
+  white-space:pre; }}
+"""
 
 
 NOTE_CSS = f"""
@@ -3138,11 +3279,28 @@ OPERATOR_CSS = """
   margin-top:6px; overflow:hidden; }
 .bar i { display:block; height:100%%; border-radius:999px; }
 .opfoot { margin:12px 0 0; font-size:12.5px; color:%(muted)s; }
-""" % {"muted": MUTED, "sunken": SUNKEN}
+/* A failure has to read as one at a glance, without turning the panel into
+   an alarm when the count is zero - which is the normal case. */
+.ops h3 .cnt { display:inline-block; margin-left:6px; padding:1px 7px;
+  border-radius:999px; background:%(dangertint)s; color:%(danger)s;
+  font-size:11.5px; font-weight:700; vertical-align:middle; }
+.op .lvl { display:inline-block; margin-right:7px; padding:1px 7px;
+  border-radius:999px; font-size:11px; font-weight:700;
+  text-transform:uppercase; letter-spacing:.03em; vertical-align:baseline; }
+.op.fail b { display:flex; align-items:baseline; gap:0; flex-wrap:wrap; }
+""" % {"muted": MUTED, "sunken": SUNKEN,
+       "danger": DANGER, "dangertint": DANGER_TINT}
 
 
-def operator_panels(runs: list, records: list, costs: list) -> str:
-    """Runs, memory and spend — read-only, and honest when empty."""
+def operator_panels(runs: list, records: list, costs: list,
+                    failures: list | None = None) -> str:
+    """Runs, memory, spend and failures — read-only, and honest when empty.
+
+    `failures` was computed on every snapshot and rendered nowhere, so an
+    agent that errored said so in the log file and nowhere the owner would
+    look. A run that half-failed and a run that succeeded are not the same
+    run, and the dashboard was showing them the same way.
+    """
     run_rows = "".join(
         f"<div class='op{' first' if i == 0 else ''}'>"
         f"<b>{e(r.get('label'))}</b><small>{e(r.get('meta'))}</small></div>"
@@ -3167,6 +3325,17 @@ def operator_panels(runs: list, records: list, costs: list) -> str:
         for i, c in enumerate(costs[:6])
     ) or ("<p class='none'>No model calls billed yet.</p>")
 
+    fails = failures or []
+    fail_rows = "".join(
+        f"<div class='op fail{' first' if i == 0 else ''}'>"
+        f"<b><span class='lvl' style='background:{f.get('tagBg') or DANGER_TINT};"
+        f"color:{f.get('tagFg') or DANGER}'>{e(f.get('level') or 'Failure')}</span>"
+        f"{e(f.get('what'))}</b>"
+        f"<small>{e(f.get('t'))} &middot; {e(f.get('fix'))}</small></div>"
+        for i, f in enumerate(fails[:6])
+    ) or ("<p class='none'>No agent has errored this session. Failures are "
+          "recorded here with what the graph did about them.</p>")
+
     return (
         f"<div class='ops'>"
         f"<div class='card'><h3>Recent runs</h3>"
@@ -3178,6 +3347,11 @@ def operator_panels(runs: list, records: list, costs: list) -> str:
         f"<div class='card'><h3>What it cost</h3>"
         f"<p class='lede'>Model spend this session, per agent.</p>"
         f"{cost_rows}</div>"
+        f"<div class='card'><h3>Errors and what was done"
+        f"{f' <span class=\"cnt\">{len(fails)}</span>' if fails else ''}</h3>"
+        f"<p class='lede'>Every agent failure this session, and how the graph "
+        f"recovered from it.</p>"
+        f"{fail_rows}</div>"
         f"</div>"
     )
 
