@@ -1461,8 +1461,14 @@ async def api_research(request):
         return answered(header + "Nothing came back." + problems)
 
     if not settings.has_llm:
+        # No model to write it up, so the results stand as they came back —
+        # but they still carry their links, which is the half of a search
+        # result that survives having nobody to summarise it.
         body_text = "\n\n".join(
-            f"**{f.title}**\n{f.snippet}" for f in found.findings[:10])
+            (f"**{f.title}**\n{f.snippet}"
+             + (f"\n\n[{research.site_name(f.url) or 'source'}]({f.url})"
+                if f.url else ""))
+            for f in found.cited(10))
         return JSONResponse({"answer": header + body_text})
 
     try:
@@ -1476,7 +1482,48 @@ async def api_research(request):
 
     problems = ("\n\n_Some places did not answer: "
                 + "; ".join(found.errors) + "_") if found.errors else ""
-    return answered(header + summary + problems)
+    return answered(header + _with_citations(summary, found.cited())
+                    + problems)
+
+
+def _with_citations(summary: str, cited: list) -> str:
+    """Turn the model's [n] markers into links, and list what was read.
+
+    The markers are rewritten into ordinary markdown links rather than into
+    any bespoke markup, because this string is also what gets written to the
+    thread and re-rendered on reload. A citation that only survived while the
+    reply was on screen would be worse than none.
+
+    A number the model invented, or one for a result with no link, is left as
+    plain text — the alternative is pointing the owner at whatever happens to
+    sit at that index, which is how a citation stops meaning anything.
+    """
+    linked: set[int] = set()
+
+    def swap(m: re.Match) -> str:
+        out = []
+        for part in m.group(1).split(","):
+            part = part.strip()
+            if not part.isdigit():
+                return m.group(0)
+            i = int(part)
+            if not (1 <= i <= len(cited)) or not cited[i - 1].url:
+                return m.group(0)
+            f = cited[i - 1]
+            linked.add(i)
+            out.append(f"[{research.site_name(f.url) or 'source'}]({f.url})")
+        return " ".join(out)
+
+    # [3] and [2, 5] both appear; anything else is left alone.
+    summary = re.sub(r"\[([\d\s,]+)\]", swap, summary)
+
+    if not linked:
+        return summary
+    rows = "\n".join(
+        f"- [{research.site_name(cited[i - 1].url) or cited[i - 1].title}]"
+        f"({cited[i - 1].url}) — {cited[i - 1].title}"
+        for i in sorted(linked))
+    return f"{summary}\n\n**Sources**\n\n{rows}"
 
 
 def _read_research(query: str, context: str) -> str:
@@ -1484,11 +1531,16 @@ def _read_research(query: str, context: str) -> str:
 
     ask = (
         f"A shop owner asked: {query}\n\n"
-        f"Here is what the search returned:\n{context}\n\n"
+        f"Here is what the search returned, each result numbered:\n{context}\n\n"
         "Answer their question from this and nothing else. Say plainly what "
         "the results support and what they do not. If the evidence is thin, "
         "say so rather than filling the gap. Short paragraphs, no preamble, "
-        "the way you would tell a shopkeeper across a counter."
+        "the way you would tell a shopkeeper across a counter.\n\n"
+        "Cite as you go: put the result's number in square brackets — [1], "
+        "[3] — at the end of the sentence it supports. Cite the result the "
+        "claim actually came from, several if several back it, and none at "
+        "all if the claim is yours rather than theirs. Do not list the "
+        "sources at the end; that is added for you."
     )
     reply = get_llm(settings.model or "", 900).invoke(ask)
     return text_of(reply)

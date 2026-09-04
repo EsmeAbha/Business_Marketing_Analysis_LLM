@@ -17,6 +17,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -56,14 +57,104 @@ class ResearchResult:
     errors: list[str] = field(default_factory=list)
     simulated: list[str] = field(default_factory=list)
 
+    def cited(self, limit: int = 20) -> list[Finding]:
+        """The findings the model is shown, in the order it will cite them.
+
+        The numbering the prompt hands the model and the numbering the answer
+        is later rewritten against have to be the same list, so both go
+        through here rather than slicing `findings` twice and hoping the two
+        agree. Results carrying a link sort first: only those can become a
+        citation chip, and a model told to cite [3] should not land on the
+        one result with nowhere to point.
+        """
+        head = self.findings[:limit]
+        return [f for f in head if f.url] + [f for f in head if not f.url]
+
     def as_prompt_context(self, limit: int = 20) -> str:
         if not self.findings:
             return "(nothing found)"
-        return "\n".join(
-            f"[{f.source}] {f.title}\n{f.snippet}"
+        return "\n\n".join(
+            f"[{i}] {f.title} — {site_name(f.url) or f.source}"
+            f"\n{f.snippet}"
             + (f"\n{f.url}" if f.url else "")
-            for f in self.findings[:limit]
+            for i, f in enumerate(self.cited(limit), 1)
         )
+
+
+# ---------------------------------------------------------------------------
+# Naming a source
+# ---------------------------------------------------------------------------
+
+# Hosts whose registrable domain is not what anyone calls them. Everything
+# else is title-cased off the domain, which is right far more often than it
+# is wrong; "bbc.co.uk" -> "Bbc" is the price of not shipping a public
+# suffix list inside a shop app, and the ones that matter are listed here.
+_SITE_NAMES = {
+    "wikipedia.org": "Wikipedia",
+    "quora.com": "Quora",
+    "reddit.com": "Reddit",
+    "github.com": "GitHub",
+    "youtube.com": "YouTube",
+    "facebook.com": "Facebook",
+    "instagram.com": "Instagram",
+    "linkedin.com": "LinkedIn",
+    "medium.com": "Medium",
+    "stackoverflow.com": "Stack Overflow",
+    "tripadvisor.com": "Tripadvisor",
+    "bbc.co.uk": "BBC",
+    "bbc.com": "BBC",
+    "nytimes.com": "The New York Times",
+    "nationalgeographic.com": "National Geographic",
+    "thedailystar.net": "The Daily Star",
+    "prothomalo.com": "Prothom Alo",
+    "daraz.com.bd": "Daraz",
+}
+
+# Above this, a run-together domain stops reading as a name and starts
+# reading as a typo: "Thestreetfoodguy" helps nobody, where the domain it
+# came from is at least something the owner recognises. Title-casing is for
+# the short ones that really are a single word.
+_NAME_MAX = 12
+
+_GENERIC_LABELS = ("com", "org", "net", "co", "io", "bd", "in", "uk", "info")
+
+
+def host_of(url: str) -> str:
+    """The bare hostname, or "" when there is not one."""
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:  # noqa: BLE001
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def site_name(url: str) -> str:
+    """What to call the site a result came from, for a citation chip."""
+    host = host_of(url)
+    if not host:
+        return ""
+    for suffix, name in _SITE_NAMES.items():
+        if host == suffix or host.endswith("." + suffix):
+            return name
+    parts = [p for p in host.split(".") if p not in _GENERIC_LABELS]
+    if not parts:
+        return host
+    word = parts[-1].replace("-", " ")
+    return word.title() if len(word) <= _NAME_MAX else host
+
+
+def favicon_of(url: str) -> str:
+    """A logo for the site, or "" when there is no host to ask about.
+
+    Google's icon service rather than the site's own /favicon.ico: half of
+    these hosts redirect, answer with an HTML error page, or keep no icon at
+    that path, and the service already smooths all of that over. The cost is
+    that Google sees which domains a shop researched, which is the same cost
+    the page already pays for its webfonts.
+    """
+    host = host_of(url)
+    return (f"https://www.google.com/s2/favicons?domain={host}&sz=64"
+            if host else "")
 
 
 def sources() -> list[Source]:

@@ -338,6 +338,23 @@ CHAT_CSS = f"""
 .bubble .text li {{ margin:4px 0; }}
 .bubble .text p:first-child {{ margin-top:0; }}
 .bubble .text p:last-child {{ margin-bottom:0; }}
+/* A citation rides inside a sentence, so it has to sit on the text baseline
+   and never be the thing the eye lands on first: one step down in size, the
+   page's own grey, and the logo doing the identifying. */
+.text a.cite {{ display:inline-flex; align-items:center; gap:5px;
+  padding:1px 8px 1px 4px; margin:0 1px; border:1px solid {BORDER};
+  border-radius:999px; background:{SUNKEN}; color:{BODY};
+  font-size:12.5px; line-height:1.55; text-decoration:none;
+  white-space:nowrap; vertical-align:baseline;
+  transition:background .12s, border-color .12s; }}
+.text a.cite:hover {{ background:{SURFACE}; border-color:{FAINT};
+  color:{INK}; }}
+.text a.cite img {{ width:13px; height:13px; border-radius:3px;
+  display:block; flex:none; }}
+/* The list at the end is the same chip with the headline beside it, so the
+   two readings — glance at the logos, or read what each one said — do not
+   need two different visual languages. */
+.text ul li a.cite {{ margin-right:2px; }}
 .picker {{ border:1px solid {BORDER}; border-radius:14px; padding:14px 16px;
   background:{SURFACE}; }}
 .picker h4 {{ margin:0 0 3px; font-size:14.5px; font-weight:600; }}
@@ -417,14 +434,40 @@ const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
    as headings and lists. Anything this does not understand was printed to the
    owner verbatim — backticks, pipes and all — which is what made a finished
    answer look like a broken one. */
+/* A source, shown the way a reader recognises one: the site's own logo and
+   the site's name, not a bare URL. The icon comes from Google's favicon
+   service because most sites do not keep a usable one at /favicon.ico, and
+   it is allowed to fail — an alt-less <img> that removes itself leaves the
+   name, which was always the part carrying the meaning. */
+function cite(url, label) {
+  let host;
+  try {
+    const u = new URL(url);
+    // The href is built from text a model produced. Anything but http(s) —
+    // `javascript:` above all — would be this page running a script it was
+    // handed, so those degrade to their label and go nowhere.
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return label;
+    host = u.hostname.replace(/^www\./, '');
+  } catch (e) { return label; }
+  const icon = 'https://www.google.com/s2/favicons?domain='
+    + encodeURIComponent(host) + '&amp;sz=64';
+  return '<a class="cite" href="' + esc(url).replace(/"/g, '&quot;') + '"'
+    + ' target="_blank" rel="noopener noreferrer nofollow">'
+    + '<img src="' + icon + '" alt="" loading="lazy"'
+    + ' onerror="this.remove()"><span>' + label + '</span></a>';
+}
+
 function inline(s) {
-  // Code spans are lifted out before any emphasis rule runs and put back
-  // afterwards. Replacing them with <code> in place is not enough: the
-  // emphasis rules then match *inside* the tag, so `rate *= 2` came back as
-  // italics in the middle of what is supposed to be literal text.
+  // Code spans and links are lifted out before any emphasis rule runs and
+  // put back afterwards. Replacing them in place is not enough: the emphasis
+  // rules then match *inside* the tag, so `rate *= 2` came back as italics
+  // in the middle of what is supposed to be literal text, and an underscore
+  // in a URL turned half the link into an <em>.
   const held = [];
-  s = s.replace(/`([^`]+)`/g, (_, code) =>
-    '@@C' + (held.push(code) - 1) + 'C@@');
+  const hold = (html) => '@@C' + (held.push(html) - 1) + 'C@@';
+  s = s.replace(/`([^`]+)`/g, (_, code) => hold('<code>' + code + '</code>'));
+  s = s.replace(/\[([^\]\n]+)\]\((\S+?)\)/g,
+    (m, label, url) => hold(cite(url.replace(/&amp;/g, '&'), label)));
   return s
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     // Both italic forms, not just the underscore one. The models write
@@ -435,7 +478,7 @@ function inline(s) {
     // keep arithmetic and stray bullets from becoming italics.
     .replace(/\*(?!\s)([^*]+?)(?<!\s)\*/g, '<em>$1</em>')
     .replace(/(^|[\s(])_([^_]+)_(?=[\s.,;:)!?]|$)/g, '$1<em>$2</em>')
-    .replace(/@@C(\d+)C@@/g, (_, i) => '<code>' + held[+i] + '</code>');
+    .replace(/@@C(\d+)C@@/g, (_, i) => held[+i]);
 }
 
 function mdTable(b) {
