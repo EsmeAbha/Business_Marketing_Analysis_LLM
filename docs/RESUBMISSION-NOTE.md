@@ -63,15 +63,19 @@ Every command below prints the number next to it. They are listed so the
 claims in this document do not have to be taken on trust.
 
 ```
-git log --format='%ae' | sort -u                  # one author
-git rev-list --count HEAD                         # 97 commits
+git log --format='%ae' | sort -u                  # one address, every commit
+git shortlog -sn --all                            # one author, and the count
 ls src/lucida/agents/*.py                         # 8 specialists + base, schemas, __init__
 git ls-files '*.py' | wc -l                       # 50 Python files
 git ls-files '*.py' | xargs wc -l | tail -1       # 21,469 lines
 python -m pytest tests -q                         # 87 passed
 ```
 
-Repository history runs 2026-08-14 to 2026-09-05: 97 commits, one author.
+Repository history runs 2026-08-14 to 2026-09-05, one author throughout. The
+commit count is deliberately not written out here — it changes every time the
+repository is touched, and a number that rots is worse than no number.
+`git shortlog -sn --all` prints it, and the packaging script stamps each zip
+with the exact commit it was built from.
 
 The architecture diagram is not drawn by hand against the code — the
 dashboard builds it *from* the compiled graph. `/api/graph` on the running
