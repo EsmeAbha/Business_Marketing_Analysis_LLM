@@ -11,8 +11,8 @@ The Evidence Audit recorded, accurately, what could be verified from it:
 
 | Audited from my first zip | Actual, in this package |
 |---|---|
-| Code files: 1 | **52 Python files** |
-| Lines of code: 52 | **~21,000** |
+| Code files: 1 | **50 Python files** |
+| Lines of code: 52 | **21,469** |
 | Agent definitions in code: 0 | **8 specialists + 1 supervisor** |
 | RAG / vector store: No | `src/lucida/memory/vector.py` |
 | Logging: No | `src/lucida/observability.py` + trace database |
@@ -59,11 +59,43 @@ python -m pytest tests -q       # 87 passed
 
 ## Verifying the claims quickly
 
+Every command below prints the number next to it. They are listed so the
+claims in this document do not have to be taken on trust.
+
 ```
-git log --format='%an' | sort -u          # one author
-git rev-list --count HEAD                 # 81 commits
-ls src/lucida/agents/*.py                 # the 8 specialists
-python -m pytest tests -q                 # 87 passed
+git log --format='%ae' | sort -u                  # one author
+git rev-list --count HEAD                         # 97 commits
+ls src/lucida/agents/*.py                         # 8 specialists + base, schemas, __init__
+git ls-files '*.py' | wc -l                       # 50 Python files
+git ls-files '*.py' | xargs wc -l | tail -1       # 21,469 lines
+python -m pytest tests -q                         # 87 passed
 ```
 
-Repository history runs 2026-08-14 to 2026-09-02, 81 commits, single author.
+Repository history runs 2026-08-14 to 2026-09-05: 97 commits, one author.
+
+The architecture diagram is not drawn by hand against the code — the
+dashboard builds it *from* the compiled graph. `/api/graph` on the running
+app returns the live topology, and the Workforce screen prints LangGraph's
+own `draw_mermaid()` of the same object, so the picture cannot drift from
+what actually executes:
+
+```
+python -c "import sys; sys.path.insert(0,'src'); from lucida.graph import topology; \
+t=topology(); print(t['agents'],'agents,',len(t['nodes']),'nodes,',len(t['edges']),'edges')"
+# 8 agents, 12 nodes, 19 edges
+```
+
+## Building this package
+
+The zip is built by script rather than assembled by hand, because the first
+submission failed on exactly that step:
+
+```
+python tools/make_submission.py
+```
+
+It uses `git archive`, so only tracked files ship — `.env`, the session key
+and every shop database are excluded by construction rather than by
+remembering — and it then audits its own output against the assignment's
+deliverable list, refusing to pass if anything required is missing or
+anything sensitive is present.
