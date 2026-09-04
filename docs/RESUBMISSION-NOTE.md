@@ -11,8 +11,8 @@ The Evidence Audit recorded, accurately, what could be verified from it:
 
 | Audited from my first zip | Actual, in this package |
 |---|---|
-| Code files: 1 | **50 Python files** |
-| Lines of code: 52 | **21,469** |
+| Code files: 1 | **~50 Python files** |
+| Lines of code: 52 | **~21,500** |
 | Agent definitions in code: 0 | **8 specialists + 1 supervisor** |
 | RAG / vector store: No | `src/lucida/memory/vector.py` |
 | Logging: No | `src/lucida/observability.py` + trace database |
@@ -66,16 +66,19 @@ claims in this document do not have to be taken on trust.
 git log --format='%ae' | sort -u                  # one address, every commit
 git shortlog -sn --all                            # one author, and the count
 ls src/lucida/agents/*.py                         # 8 specialists + base, schemas, __init__
-git ls-files '*.py' | wc -l                       # 50 Python files
-git ls-files '*.py' | xargs wc -l | tail -1       # 21,469 lines
+git ls-files '*.py' | wc -l                       # ~50 Python files
+git ls-files '*.py' | xargs wc -l | tail -1       # ~21,500 lines
 python -m pytest tests -q                         # 87 passed
 ```
 
-Repository history runs 2026-08-14 to 2026-09-05, one author throughout. The
-commit count is deliberately not written out here — it changes every time the
-repository is touched, and a number that rots is worse than no number.
-`git shortlog -sn --all` prints it, and the packaging script stamps each zip
-with the exact commit it was built from.
+Repository history runs 2026-08-14 to 2026-09-05, one author throughout.
+
+Exact commit, file and line counts are not written out here. They change
+every time the repository is touched, and a number that rots is worse than no
+number — an earlier version of this document claimed 81 commits and 52 files
+within a day of both being wrong. The commands above print the current
+figures, and `tools/make_submission.py` stamps every package it builds with
+the commit it came from.
 
 The architecture diagram is not drawn by hand against the code — the
 dashboard builds it *from* the compiled graph. `/api/graph` on the running
