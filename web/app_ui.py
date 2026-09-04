@@ -2407,8 +2407,11 @@ NEEDS = {
     "pathao": {
         "why": "Pathao issues a token from your client pair *and* your "
                "Merchant panel login together — the pair alone returns \u201cthe "
-               "user credentials were incorrect\u201d. Your store is read back "
-               "automatically; a parcel needs somewhere to be collected from.",
+               "user credentials were incorrect\u201d. The last two boxes are your "
+               "merchant.pathao.com sign-in, not your Lucida one; if your "
+               "browser filled them in, clear them first. Your store is read "
+               "back automatically, and a parcel needs somewhere to be "
+               "collected from.",
         "fields": [("token", "Client id", "text"),
                    ("ident", "Client secret", "text"),
                    ("username", "Merchant panel email", "text"),
@@ -2425,8 +2428,20 @@ def connect_form(account: dict, platform: str, has_oauth: bool,
     spec = NEEDS.get(platform, {"why": "", "fields": [("token", "Token", "text")]})
     warn = f"<div class='note bad'>{e(error)}</div>" if error else ""
 
+    # A text field called `username` followed by a password field called
+    # `password`, on the same origin as our own sign-in page, is the exact
+    # shape a browser password manager fills. It was filling Pathao's two
+    # login boxes with the owner's *Lucida* login, and Pathao then answered
+    # "The user credentials were incorrect" — a wrong-password error for a
+    # password the owner never typed. So: ids that don't match the heuristic,
+    # and autocomplete off on every field. `new-password` is the one token
+    # Chrome honours for "never put a saved credential here"; the data-*
+    # attributes are 1Password's and LastPass's equivalents.
+    no_fill = "autocomplete='off' data-1p-ignore data-lpignore='true'"
+
     fields = ""
     for name, label, kind in spec["fields"]:
+        fid = f"cf_{name}"
         if kind == "checkbox":
             fields += (
                 f"<label style='display:flex;align-items:center;gap:8px;"
@@ -2435,14 +2450,16 @@ def connect_form(account: dict, platform: str, has_oauth: bool,
                 f"style='width:auto'>{e(label)}</label>")
         elif kind == "textarea":
             fields += (
-                f"<div class='field'><label for='{e(name)}'>{e(label)}</label>"
-                f"<textarea id='{e(name)}' name='{e(name)}' rows='3' required "
-                f"placeholder='paste it here'></textarea></div>")
+                f"<div class='field'><label for='{e(fid)}'>{e(label)}</label>"
+                f"<textarea id='{e(fid)}' name='{e(name)}' rows='3' required "
+                f"{no_fill} placeholder='paste it here'></textarea></div>")
         else:
+            fill = ("autocomplete='new-password' data-1p-ignore "
+                    "data-lpignore='true'") if kind == "password" else no_fill
             fields += (
-                f"<div class='field'><label for='{e(name)}'>{e(label)}</label>"
-                f"<input id='{e(name)}' name='{e(name)}' type='{e(kind)}' "
-                f"required></div>")
+                f"<div class='field'><label for='{e(fid)}'>{e(label)}</label>"
+                f"<input id='{e(fid)}' name='{e(name)}' type='{e(kind)}' "
+                f"required {fill}></div>")
 
     if has_oauth:
         alt = (f"<p class='muted' style='margin-top:14px'>Or "
@@ -2460,7 +2477,8 @@ def connect_form(account: dict, platform: str, has_oauth: bool,
         f"<div class='body'><div class='card' style='max-width:560px'>"
         f"{warn}"
         f"<p class='muted' style='margin-top:0'>{e(spec['why'])}</p>"
-        f"<form method='post' action='/connect/{e(platform)}/save'>"
+        f"<form method='post' action='/connect/{e(platform)}/save' "
+        f"autocomplete='off'>"
         f"{fields}"
         f"<button class='btn' type='submit'>Check and connect</button>"
         f"<a class='btn btn-quiet' href='/connect' "

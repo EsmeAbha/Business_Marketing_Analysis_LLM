@@ -349,6 +349,38 @@ def pathao_token(client_id: str, client_secret: str, username: str,
                 detail = r.json().get("message") or ""
             except Exception:  # noqa: BLE001
                 detail = r.text[:120]
+            # Pathao says "the user credentials were incorrect" for the login
+            # half of the grant, never for the client pair. Owners read that
+            # as "my API keys are wrong" and go back to the Developer API
+            # page, which is the one place the answer is not. Worse, the
+            # wrong login is often one the browser filled in for them.
+            if "user credential" in detail.lower():
+                # Pathao says this whenever the login half of the grant does
+                # not belong to the client pair it arrived with, which covers
+                # three different mistakes. Naming all three beats guessing
+                # one: the message used to insist the pair was fine, which is
+                # exactly wrong when the pair is the sandbox one.
+                where = "sandbox" if sandbox else "live"
+                return "", (
+                    "Pathao rejected the login half of these credentials. "
+                    "Three things do that. (1) The browser autofilled your "
+                    "Lucida sign-in over the last two boxes — they want the "
+                    "email and password you use at merchant.pathao.com. "
+                    "(2) The client pair and the login are from different "
+                    "accounts: Pathao's published sandbox pair only works "
+                    "with test@pathao.com, never with your own login. "
+                    f"(3) You are pointed at the {where} environment — your "
+                    "own client pair needs the sandbox box UNTICKED, and the "
+                    "sandbox pair needs it TICKED.")
+            if not detail.strip():
+                # A wrong client id or secret comes back as a bare 500 with a
+                # zero-length body, so there is nothing to quote and the old
+                # message ended on a colon and said nothing at all.
+                return "", (
+                    f"Pathao returned {r.status_code} and no explanation, "
+                    "which is what it does when the client id or secret is "
+                    "wrong. Copy both again from Developer API in the "
+                    "Merchant panel.")
             return "", f"Pathao refused those credentials: {detail}"
         token = r.json().get("access_token") or ""
         return (token, "") if token else ("", "Pathao returned no token.")
