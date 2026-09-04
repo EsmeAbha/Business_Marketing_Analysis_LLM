@@ -2,7 +2,7 @@
 
 ## What this app needs from a host
 
-Four things, and they rule out most of the fashionable places:
+Four things, and they rule out most of the fashionable places:  
 
 1. **A persistent disk.** Every shop's data is a SQLite file under
    `LUCIDA_DATA_DIR`, along with uploads and generated artwork. A container's
